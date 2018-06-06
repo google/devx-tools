@@ -1,0 +1,50 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+package(default_visibility = ["//visibility:public"])
+
+go_library(
+    name = "qemu",
+    srcs = ["qemu.go"],
+    importpath = "github.com/kombi/net/qemu",
+)
+
+go_binary(
+    name = "test_server",
+    srcs = ["test_server.go"],
+
+    # Build for emulator
+    goarch = "386",
+    goos = "linux",
+    static = "on",
+    pure = "on",
+
+    deps = [
+        ":qemu",
+        "@org_golang_x_sync//errgroup:go_default_library",
+        "@org_golang_x_net//context:go_default_library",
+    ],
+)
+
+go_test(
+    name = "qemu_test",
+    srcs = [
+        "qemu.go",
+        "qemu_test.go",
+    ],
+    args = [
+        "--server=$(location :test_server)",
+        "--launcher=$(location @android_test_support//tools/android/emulated_devices/generic_phone:android_24_x86)",
+        "--adb_turbo=$(location @android_test_support//tools/android/emulator:support/adb.turbo)",
+    ],
+    data = [
+        ":test_server",
+        "@android_test_support//tools/android/emulated_devices/generic_phone:android_24_x86",
+        "@android_test_support//tools/android/emulator:support/adb.turbo",
+    ],
+    deps = [
+        "//kombi/utils:utils",
+        "@org_golang_x_net//context:go_default_library",
+        "@org_golang_x_sync//errgroup:go_default_library",
+    ],
+    importpath = "github.com/kombi/net/qemu",
+)
