@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package waterfall;
+
+message Message {
+  bytes payload = 1;
+}
+
+service Waterfall {
+  // Echo exists solely for test purposes
+  rpc Echo(stream Message) returns (stream Message);
+}
