@@ -14,9 +14,9 @@ import (
 )
 
 const (
-	socketName = "sockets/ho"
+	socketName = "sockets/h2o"
 	qemuDriver = "/dev/qemu_pipe"
-	svcName    = "pipe:unix:sockets/ho"
+	svcName    = "pipe:unix:sockets/h2o"
 	ioErrMsg   = "input/output error"
 )
 
