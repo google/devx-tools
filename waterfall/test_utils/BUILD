@@ -4,6 +4,9 @@ package(default_visibility = ["//visibility:public"])
 
 go_library(
     name = "test_utils",
-    srcs = ["net.go"],
+    srcs = [
+        "net.go",
+        "emu.go",
+    ],
     importpath = "github.com/waterfall/test_utils",
 )

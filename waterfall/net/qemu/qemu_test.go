@@ -10,7 +10,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -59,20 +58,6 @@ func testBytes(size int) []byte {
 	return bb.Bytes()
 }
 
-func startEmulator(emuDir, launcher, adbServerPort, adbPort, emuPort string) error {
-	// use mini_boot since we dont actually care about the android services
-	cmd := exec.Command(
-		launcher, "--action", "mini_boot", "--emulator_tmp_dir",
-		emuDir, "--adb_server_port", adbServerPort, "--adb_port", adbPort,
-		"--emulator_port", emuPort, "--noenable_display", "--nowith_audio")
-
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("error %v starting emulator: %s", err, out)
-	}
-	return nil
-}
-
 func openSocket(emuDir string) (net.Listener, error) {
 	wd, err := os.Getwd()
 	if err != nil {
@@ -93,34 +78,16 @@ func openSocket(emuDir string) (net.Listener, error) {
 	return lis, nil
 }
 
-func execOnDevice(ctx context.Context, adbTurbo, device string, args []string) (string, error) {
-	fullArgs := []string{"-s", device, "shell", strings.Join(args, " ") + "; echo ret=$?"}
-	cmd := exec.CommandContext(ctx, adbTurbo, fullArgs...)
-	out, err := cmd.CombinedOutput()
-
-	o := string(out)
-	if err == nil {
-		r := o[strings.LastIndex(o, "ret="):]
-		o = strings.TrimSpace(o[:len(o)-len(r)])
-		ret, convErr := strconv.Atoi(strings.TrimSpace(r[4:]))
-		if convErr != nil {
-			err = fmt.Errorf("error parsing return code %v", r)
-		} else if ret != 0 {
-			err = fmt.Errorf("non-zero return code '%d' out %s", ret, o)
-		}
-	}
-	return o, err
-}
-
 func runServer(ctx context.Context, adbTurbo, adbPort, server string, n, bs int) (chan string, chan error, error) {
 	s := "localhost:" + adbPort
-	cmd := exec.Command(adbTurbo, "-s", s, "push", server, "/data/local/tmp/server")
-	_, err := cmd.CombinedOutput()
+	_, err := test_utils.ExecOnDevice(
+		ctx, adbTurbo, s, "push", []string{server, "/data/local/tmp/server"})
 	if err != nil {
 		return nil, nil, err
 	}
 
-	_, err = execOnDevice(ctx, adbTurbo, s, []string{"chmod", "777", "/data/local/tmp/server"})
+	_, err = test_utils.ExecOnDevice(
+		ctx, adbTurbo, s, "shell", []string{"chmod", "+x", "/data/local/tmp/server"})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -128,8 +95,8 @@ func runServer(ctx context.Context, adbTurbo, adbPort, server string, n, bs int)
 	outChan := make(chan string, 1)
 	errChan := make(chan error, 1)
 	go func() {
-		out, err := execOnDevice(
-			ctx, adbTurbo, s, []string{"/data/local/tmp/server",
+		out, err := test_utils.ExecOnDevice(
+			ctx, adbTurbo, s, "shell", []string{"/data/local/tmp/server",
 				"-conns", strconv.Itoa(n), "-rec_n", strconv.Itoa(bs)})
 		outChan <- out
 		errChan <- err
@@ -143,18 +110,11 @@ func setupEmu(launcher, adbServerPort, adbPort, emuPort string) (string, error) 
 		return "", err
 	}
 
-	if err := startEmulator(emuDir, launcher, adbServerPort, adbPort, emuPort); err != nil {
+	if err := test_utils.StartEmulator(
+		emuDir, launcher, adbServerPort, adbPort, emuPort); err != nil {
 		return "", err
 	}
 	return emuDir, nil
-}
-
-func killEmu(launcher, adbServerPort, adbPort, emuPort string) error {
-	cmd := exec.Command(
-		launcher, "--action", "kill", "--adb_server_port",
-		adbServerPort, "--adb_port", adbPort, "--emulator_port", emuPort)
-	_, err := cmd.CombinedOutput()
-	return err
 }
 
 func read(c net.Conn, buff []byte) ([]byte, error) {
@@ -202,7 +162,7 @@ func TestSingleConn(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(emuDir)
-	defer killEmu(l, adbServerPort, adbPort, emuPort)
+	defer test_utils.KillEmu(l, adbServerPort, adbPort, emuPort)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -279,7 +239,7 @@ func TestMultipleConn(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(emuDir)
-	defer killEmu(l, adbServerPort, adbPort, emuPort)
+	defer test_utils.KillEmu(l, adbServerPort, adbPort, emuPort)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
