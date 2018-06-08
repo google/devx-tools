@@ -17,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waterfall/utils"
+	"github.com/waterfall/test_utils"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 )
@@ -165,24 +165,33 @@ func read(c net.Conn, buff []byte) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-func TestSingleConn(t *testing.T) {
-	p, err := utils.PickUnusedPort()
+func getAdbPorts() (string, string, string, error) {
+	p, err := test_utils.PickUnusedPort()
 	if err != nil {
-		t.Fatal(err)
+		return "", "", "", err
 	}
 	adbServerPort := strconv.Itoa(p)
 
-	p, err = utils.PickUnusedPort()
+	p, err = test_utils.PickUnusedPort()
 	if err != nil {
-		t.Fatal(err)
+		return "", "", "", err
 	}
 	adbPort := strconv.Itoa(p)
 
-	p, err = utils.PickUnusedPort()
+	p, err = test_utils.PickUnusedPort()
+	if err != nil {
+		return "", "", "", err
+	}
+	emuPort := strconv.Itoa(p)
+
+	return adbServerPort, adbPort, emuPort, nil
+}
+
+func TestSingleConn(t *testing.T) {
+	adbServerPort, adbPort, emuPort, err := getAdbPorts()
 	if err != nil {
 		t.Fatal(err)
 	}
-	emuPort := strconv.Itoa(p)
 
 	l := filepath.Join(runfiles, *launcher)
 	a := filepath.Join(runfiles, *adbTurbo)
@@ -256,23 +265,10 @@ func TestSingleConn(t *testing.T) {
 }
 
 func TestMultipleConn(t *testing.T) {
-	p, err := utils.PickUnusedPort()
+	adbServerPort, adbPort, emuPort, err := getAdbPorts()
 	if err != nil {
 		t.Fatal(err)
 	}
-	adbServerPort := strconv.Itoa(p)
-
-	p, err = utils.PickUnusedPort()
-	if err != nil {
-		t.Fatal(err)
-	}
-	adbPort := strconv.Itoa(p)
-
-	p, err = utils.PickUnusedPort()
-	if err != nil {
-		t.Fatal(err)
-	}
-	emuPort := strconv.Itoa(p)
 
 	l := filepath.Join(runfiles, *launcher)
 	a := filepath.Join(runfiles, *adbTurbo)

@@ -1,5 +1,5 @@
-// Package utils has utility functions for h2o modules
-package utils
+// Package test_utils has test utility functions for h2o modules
+package test_utils
 
 import (
 	"errors"
