@@ -8,7 +8,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/kombi/net/qemu"
+	"github.com/waterfall/net/qemu"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 )

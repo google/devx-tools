@@ -17,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kombi/utils"
+	"github.com/waterfall/utils"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 )

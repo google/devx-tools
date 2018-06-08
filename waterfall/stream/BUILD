@@ -9,7 +9,7 @@ package(default_visibility = ["//visibility:public"])
 go_library(
     name = "stream",
     srcs = ["tar.go"],
-    importpath = "github.com/kombi/stream",
+    importpath = "github.com/waterfall/stream",
 )
 
 go_test(
@@ -18,5 +18,5 @@ go_test(
         "tar.go",  # TODO(mauriciogg): make this a a library dep
         "tar_test.go",
     ],
-    importpath = "github.com/kombi/stream",
+    importpath = "github.com/waterfall/stream",
 )

@@ -5,5 +5,5 @@ package(default_visibility = ["//visibility:public"])
 go_library(
     name = "utils",
     srcs = ["net.go"],
-    importpath = "github.com/kombi/utils",
+    importpath = "github.com/waterfall/utils",
 )
