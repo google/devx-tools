@@ -28,7 +28,7 @@ var (
 	// test args
 	launcher = flag.String("launcher", "", "The path to the emulator launcher")
 	adbTurbo = flag.String("adb_turbo", "", "The path to abd.turbo binary")
-	server = flag.String("server", "", "The path to test server")
+	server   = flag.String("server", "", "The path to test server")
 )
 
 func runfilesRoot(path string) string {
@@ -184,7 +184,6 @@ func TestSingleConn(t *testing.T) {
 	}
 	emuPort := strconv.Itoa(p)
 
-
 	l := filepath.Join(runfiles, *launcher)
 	a := filepath.Join(runfiles, *adbTurbo)
 	svr := filepath.Join(runfiles, *server)
@@ -285,7 +284,6 @@ func TestMultipleConn(t *testing.T) {
 	}
 	defer os.RemoveAll(emuDir)
 	defer killEmu(l, adbServerPort, adbPort, emuPort)
-
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
