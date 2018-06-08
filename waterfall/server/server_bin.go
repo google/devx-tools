@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"log"
+	"net"
 
 	"github.com/waterfall/net/qemu"
 	waterfall_grpc "github.com/waterfall/proto/waterfall_go_grpc"
@@ -17,15 +18,19 @@ func main() {
 	flag.Parse()
 
 	log.Println("Starting waterfall server ...")
-	if *mode != "qemu" {
-		// for now we just support qemu connections
-		log.Fatalf("Unsupported mode")
-	}
 
-	// listener backed by a qemu pipe
-	lis, err := qemu.MakePipe()
-	if err != nil {
-		log.Fatalf("failed to listen %v", err)
+	var lis net.Listener
+	var err error
+
+	// for now we just support qemu
+	switch *mode {
+	case "qemu":
+		lis, err = qemu.MakePipe()
+		if err != nil {
+			log.Fatalf("failed to open qemu_pipe %v", err)
+		}
+	default:
+		log.Fatalf("Unsupported mode %s", *mode)
 	}
 
 	grpcServer := grpc.NewServer()
