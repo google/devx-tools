@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -29,6 +28,8 @@ var (
 	adbTurbo = flag.String("adb_turbo", "", "The path to abd.turbo binary")
 	server   = flag.String("server", "", "The path to test server")
 )
+
+const emuWorkingDir = "images/session"
 
 func runfilesRoot(path string) string {
 	sep := "qemu_test.runfiles/__main__"
@@ -58,26 +59,6 @@ func testBytes(size int) []byte {
 	return bb.Bytes()
 }
 
-func openSocket(emuDir string) (net.Listener, error) {
-	wd, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
-	if err := os.Chdir(filepath.Join(emuDir, "images", "session")); err != nil {
-		return nil, err
-	}
-	os.Remove(socketName)
-
-	lis, err := net.Listen("unix", socketName)
-	if err != nil {
-		return nil, err
-	}
-	if err := os.Chdir(wd); err != nil {
-		return nil, err
-	}
-	return lis, nil
-}
-
 func runServer(ctx context.Context, adbTurbo, adbPort, server string, n, bs int) (chan string, chan error, error) {
 	s := "localhost:" + adbPort
 	_, err := test_utils.ExecOnDevice(
@@ -104,19 +85,6 @@ func runServer(ctx context.Context, adbTurbo, adbPort, server string, n, bs int)
 	return outChan, errChan, nil
 }
 
-func setupEmu(launcher, adbServerPort, adbPort, emuPort string) (string, error) {
-	emuDir, err := ioutil.TempDir("", "emulator")
-	if err != nil {
-		return "", err
-	}
-
-	if err := test_utils.StartEmulator(
-		emuDir, launcher, adbServerPort, adbPort, emuPort); err != nil {
-		return "", err
-	}
-	return emuDir, nil
-}
-
 func read(c net.Conn, buff []byte) ([]byte, error) {
 	b := bytes.NewBuffer(buff)
 	if _, err := io.Copy(bytes.NewBuffer(buff), c); err != nil {
@@ -125,30 +93,8 @@ func read(c net.Conn, buff []byte) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-func getAdbPorts() (string, string, string, error) {
-	p, err := test_utils.PickUnusedPort()
-	if err != nil {
-		return "", "", "", err
-	}
-	adbServerPort := strconv.Itoa(p)
-
-	p, err = test_utils.PickUnusedPort()
-	if err != nil {
-		return "", "", "", err
-	}
-	adbPort := strconv.Itoa(p)
-
-	p, err = test_utils.PickUnusedPort()
-	if err != nil {
-		return "", "", "", err
-	}
-	emuPort := strconv.Itoa(p)
-
-	return adbServerPort, adbPort, emuPort, nil
-}
-
 func TestSingleConn(t *testing.T) {
-	adbServerPort, adbPort, emuPort, err := getAdbPorts()
+	adbServerPort, adbPort, emuPort, err := test_utils.GetAdbPorts()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,7 +103,7 @@ func TestSingleConn(t *testing.T) {
 	a := filepath.Join(runfiles, *adbTurbo)
 	svr := filepath.Join(runfiles, *server)
 
-	emuDir, err := setupEmu(l, adbServerPort, adbPort, emuPort)
+	emuDir, err := test_utils.SetupEmu(l, adbServerPort, adbPort, emuPort)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -174,7 +120,7 @@ func TestSingleConn(t *testing.T) {
 		t.Fatalf("error starting server: %v", err)
 	}
 
-	lis, err := openSocket(emuDir)
+	lis, err := test_utils.OpenSocket(filepath.Join(emuDir, emuWorkingDir), SocketName)
 	if err != nil {
 		t.Fatalf("error opening socket: %v", err)
 	}
@@ -225,7 +171,7 @@ func TestSingleConn(t *testing.T) {
 }
 
 func TestMultipleConn(t *testing.T) {
-	adbServerPort, adbPort, emuPort, err := getAdbPorts()
+	adbServerPort, adbPort, emuPort, err := test_utils.GetAdbPorts()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -234,7 +180,7 @@ func TestMultipleConn(t *testing.T) {
 	a := filepath.Join(runfiles, *adbTurbo)
 	svr := filepath.Join(runfiles, *server)
 
-	emuDir, err := setupEmu(l, adbServerPort, adbPort, emuPort)
+	emuDir, err := test_utils.SetupEmu(l, adbServerPort, adbPort, emuPort)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -252,7 +198,7 @@ func TestMultipleConn(t *testing.T) {
 		t.Fatalf("error starting server: %v", err)
 	}
 
-	lis, err := openSocket(emuDir)
+	lis, err := test_utils.OpenSocket(filepath.Join(emuDir, emuWorkingDir), SocketName)
 	if err != nil {
 		t.Fatalf("error opening socket: %v", err)
 	}

@@ -6,12 +6,10 @@ import (
 	"encoding/binary"
 	"errors"
 	"flag"
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -30,10 +28,9 @@ var (
 	launcher = flag.String("launcher", "", "The path to the emulator launcher")
 	adbTurbo = flag.String("adb_turbo", "", "The path to abd.turbo binary")
 	server   = flag.String("server", "", "The path to test server")
-
-	contents   = testBytes(16 * 1024)
-	socketName = "sockets/h2o"
 )
+
+const emuWorkingDir = "images/session"
 
 func init() {
 	flag.Parse()
@@ -63,37 +60,6 @@ func testBytes(size uint32) []byte {
 	return bb.Bytes()
 }
 
-func openSocket(emuDir string) (net.Listener, error) {
-	wd, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
-	if err := os.Chdir(filepath.Join(emuDir, "images", "session")); err != nil {
-		return nil, err
-	}
-	os.Remove(socketName)
-	lis, err := net.Listen("unix", socketName)
-	if err != nil {
-		return nil, err
-	}
-	if err := os.Chdir(wd); err != nil {
-		return nil, err
-	}
-	return lis, nil
-}
-
-func setupEmu(launcher, adbServerPort, adbPort, emuPort string) (string, error) {
-	emuDir, err := ioutil.TempDir("", "emulator")
-	if err != nil {
-		return "", err
-	}
-	if err := test_utils.StartEmulator(
-		emuDir, launcher, adbServerPort, adbPort, emuPort); err != nil {
-		return "", err
-	}
-	return emuDir, nil
-}
-
 func runServer(ctx context.Context, adbTurbo, adbPort, server string) error {
 	s := "localhost:" + adbPort
 	_, err := test_utils.ExecOnDevice(
@@ -114,31 +80,9 @@ func runServer(ctx context.Context, adbTurbo, adbPort, server string) error {
 	return nil
 }
 
-func getAdbPorts() (string, string, string, error) {
-	p, err := test_utils.PickUnusedPort()
-	if err != nil {
-		return "", "", "", err
-	}
-	adbServerPort := strconv.Itoa(p)
-
-	p, err = test_utils.PickUnusedPort()
-	if err != nil {
-		return "", "", "", err
-	}
-	adbPort := strconv.Itoa(p)
-
-	p, err = test_utils.PickUnusedPort()
-	if err != nil {
-		return "", "", "", err
-	}
-	emuPort := strconv.Itoa(p)
-
-	return adbServerPort, adbPort, emuPort, nil
-}
-
 // TestConnection tests that the bytes between device and host are sent/received correctly
 func TestConnection(t *testing.T) {
-	adbServerPort, adbPort, emuPort, err := getAdbPorts()
+	adbServerPort, adbPort, emuPort, err := test_utils.GetAdbPorts()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +91,7 @@ func TestConnection(t *testing.T) {
 	a := filepath.Join(runfiles, *adbTurbo)
 	svr := filepath.Join(runfiles, *server)
 
-	emuDir, err := setupEmu(l, adbServerPort, adbPort, emuPort)
+	emuDir, err := test_utils.SetupEmu(l, adbServerPort, adbPort, emuPort)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -161,19 +105,18 @@ func TestConnection(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	lis, err := openSocket(emuDir)
+	lis, err := test_utils.OpenSocket(filepath.Join(emuDir, emuWorkingDir), qemu.SocketName)
 	if err != nil {
 		t.Fatalf("error opening socket: %v", err)
 	}
 	defer lis.Close()
 
-	eg, ctx := errgroup.WithContext(ctx)
 	// Test a few parallel connections
+	eg, ctx := errgroup.WithContext(ctx)
 	for i := 0; i < 16; i++ {
 		eg.Go(func() error {
 			qconn, err := qemu.MakeConn(lis)
 			if err != nil {
-				//t.Fatal(err)
 				return err
 			}
 			defer qconn.Close()
@@ -186,7 +129,6 @@ func TestConnection(t *testing.T) {
 
 			conn, err := grpc.Dial("", opts...)
 			if err != nil {
-				//t.Fatal(err)
 				return err
 			}
 			defer conn.Close()
@@ -196,12 +138,10 @@ func TestConnection(t *testing.T) {
 			rec, err := Echo(ctx, k, sent)
 
 			if err != nil {
-				//t.Fatal(err)
 				return err
 			}
 
 			if bytes.Compare(sent, rec) != 0 {
-				//t.Fatal(errors.New(err.Error()))
 				return errors.New("bytes received != bytes sent")
 			}
 			return nil

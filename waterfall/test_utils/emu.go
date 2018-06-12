@@ -3,13 +3,14 @@ package test_utils
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os/exec"
 	"strconv"
 	"strings"
 )
 
-// StartEmulator runs the emulator binary in the specified directory
-func StartEmulator(emuDir, launcher, adbServerPort, adbPort, emuPort string) error {
+// startEmulator runs the emulator binary in the specified directory
+func startEmulator(emuDir, launcher, adbServerPort, adbPort, emuPort string) error {
 	// use mini_boot since we dont actually care about the android services
 	// additionally pass --noenable_display and --nowith_audio so we can run inside
 	// doker
@@ -25,7 +26,7 @@ func StartEmulator(emuDir, launcher, adbServerPort, adbPort, emuPort string) err
 	return nil
 }
 
-// KillEmu kills the emulator identified by adbPort
+// KillEmu kills the emulator identified by adbPort.
 func KillEmu(launcher, adbServerPort, adbPort, emuPort string) error {
 	cmd := exec.Command(
 		launcher, "--action", "kill", "--adb_server_port",
@@ -34,7 +35,7 @@ func KillEmu(launcher, adbServerPort, adbPort, emuPort string) error {
 	return err
 }
 
-// ExecOnDevice runs the desired command on the device
+// ExecOnDevice runs the desired command on the device.
 func ExecOnDevice(ctx context.Context, adbTurbo, device, cmd string, args []string) (string, error) {
 	fullArgs := append([]string{"-s", device, cmd}, args...)
 	if cmd == "shell" {
@@ -56,4 +57,40 @@ func ExecOnDevice(ctx context.Context, adbTurbo, device, cmd string, args []stri
 		}
 	}
 	return o, err
+}
+
+// GetAdbPorts picks unused ports for the adb_port, adb_server_port and emulator_port.
+func GetAdbPorts() (string, string, string, error) {
+	p, err := pickUnusedPort()
+	if err != nil {
+		return "", "", "", err
+	}
+	adbServerPort := strconv.Itoa(p)
+
+	p, err = pickUnusedPort()
+	if err != nil {
+		return "", "", "", err
+	}
+	adbPort := strconv.Itoa(p)
+
+	p, err = pickUnusedPort()
+	if err != nil {
+		return "", "", "", err
+	}
+	emuPort := strconv.Itoa(p)
+
+	return adbServerPort, adbPort, emuPort, nil
+}
+
+// SetupEmu starts up the emulator and returns the path to where is running.
+func SetupEmu(launcher, adbServerPort, adbPort, emuPort string) (string, error) {
+	emuDir, err := ioutil.TempDir("", "emulator")
+	if err != nil {
+		return "", err
+	}
+	if err := startEmulator(
+		emuDir, launcher, adbServerPort, adbPort, emuPort); err != nil {
+		return "", err
+	}
+	return emuDir, nil
 }

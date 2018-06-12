@@ -1,11 +1,10 @@
 licenses(["notice"])  # Apache 2.0
 
-#Description:
+# Description:
 #  Integration tests for the gRPP server and custom connections
 #  like qemu_pipes and usb
 
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
-
 
 go_test(
     name = "qemu_server_test",

@@ -14,7 +14,10 @@ import (
 )
 
 const (
-	socketName = "sockets/h2o"
+	// The name of the socket that will be used by the qemu_pipe.
+	// The name of the socket is passed to the emulator at startup time and can't change.
+	SocketName = "sockets/h2o"
+
 	qemuDriver = "/dev/qemu_pipe"
 	svcName    = "pipe:unix:sockets/h2o"
 	ioErrMsg   = "input/output error"

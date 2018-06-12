@@ -4,6 +4,8 @@ package test_utils
 import (
 	"errors"
 	"math/rand"
+	"net"
+	"os"
 	"sync"
 	"syscall"
 	"time"
@@ -40,8 +42,8 @@ func isFree(port int) bool {
 	return true
 }
 
-// PickUnusedPort returns a port number thats available to bind to.
-func PickUnusedPort() (port int, err error) {
+// pickUnusedPort returns a port number thats available to bind to.
+func pickUnusedPort() (port int, err error) {
 	// Start with random port in range [32768, 65536]
 	rng.Lock()
 	port = minPort + rng.Intn(maxPort-minPort+1)
@@ -62,4 +64,26 @@ func PickUnusedPort() (port int, err error) {
 	}
 
 	return 0, errNoFreePort
+}
+
+func OpenSocket(dir, socketName string) (net.Listener, error) {
+	wd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := os.Chdir(dir); err != nil {
+		return nil, err
+	}
+
+	os.Remove(socketName)
+	lis, err := net.Listen("unix", socketName)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := os.Chdir(wd); err != nil {
+		return nil, err
+	}
+	return lis, nil
 }

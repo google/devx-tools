@@ -12,7 +12,7 @@ type waterfallServer struct {
 	ctx context.Context
 }
 
-// Echo exists soley for test purposes. Its an utility function to
+// Echo exists solely for test purposes. It's a utility function to
 // create integration tests between grpc and custom network transports
 // like qemu_pipe and usb
 func (s *waterfallServer) Echo(stream waterfall_grpc.Waterfall_EchoServer) error {
