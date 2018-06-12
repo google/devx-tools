@@ -1,3 +1,5 @@
+licenses(["notice"])  # Apache 2.0
+
 #Description:
 #  Integration tests for the gRPP server and custom connections
 #  like qemu_pipes and usb

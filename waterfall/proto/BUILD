@@ -1,3 +1,5 @@
+licenses(["notice"])  # Apache 2.0
+
 load(
     "@io_bazel_rules_go//proto:def.bzl",
     "go_proto_library",
