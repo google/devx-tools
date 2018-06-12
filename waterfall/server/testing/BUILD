@@ -24,7 +24,7 @@ go_test(
     ],
     importpath = "github.com/waterfall/server/testing",
     deps = [
-        "//waterfall/proto:waterfall_grpc",
+        "//waterfall/proto:waterfall_go_grpc",
         "//waterfall/stream",
         "//waterfall/net/qemu",
         "//waterfall/test_utils",

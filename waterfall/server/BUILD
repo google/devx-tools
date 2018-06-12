@@ -11,8 +11,8 @@ go_library(
     srcs = ["server.go"],
     importpath = "github.com/waterfall/server",
     deps = [
-        "//waterfall/proto:waterfall_grpc",
-        "//waterfall/proto:waterfall_proto_lib",
+        "//waterfall/proto:waterfall_go_grpc",
+        "//waterfall/proto:waterfall_go_proto",
         "//waterfall/stream",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_x_sync//errgroup:go_default_library",
@@ -28,8 +28,8 @@ go_binary(
     static = "on",
     deps = [
         ":server_lib",
-        "//waterfall/proto:waterfall_grpc",
-        "//waterfall/proto:waterfall_proto_lib",
+        "//waterfall/proto:waterfall_go_grpc",
+        "//waterfall/proto:waterfall_go_proto",
         "//waterfall/net/qemu",
         "@org_golang_google_grpc//:go_default_library",
     ],
