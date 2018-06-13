@@ -13,12 +13,12 @@ go_test(
         "qemu_server_test.go",
     ],
     args = [
-        "--server=$(location //waterfall/server:server)",
+        "--server=$(location //waterfall/server:server_bin)",
         "--launcher=$(location @android_test_support//tools/android/emulated_devices/generic_phone:android_24_x86)",
         "--adb_turbo=$(location @android_test_support//tools/android/emulator:support/adb.turbo)",
     ],
     data = [
-        "//waterfall/server:server",
+        "//waterfall/server:server_bin",
         "@android_test_support//tools/android/emulated_devices/generic_phone:android_24_x86",
         "@android_test_support//tools/android/emulator:support/adb.turbo",
     ],

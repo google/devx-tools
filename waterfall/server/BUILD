@@ -7,7 +7,7 @@ load(
 )
 package(default_visibility = ["//visibility:public"])
 go_library(
-    name = "server_lib",
+    name = "server",
     srcs = ["server.go"],
     importpath = "github.com/waterfall/server",
     deps = [
@@ -19,7 +19,7 @@ go_library(
     ],
 )
 go_binary(
-    name = "server",
+    name = "server_bin",
     srcs = ["server_bin.go"],
     # Attributes for an emulator binary
     goarch = "386",
@@ -27,7 +27,7 @@ go_binary(
     pure = "on",
     static = "on",
     deps = [
-        ":server_lib",
+        ":server",
         "//waterfall/proto:waterfall_go_grpc",
         "//waterfall/proto:waterfall_go_proto",
         "//waterfall/net/qemu",
