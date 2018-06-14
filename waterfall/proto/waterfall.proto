@@ -6,7 +6,29 @@ message Message {
   bytes payload = 1;
 }
 
+// Keep this as lean as possible. We only care about the payload during most
+// of the duration of the session. All other fields are only useful during
+// the beginning/end of the transfer
+message Transfer {
+  // Remote path to for push/pull. Remote path lives in the server fs.
+  // There is no need to send local path, since client has this info.
+  string path = 1;
+
+  // A stream of bytes. Encoded as a tarball.
+  bytes payload = 2;
+
+  // status fields.
+  bool success = 3;
+  bytes err = 4;
+}
+
 service Waterfall {
-  // Echo exists solely for test purposes
+  // Echo exists solely for test purposes.
   rpc Echo(stream Message) returns (stream Message);
+
+  // Push file/dir from host to device.
+  rpc Push(stream Transfer) returns (Transfer);
+
+  // Pull file/dir from device to host.
+  rpc Pull(Transfer) returns (stream Transfer);
 }
