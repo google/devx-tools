@@ -44,7 +44,7 @@ go_test(
         "@android_test_support//tools/android/emulator:support/adb.turbo",
     ],
     deps = [
-        "//waterfall/test_utils:test_utils",
+        "//waterfall/testutils:testutils",
         "@org_golang_x_net//context:go_default_library",
         "@org_golang_x_sync//errgroup:go_default_library",
     ],

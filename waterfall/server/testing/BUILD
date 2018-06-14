@@ -27,7 +27,7 @@ go_test(
         "//waterfall/proto:waterfall_go_grpc",
         "//waterfall/stream",
         "//waterfall/net/qemu",
-        "//waterfall/test_utils",
+        "//waterfall/testutils",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_x_sync//errgroup:go_default_library",
     ],

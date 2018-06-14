@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waterfall/test_utils"
+	"github.com/waterfall/testutils"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 )
@@ -61,13 +61,13 @@ func testBytes(size int) []byte {
 
 func runServer(ctx context.Context, adbTurbo, adbPort, server string, n, bs int) (chan string, chan error, error) {
 	s := "localhost:" + adbPort
-	_, err := test_utils.ExecOnDevice(
+	_, err := testutils.ExecOnDevice(
 		ctx, adbTurbo, s, "push", []string{server, "/data/local/tmp/server"})
 	if err != nil {
 		return nil, nil, err
 	}
 
-	_, err = test_utils.ExecOnDevice(
+	_, err = testutils.ExecOnDevice(
 		ctx, adbTurbo, s, "shell", []string{"chmod", "+x", "/data/local/tmp/server"})
 	if err != nil {
 		return nil, nil, err
@@ -76,7 +76,7 @@ func runServer(ctx context.Context, adbTurbo, adbPort, server string, n, bs int)
 	outChan := make(chan string, 1)
 	errChan := make(chan error, 1)
 	go func() {
-		out, err := test_utils.ExecOnDevice(
+		out, err := testutils.ExecOnDevice(
 			ctx, adbTurbo, s, "shell", []string{"/data/local/tmp/server",
 				"-conns", strconv.Itoa(n), "-rec_n", strconv.Itoa(bs)})
 		outChan <- out
@@ -94,7 +94,7 @@ func read(c net.Conn, buff []byte) ([]byte, error) {
 }
 
 func TestSingleConn(t *testing.T) {
-	adbServerPort, adbPort, emuPort, err := test_utils.GetAdbPorts()
+	adbServerPort, adbPort, emuPort, err := testutils.GetAdbPorts()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,12 +103,12 @@ func TestSingleConn(t *testing.T) {
 	a := filepath.Join(runfiles, *adbTurbo)
 	svr := filepath.Join(runfiles, *server)
 
-	emuDir, err := test_utils.SetupEmu(l, adbServerPort, adbPort, emuPort)
+	emuDir, err := testutils.SetupEmu(l, adbServerPort, adbPort, emuPort)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(emuDir)
-	defer test_utils.KillEmu(l, adbServerPort, adbPort, emuPort)
+	defer testutils.KillEmu(l, adbServerPort, adbPort, emuPort)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -120,7 +120,7 @@ func TestSingleConn(t *testing.T) {
 		t.Fatalf("error starting server: %v", err)
 	}
 
-	lis, err := test_utils.OpenSocket(filepath.Join(emuDir, emuWorkingDir), SocketName)
+	lis, err := testutils.OpenSocket(filepath.Join(emuDir, emuWorkingDir), SocketName)
 	if err != nil {
 		t.Fatalf("error opening socket: %v", err)
 	}
@@ -171,7 +171,7 @@ func TestSingleConn(t *testing.T) {
 }
 
 func TestMultipleConn(t *testing.T) {
-	adbServerPort, adbPort, emuPort, err := test_utils.GetAdbPorts()
+	adbServerPort, adbPort, emuPort, err := testutils.GetAdbPorts()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -180,12 +180,12 @@ func TestMultipleConn(t *testing.T) {
 	a := filepath.Join(runfiles, *adbTurbo)
 	svr := filepath.Join(runfiles, *server)
 
-	emuDir, err := test_utils.SetupEmu(l, adbServerPort, adbPort, emuPort)
+	emuDir, err := testutils.SetupEmu(l, adbServerPort, adbPort, emuPort)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(emuDir)
-	defer test_utils.KillEmu(l, adbServerPort, adbPort, emuPort)
+	defer testutils.KillEmu(l, adbServerPort, adbPort, emuPort)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -198,7 +198,7 @@ func TestMultipleConn(t *testing.T) {
 		t.Fatalf("error starting server: %v", err)
 	}
 
-	lis, err := test_utils.OpenSocket(filepath.Join(emuDir, emuWorkingDir), SocketName)
+	lis, err := testutils.OpenSocket(filepath.Join(emuDir, emuWorkingDir), SocketName)
 	if err != nil {
 		t.Fatalf("error opening socket: %v", err)
 	}
