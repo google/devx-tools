@@ -13,8 +13,8 @@ proto_library(
 )
 
 go_proto_library(
-    name = "waterfall_go_proto",
-    importpath = "github.com/waterfall/proto/waterfall_go_proto",
+    name = "waterfall_go_pb",
+    importpath = "github.com/waterfall/proto/waterfall_go_pb",
     proto = ":waterfall_proto",
 )
 
@@ -22,6 +22,6 @@ go_grpc_library(
     name = "waterfall_go_grpc",
     importpath = "github.com/waterfall/proto/waterfall_go_grpc",
     proto = ":waterfall_proto",
-    deps = [":waterfall_go_proto"],
+    deps = [":waterfall_go_pb"],
 )
 
