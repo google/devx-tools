@@ -10,6 +10,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// Echo streams back the contents of the request. Useful for testing the connection.
 func Echo(ctx context.Context, client waterfall_grpc.WaterfallClient, r []byte) ([]byte, error) {
 	stream, err := client.Echo(ctx)
 	if err != nil {

@@ -1,3 +1,4 @@
+// server runs a waterfall gRPC server
 package main
 
 import (

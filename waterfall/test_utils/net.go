@@ -42,7 +42,6 @@ func isFree(port int) bool {
 	return true
 }
 
-// pickUnusedPort returns a port number thats available to bind to.
 func pickUnusedPort() (port int, err error) {
 	// Start with random port in range [32768, 65536]
 	rng.Lock()
@@ -66,6 +65,7 @@ func pickUnusedPort() (port int, err error) {
 	return 0, errNoFreePort
 }
 
+// OpenSocket opens the unix socket referes by socketName
 func OpenSocket(dir, socketName string) (net.Listener, error) {
 	wd, err := os.Getwd()
 	if err != nil {

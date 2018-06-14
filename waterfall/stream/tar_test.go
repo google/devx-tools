@@ -85,10 +85,7 @@ func testBytes() []byte {
 }
 
 func makeTestFile(path string, bits []byte) error {
-	if err := ioutil.WriteFile(path, bits, 0655); err != nil {
-		return err
-	}
-	return nil
+	return ioutil.WriteFile(path, bits, 0655)
 }
 
 func dirCompare(dir1, dir2, path string, info os.FileInfo, seen map[string]bool) error {

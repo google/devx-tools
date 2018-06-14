@@ -3,19 +3,20 @@ package server
 
 import (
 	"context"
+	"io"
 
 	waterfall_grpc "github.com/waterfall/proto/waterfall_go_grpc"
-	"io"
 )
 
-type waterfallServer struct {
+// WaterfallServer implements the waterfall gRPC service
+type WaterfallServer struct {
 	ctx context.Context
 }
 
 // Echo exists solely for test purposes. It's a utility function to
 // create integration tests between grpc and custom network transports
 // like qemu_pipe and usb
-func (s *waterfallServer) Echo(stream waterfall_grpc.Waterfall_EchoServer) error {
+func (s *WaterfallServer) Echo(stream waterfall_grpc.Waterfall_EchoServer) error {
 	for {
 		msg, err := stream.Recv()
 		if err == io.EOF {
@@ -31,6 +32,6 @@ func (s *waterfallServer) Echo(stream waterfall_grpc.Waterfall_EchoServer) error
 }
 
 // NewWaterfallServer returns a gRPC server that implements the waterfall service
-func NewWaterfallServer(ctx context.Context) *waterfallServer {
-	return &waterfallServer{ctx: ctx}
+func NewWaterfallServer(ctx context.Context) *WaterfallServer {
+	return &WaterfallServer{ctx: ctx}
 }
