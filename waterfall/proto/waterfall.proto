@@ -32,3 +32,24 @@ service Waterfall {
   // Pull file/dir from device to host.
   rpc Pull(Transfer) returns (stream Transfer);
 }
+
+message Entry {
+  string key = 1;
+  string val = 2;
+}
+
+message OpResult {
+  enum Status {
+    SUCCESS = 0;
+    KEY_NOT_FOUND = 1;
+  }
+  Status status = 1;
+  Entry entry = 2;
+}
+
+// service Registry is a simple Key - Value Store
+service Registry {
+  rpc Add(Entry) returns (OpResult);
+  rpc Remove(Entry) returns (OpResult);
+  rpc Get(Entry) returns (OpResult);
+}
