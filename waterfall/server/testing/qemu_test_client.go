@@ -4,9 +4,13 @@ package testing
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 
 	waterfall_grpc "github.com/waterfall/proto/waterfall_go_grpc"
+	"github.com/waterfall/stream"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -54,4 +58,89 @@ func Echo(ctx context.Context, client waterfall_grpc.WaterfallClient, r []byte) 
 		return nil, err
 	}
 	return rec.Bytes(), nil
+}
+
+// Push pushes a tar stream to the server running in the device.
+func Push(ctx context.Context, client waterfall_grpc.WaterfallClient, src, dst string) error {
+	rpc, err := client.Push(ctx)
+	if err != nil {
+		return err
+	}
+
+	r, w := io.Pipe()
+	defer r.Close()
+	eg, ctx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		err := stream.Tar(w, src)
+		w.Close()
+		return err
+	})
+
+	buff := make([]byte, 64*1024)
+	eg.Go(func() error {
+		for {
+			n, err := r.Read(buff)
+			if err != nil && err != io.EOF {
+				return err
+			}
+
+			if n > 0 {
+				xfer := &waterfall_grpc.Transfer{Path: dst, Payload: buff[0:n]}
+				if err := rpc.Send(xfer); err != nil {
+					return err
+				}
+			}
+
+			if err == io.EOF {
+				r, err := rpc.CloseAndRecv()
+				if err != nil {
+					return err
+				}
+
+				if !r.Success {
+					return fmt.Errorf(string(r.Err))
+				}
+				return nil
+			}
+		}
+	})
+	return eg.Wait()
+}
+
+// Pull request a file/directory from the device and unpacks the contents into the desired path.
+func Pull(ctx context.Context, client waterfall_grpc.WaterfallClient, src, dst string) error {
+	if _, err := os.Stat(filepath.Dir(dst)); err != nil {
+		return err
+	}
+
+	xstream, err := client.Pull(ctx, &waterfall_grpc.Transfer{Path: src})
+	if err != nil {
+		return err
+	}
+
+	r, w := io.Pipe()
+	eg, ctx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		err := stream.Untar(r, dst)
+		r.Close()
+		return err
+	})
+
+	eg.Go(func() error {
+		defer w.Close()
+		for {
+			fgmt, err := xstream.Recv()
+			if err != nil {
+				w.Close()
+				if err == io.EOF {
+					return nil
+				}
+				return err
+			}
+			if _, err := w.Write(fgmt.Payload); err != nil {
+				return err
+			}
+		}
+	})
+	return eg.Wait()
 }

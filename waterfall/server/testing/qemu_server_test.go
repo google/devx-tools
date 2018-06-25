@@ -6,6 +6,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"flag"
+	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -28,7 +30,32 @@ var (
 	launcher = flag.String("launcher", "", "The path to the emulator launcher")
 	adbTurbo = flag.String("adb_turbo", "", "The path to abd.turbo binary")
 	server   = flag.String("server", "", "The path to test server")
+
+	contents             = testBytes(16 * 1024)
+	modeDir  os.FileMode = 0755
+
+	testDir = fs{
+		path:  "zoo",
+		files: []string{"a.txt", "b.txt"},
+		dirs: []fs{
+			fs{
+				path: "zoo/bar",
+			},
+			fs{
+				path:  "zoo/baz",
+				files: []string{"d.txt"},
+				dirs: []fs{
+					fs{
+						path:  "zoo/baz/qux",
+						files: []string{"e.txt"},
+					}}}}}
 )
+
+type fs struct {
+	path  string
+	files []string
+	dirs  []fs
+}
 
 const emuWorkingDir = "images/session"
 
@@ -58,6 +85,65 @@ func testBytes(size uint32) []byte {
 		binary.Write(bb, binary.LittleEndian, i)
 	}
 	return bb.Bytes()
+}
+
+func makeTestFile(path string, bits []byte) error {
+	if err := ioutil.WriteFile(path, bits, 0655); err != nil {
+		return err
+	}
+	return nil
+}
+
+func makeFs(baseDir string, tree fs) ([]string, error) {
+	seen := []string{}
+	dirPath := filepath.Join(baseDir, tree.path)
+	if tree.path != "" {
+		seen = append(seen, tree.path)
+		if err := os.Mkdir(dirPath, modeDir); err != nil {
+			return nil, err
+		}
+	}
+	for _, f := range tree.files {
+		seen = append(seen, filepath.Join(tree.path, f))
+		if err := makeTestFile(filepath.Join(dirPath, f), contents); err != nil {
+			return nil, err
+		}
+	}
+	for _, nfs := range tree.dirs {
+		s, err := makeFs(baseDir, nfs)
+		if err != nil {
+			return nil, err
+		}
+		seen = append(seen, s...)
+	}
+	return seen, nil
+}
+
+func dirCompare(dir1, dir2, path string, info os.FileInfo, seen map[string]bool) error {
+	if path == dir1 {
+		return nil
+	}
+
+	rel := path[len(dir1)+1:]
+	seen[rel] = true
+	if info.IsDir() {
+		return nil
+	}
+
+	rf := filepath.Join(dir2, rel)
+	if _, err := os.Stat(rf); os.IsNotExist(err) {
+		return err
+	}
+
+	bs, err := ioutil.ReadFile(rf)
+	if err != nil {
+		return err
+	}
+
+	if bytes.Compare(contents, bs) != 0 {
+		return fmt.Errorf("bytes for file %s not as expected", rel)
+	}
+	return nil
 }
 
 func runServer(ctx context.Context, adbTurbo, adbPort, server string) error {
@@ -150,5 +236,99 @@ func TestConnection(t *testing.T) {
 
 	if err := eg.Wait(); err != nil {
 		t.Fatalf("failed with error: %v", err)
+	}
+}
+
+func TestPushPull(t *testing.T) {
+	adbServerPort, adbPort, emuPort, err := testutils.GetAdbPorts()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	l := filepath.Join(runfiles, *launcher)
+	a := filepath.Join(runfiles, *adbTurbo)
+	svr := filepath.Join(runfiles, *server)
+
+	emuDir, err := testutils.SetupEmu(l, adbServerPort, adbPort, emuPort)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(emuDir)
+	defer testutils.KillEmu(l, adbServerPort, adbPort, emuPort)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	if err := runServer(ctx, a, adbPort, svr); err != nil {
+		t.Fatal(err)
+	}
+
+	lis, err := testutils.OpenSocket(filepath.Join(emuDir, emuWorkingDir), qemu.SocketName)
+	if err != nil {
+		t.Fatalf("error opening socket: %v", err)
+	}
+	defer lis.Close()
+
+	qconn, err := qemu.MakeConn(lis)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer qconn.Close()
+
+	opts := []grpc.DialOption{grpc.WithInsecure()}
+	opts = append(opts, grpc.WithDialer(func(addr string, d time.Duration) (net.Conn, error) {
+		return qconn, nil
+	}))
+	conn, err := grpc.Dial("", opts...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+
+	td, err := ioutil.TempDir("", "push")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pushed, err := makeFs(td, testDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	k := waterfall_grpc.NewWaterfallClient(conn)
+	deviceDir := "/data/local/tmp/pushpulltest"
+	if err := Push(ctx, k, filepath.Join(td, testDir.path), deviceDir); err != nil {
+		t.Fatalf("failed push: %v", err)
+	}
+
+	pd, err := ioutil.TempDir("", "pull")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := Pull(ctx, k, filepath.Join(deviceDir, testDir.path), pd); err != nil {
+		t.Fatalf("failed pull: %v", err)
+	}
+
+	seen := make(map[string]bool)
+	err = filepath.Walk(td, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		return dirCompare(td, pd, path, info, seen)
+	})
+
+	if err != nil {
+		t.Errorf("pushed != pulled: %v", err)
+	}
+
+	if len(seen) != len(pushed) {
+		t.Errorf("wrong number of files. Got %v expected %v", seen, pushed)
+	}
+
+	for _, f := range pushed {
+		if !seen[f] {
+			t.Errorf("file %s not in tared files", f)
+		}
 	}
 }
