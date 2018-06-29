@@ -144,3 +144,38 @@ func Pull(ctx context.Context, client waterfall_grpc.WaterfallClient, src, dst s
 	})
 	return eg.Wait()
 }
+
+func Exec(ctx context.Context, client waterfall_grpc.WaterfallClient, cmd string, args ...string) (
+	uint32, []byte, []byte, error) {
+	xstream, err := client.Exec(ctx, &waterfall_grpc.Cmd{Path: cmd, Args: args})
+	if err != nil {
+		return 0, nil, nil, err
+	}
+
+	stdout := new(bytes.Buffer)
+	stderr := new(bytes.Buffer)
+	var last *waterfall_grpc.CmdProgress
+	for {
+		pgrs, err := xstream.Recv()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return 0, nil, nil, err
+		}
+
+		if pgrs.Stdout != nil {
+			if _, err := stdout.Write(pgrs.Stdout); err != nil {
+				return 0, nil, nil, err
+			}
+		}
+		if pgrs.Stderr != nil {
+			if _, err := stdout.Write(pgrs.Stdout); err != nil {
+				return 0, nil, nil, err
+			}
+		}
+		last = pgrs
+	}
+	return last.ExitCode, stdout.Bytes(), stderr.Bytes(), nil
+}
+

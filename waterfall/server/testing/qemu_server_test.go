@@ -332,3 +332,88 @@ func TestPushPull(t *testing.T) {
 		}
 	}
 }
+
+func TestExec(t *testing.T) {
+	adbServerPort, adbPort, emuPort, err := testutils.GetAdbPorts()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	l := filepath.Join(runfiles, *launcher)
+	a := filepath.Join(runfiles, *adbTurbo)
+	svr := filepath.Join(runfiles, *server)
+
+	emuDir, err := testutils.SetupEmu(l, adbServerPort, adbPort, emuPort)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(emuDir)
+	defer testutils.KillEmu(l, adbServerPort, adbPort, emuPort)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	if err := runServer(ctx, a, adbPort, svr); err != nil {
+		t.Fatal(err)
+	}
+
+	lis, err := testutils.OpenSocket(filepath.Join(emuDir, emuWorkingDir), qemu.SocketName)
+	if err != nil {
+		t.Fatalf("error opening socket: %v", err)
+	}
+	defer lis.Close()
+
+	qconn, err := qemu.MakeConn(lis)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer qconn.Close()
+
+	opts := []grpc.DialOption{grpc.WithInsecure()}
+	opts = append(opts, grpc.WithDialer(func(addr string, d time.Duration) (net.Conn, error) {
+		return qconn, nil
+	}))
+	conn, err := grpc.Dial("", opts...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+
+	k := waterfall_grpc.NewWaterfallClient(conn)
+	c, _, _, err := Exec(ctx, k, "setprop", "ninjas.h20.running", "yes")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c != 0 {
+		t.Errorf("expected 0 exit code but got %d", c)
+	}
+
+	c, stdout, _, err := Exec(ctx, k, "getprop", "ninjas.h20.running")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c != 0 {
+		t.Errorf("expected 0 exit code but got %d", c)
+	}
+
+	expected := []byte{'y', 'e', 's', '\n'}
+	if bytes.Compare(expected, stdout) != 0 {
+		t.Errorf("expected bytes %v but got %v", expected, stdout)
+	}
+
+	c, _, _, err = Exec(ctx, k, "true")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c != 0 {
+		t.Errorf("expected 0 exit code but got %d", c)
+	}
+
+	c, _, _, err = Exec(ctx, k, "false")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c == 0 {
+		t.Errorf("expected non-zero exit code but got %d", c)
+	}
+}

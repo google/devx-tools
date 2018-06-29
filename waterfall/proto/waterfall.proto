@@ -22,6 +22,30 @@ message Transfer {
   bytes err = 4;
 }
 
+message Cmd {
+  // Path to the binary to execute.
+  // Path should be absolute. Otherwise behavior is not specified.
+  // use /system/bin/sh -c to run in a shell.
+  // Interactive shell is not supported.
+  string path = 1;
+
+  // Args to pass to the command
+  repeated string args = 2;
+
+  // Directory to execute the command
+  string dir = 3;
+}
+
+message CmdProgress {
+  // the exit code of the command.
+  // Only populated when the gRPC stream is done.
+  // I.e. the last message before the EOF.
+  uint32 exit_code = 1;
+
+  bytes stdout = 2;
+  bytes stderr = 3;
+}
+
 service Waterfall {
   // Echo exists solely for test purposes.
   rpc Echo(stream Message) returns (stream Message);
@@ -31,6 +55,9 @@ service Waterfall {
 
   // Pull file/dir from device to host.
   rpc Pull(Transfer) returns (stream Transfer);
+
+  // Execute cmd in the device and foward stdout and stderr to client
+  rpc Exec(Cmd) returns (stream CmdProgress);
 }
 
 message Entry {
