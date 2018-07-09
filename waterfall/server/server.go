@@ -123,14 +123,14 @@ func (s *WaterfallServer) Pull(t *waterfall_grpc.Transfer, ps waterfall_grpc.Wat
 	return err
 }
 
-const(
+const (
 	sendOut = iota
 	sendErr
 )
 
 // execWriter wraps the exec grpc server around the Writer interface
 type execWriter struct {
-	es waterfall_grpc.Waterfall_ExecServer
+	es     waterfall_grpc.Waterfall_ExecServer
 	sendTo int32
 }
 
@@ -148,7 +148,6 @@ func (ew *execWriter) Write(b []byte) (int, error) {
 	}
 	return len(b), nil
 }
-
 
 // Exec forks a new process with the desired command and pipes its output to the gRPC stream
 func (s *WaterfallServer) Exec(cmdMsg *waterfall_grpc.Cmd, es waterfall_grpc.Waterfall_ExecServer) error {
@@ -180,12 +179,12 @@ func (s *WaterfallServer) Exec(cmdMsg *waterfall_grpc.Cmd, es waterfall_grpc.Wat
 	errWriter := &execWriter{es: es, sendTo: sendErr}
 
 	eg, _ := errgroup.WithContext(s.ctx)
-	eg.Go(func () error {
+	eg.Go(func() error {
 		_, err := io.Copy(outWriter, stdout)
 		return err
 
 	})
-	eg.Go(func () error {
+	eg.Go(func() error {
 		_, err := io.Copy(errWriter, stderr)
 		return err
 	})
