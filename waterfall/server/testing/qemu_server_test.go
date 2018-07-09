@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/waterfall/client"
 	"github.com/waterfall/net/qemu"
 	waterfall_grpc "github.com/waterfall/proto/waterfall_go_grpc"
 	"github.com/waterfall/testutils"
@@ -221,7 +222,7 @@ func TestConnection(t *testing.T) {
 
 			k := waterfall_grpc.NewWaterfallClient(conn)
 			sent := testBytes(64 * 1024 * 1024)
-			rec, err := Echo(ctx, k, sent)
+			rec, err := client.Echo(ctx, k, sent)
 
 			if err != nil {
 				return err
@@ -297,7 +298,7 @@ func TestPushPull(t *testing.T) {
 
 	k := waterfall_grpc.NewWaterfallClient(conn)
 	deviceDir := "/data/local/tmp/pushpulltest"
-	if err := Push(ctx, k, filepath.Join(td, testDir.path), deviceDir); err != nil {
+	if err := client.Push(ctx, k, filepath.Join(td, testDir.path), deviceDir); err != nil {
 		t.Fatalf("failed push: %v", err)
 	}
 
@@ -306,7 +307,7 @@ func TestPushPull(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := Pull(ctx, k, filepath.Join(deviceDir, testDir.path), pd); err != nil {
+	if err := client.Pull(ctx, k, filepath.Join(deviceDir, testDir.path), pd); err != nil {
 		t.Fatalf("failed pull: %v", err)
 	}
 
@@ -380,40 +381,40 @@ func TestExec(t *testing.T) {
 	defer conn.Close()
 
 	k := waterfall_grpc.NewWaterfallClient(conn)
-	c, _, _, err := Exec(ctx, k, "setprop", "ninjas.h20.running", "yes")
-	if err != nil {
+
+	stdout := new(bytes.Buffer)
+	stderr := new(bytes.Buffer)
+	if err := client.Exec(ctx, k, stdout, stderr, "setprop", "ninjas.h20.running", "yes"); err != nil {
 		t.Fatal(err)
-	}
-	if c != 0 {
-		t.Errorf("expected 0 exit code but got %d", c)
 	}
 
-	c, stdout, _, err := Exec(ctx, k, "getprop", "ninjas.h20.running")
-	if err != nil {
+	stdout = new(bytes.Buffer)
+	stderr = new(bytes.Buffer)
+	if err := client.Exec(ctx, k, stdout, stderr, "getprop", "ninjas.h20.running"); err != nil {
 		t.Fatal(err)
-	}
-	if c != 0 {
-		t.Errorf("expected 0 exit code but got %d", c)
 	}
 
 	expected := []byte{'y', 'e', 's', '\n'}
-	if bytes.Compare(expected, stdout) != 0 {
+	if bytes.Compare(expected, stdout.Bytes()) != 0 {
 		t.Errorf("expected bytes %v but got %v", expected, stdout)
 	}
 
-	c, _, _, err = Exec(ctx, k, "true")
-	if err != nil {
+	stdout = new(bytes.Buffer)
+	stderr = new(bytes.Buffer)
+	if err := client.Exec(ctx, k, stdout, stderr, "true"); err != nil {
 		t.Fatal(err)
-	}
-	if c != 0 {
-		t.Errorf("expected 0 exit code but got %d", c)
 	}
 
-	c, _, _, err = Exec(ctx, k, "false")
-	if err != nil {
-		t.Fatal(err)
+	stdout = new(bytes.Buffer)
+	stderr = new(bytes.Buffer)
+	err = client.Exec(ctx, k, stdout, stderr, "false")
+	if err == nil {
+		t.Errorf("expected non-zero exit code error but got none")
 	}
-	if c == 0 {
-		t.Errorf("expected non-zero exit code but got %d", c)
+	if execErr, ok := err.(client.ExecError); !ok {
+		t.Errorf("expected ExecError but got %v instead", err)
+	} else if execErr.ExitCode == 0 {
+		t.Errorf("expected non-zero exit code but got %d", execErr.ExitCode)
 	}
+
 }

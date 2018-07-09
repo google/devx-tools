@@ -1,5 +1,5 @@
-// Package testing provides functionality to test a server backed by different connections
-package testing
+// Package client is the reference client implementation for the watefall service
+package client
 
 import (
 	"bytes"
@@ -145,15 +145,20 @@ func Pull(ctx context.Context, client waterfall_grpc.WaterfallClient, src, dst s
 	return eg.Wait()
 }
 
-func Exec(ctx context.Context, client waterfall_grpc.WaterfallClient, cmd string, args ...string) (
-	uint32, []byte, []byte, error) {
+type ExecError struct {
+	ExitCode uint32
+}
+
+func (e ExecError) Error() string {
+	return fmt.Sprintf("non-zero exit code: %d", e.ExitCode)
+}
+
+func Exec(ctx context.Context, client waterfall_grpc.WaterfallClient, stdout, stderr io.Writer, cmd string, args ...string) error {
 	xstream, err := client.Exec(ctx, &waterfall_grpc.Cmd{Path: cmd, Args: args})
 	if err != nil {
-		return 0, nil, nil, err
+		return err
 	}
 
-	stdout := new(bytes.Buffer)
-	stderr := new(bytes.Buffer)
 	var last *waterfall_grpc.CmdProgress
 	for {
 		pgrs, err := xstream.Recv()
@@ -161,21 +166,23 @@ func Exec(ctx context.Context, client waterfall_grpc.WaterfallClient, cmd string
 			if err == io.EOF {
 				break
 			}
-			return 0, nil, nil, err
+			return err
 		}
 
 		if pgrs.Stdout != nil {
 			if _, err := stdout.Write(pgrs.Stdout); err != nil {
-				return 0, nil, nil, err
+				return err
 			}
 		}
 		if pgrs.Stderr != nil {
 			if _, err := stdout.Write(pgrs.Stdout); err != nil {
-				return 0, nil, nil, err
+				return err
 			}
 		}
 		last = pgrs
 	}
-	return last.ExitCode, stdout.Bytes(), stderr.Bytes(), nil
+	if last.ExitCode != 0 {
+		return ExecError{ExitCode: last.ExitCode}
+	}
+	return nil
 }
-
