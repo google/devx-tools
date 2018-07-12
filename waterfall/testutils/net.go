@@ -4,8 +4,6 @@ package testutils
 import (
 	"errors"
 	"math/rand"
-	"net"
-	"os"
 	"sync"
 	"syscall"
 	"time"
@@ -63,27 +61,4 @@ func pickUnusedPort() (port int, err error) {
 	}
 
 	return 0, errNoFreePort
-}
-
-// OpenSocket opens the unix socket referes by socketName
-func OpenSocket(dir, socketName string) (net.Listener, error) {
-	wd, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
-
-	if err := os.Chdir(dir); err != nil {
-		return nil, err
-	}
-
-	os.Remove(socketName)
-	lis, err := net.Listen("unix", socketName)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := os.Chdir(wd); err != nil {
-		return nil, err
-	}
-	return lis, nil
 }

@@ -20,6 +20,7 @@ const (
 	qemuDriver = "/dev/qemu_pipe"
 	svcName    = "pipe:unix:sockets/h2o"
 	ioErrMsg   = "input/output error"
+	rdyMsg     = "rdy"
 )
 
 var errClosed = errors.New("error connection closed")
@@ -195,29 +196,6 @@ func (q *Conn) SetWriteDeadline(t time.Time) error {
 	return errNotImplemented
 }
 
-// MakeConn creates a net.Conn backed by a net.Listener.
-// When using qemu_pipe connections the host (client) is the
-// one responsible for opening the connection.
-func MakeConn(lis net.Listener) (net.Conn, error) {
-	conn, err := lis.Accept()
-	if err != nil {
-		return nil, err
-	}
-
-	// sync with the server
-	if _, err := conn.Write([]byte("rdy")); err != nil {
-		return nil, err
-	}
-
-	return &Conn{
-		conn:      conn,
-		addr:      qemuAddr(""),
-		readLock:  &sync.Mutex{},
-		writeLock: &sync.Mutex{},
-	}, nil
-
-}
-
 // Accept creates a new net.Conn backed by a qemu_pipe connetion
 func (q *Pipe) Accept() (net.Conn, error) {
 
@@ -307,4 +285,62 @@ func MakePipe() (*Pipe, error) {
 	}
 
 	return &Pipe{}, nil
+}
+
+// ConnBuildier implements a qemu connection builder. It wraps around listener
+// listening on a qemu pipe. It accepts connectsion and sync with the client
+// before returning
+type ConnBuilder struct {
+	lis net.Listener
+}
+
+// Close closes the underlying net.Listener
+func (b *ConnBuilder) Close() error {
+	return b.lis.Close()
+}
+
+// Next will connect to the guest and return the connection.
+func (b *ConnBuilder) Next() (net.Conn, error) {
+	for {
+		conn, err := b.lis.Accept()
+		if err != nil {
+			return nil, err
+		}
+
+		// sync with the server
+		rdy := []byte(rdyMsg)
+		if _, err := conn.Write(rdy); err != nil {
+			continue
+		}
+
+		return &Conn{
+			conn:      conn,
+			addr:      qemuAddr(""),
+			readLock:  &sync.Mutex{},
+			writeLock: &sync.Mutex{},
+		}, nil
+	}
+}
+
+func MakeConnBuilder(dir string) (*ConnBuilder, error) {
+	wd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := os.Chdir(dir); err != nil {
+		return nil, err
+	}
+
+	os.Remove(SocketName)
+	lis, err := net.Listen("unix", SocketName)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := os.Chdir(wd); err != nil {
+		return nil, err
+	}
+
+	return &ConnBuilder{lis: lis}, nil
 }

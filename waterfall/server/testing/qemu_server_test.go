@@ -192,19 +192,20 @@ func TestConnection(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	lis, err := testutils.OpenSocket(filepath.Join(emuDir, emuWorkingDir), qemu.SocketName)
+	cb, err := qemu.MakeConnBuilder(filepath.Join(emuDir, emuWorkingDir))
 	if err != nil {
-		t.Fatalf("error opening socket: %v", err)
+		t.Fatalf("error opening qemu connection: %v", err)
 	}
-	defer lis.Close()
+	defer cb.Close()
 
 	// Test a few parallel connections
 	eg, ctx := errgroup.WithContext(ctx)
 	for i := 0; i < 16; i++ {
 		eg.Go(func() error {
-			qconn, err := qemu.MakeConn(lis)
+
+			qconn, err := cb.Next()
 			if err != nil {
-				return err
+				t.Fatal(err)
 			}
 			defer qconn.Close()
 
@@ -264,13 +265,13 @@ func TestPushPull(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	lis, err := testutils.OpenSocket(filepath.Join(emuDir, emuWorkingDir), qemu.SocketName)
+	cb, err := qemu.MakeConnBuilder(filepath.Join(emuDir, emuWorkingDir))
 	if err != nil {
-		t.Fatalf("error opening socket: %v", err)
+		t.Fatalf("error opening qemu connection: %v", err)
 	}
-	defer lis.Close()
+	defer cb.Close()
 
-	qconn, err := qemu.MakeConn(lis)
+	qconn, err := cb.Next()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -358,13 +359,13 @@ func TestExec(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	lis, err := testutils.OpenSocket(filepath.Join(emuDir, emuWorkingDir), qemu.SocketName)
+	cb, err := qemu.MakeConnBuilder(filepath.Join(emuDir, emuWorkingDir))
 	if err != nil {
-		t.Fatalf("error opening socket: %v", err)
+		t.Fatalf("error opening qemu connection: %v", err)
 	}
-	defer lis.Close()
+	defer cb.Close()
 
-	qconn, err := qemu.MakeConn(lis)
+	qconn, err := cb.Next()
 	if err != nil {
 		t.Fatal(err)
 	}

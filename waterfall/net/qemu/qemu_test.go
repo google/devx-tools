@@ -120,13 +120,13 @@ func TestSingleConn(t *testing.T) {
 		t.Fatalf("error starting server: %v", err)
 	}
 
-	lis, err := testutils.OpenSocket(filepath.Join(emuDir, emuWorkingDir), SocketName)
+	cb, err := MakeConnBuilder(filepath.Join(emuDir, emuWorkingDir))
 	if err != nil {
-		t.Fatalf("error opening socket: %v", err)
+		t.Fatalf("error opening qemu connection: %v", err)
 	}
-	defer lis.Close()
+	defer cb.Close()
 
-	c, err := MakeConn(lis)
+	c, err := cb.Next()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -198,18 +198,18 @@ func TestMultipleConn(t *testing.T) {
 		t.Fatalf("error starting server: %v", err)
 	}
 
-	lis, err := testutils.OpenSocket(filepath.Join(emuDir, emuWorkingDir), SocketName)
+	cb, err := MakeConnBuilder(filepath.Join(emuDir, emuWorkingDir))
 	if err != nil {
-		t.Fatalf("error opening socket: %v", err)
+		t.Fatalf("error opening qemu connection: %v", err)
 	}
-	defer lis.Close()
+	defer cb.Close()
 
 	eg, _ := errgroup.WithContext(ctx)
 	for i := 0; i < conns; i++ {
 
 		// Lets avoid variable aliasing
 		func() {
-			c, err := MakeConn(lis)
+			c, err := cb.Next()
 			if err != nil {
 				t.Fatal(err)
 			}
