@@ -72,6 +72,19 @@ func (q *Conn) Read(b []byte) (int, error) {
 	q.readLock.Lock()
 	defer q.readLock.Unlock()
 
+	// Normally this could be done by just checking status != io.EOF, however
+	// a read on /dev/qemu-pipe associated with a closed connection will return
+	// EIO with the string "input/output error". Since errno isn't visible to us,
+	// we check the error message and ensure the target string is not present.
+	n, err := q.read(b)
+	if err != nil && strings.Contains(err.Error(), ioErrMsg) {
+		return n, io.EOF
+	}
+	return n, err
+
+}
+
+func (q *Conn) read(b []byte) (int, error) {
 	if q.closedReads {
 		return 0, errClosed
 	}
