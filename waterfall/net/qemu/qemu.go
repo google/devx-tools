@@ -2,6 +2,7 @@
 package qemu
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"io"
@@ -221,9 +222,15 @@ func (q *Pipe) Accept() (net.Conn, error) {
 	// 1) poll the qemu_pipe driver with the desiered socket name
 	// 2) wait until the client is read to send/recv, we do this waiting until we read a rdy message
 	var conn *os.File
+	var err error
 	br := false
-	for !br {
-		var err error
+	for {
+		if conn != nil {
+			// Got an error, close connection and try again
+			conn.Close()
+			time.Sleep(20 * time.Millisecond)
+		}
+
 		if conn, err = os.OpenFile(qemuDriver, os.O_RDWR, 0600); err != nil {
 			return nil, err
 		}
@@ -253,27 +260,31 @@ func (q *Pipe) Accept() (net.Conn, error) {
 		}
 
 		if br {
-
 			// Wait for the client to open a socket on the host
-			waitBuff := make([]byte, 3)
+			waitBuff := make([]byte, len(rdyMsg))
 			if _, err := io.ReadFull(conn, waitBuff); err != nil {
-				if strings.Contains(err.Error(), ioErrMsg) {
-					conn.Close()
-					time.Sleep(100 * time.Millisecond)
-					br = false
-				} else {
-					return nil, err
-				}
+				br = false
+				continue
 			}
+			if !bytes.Equal([]byte(rdyMsg), waitBuff) {
+				br = false
+				continue
+			}
+			if _, err := conn.Write(waitBuff); err != nil {
+				br = false
+				continue
+			}
+
+			return &Conn{
+				conn:      conn,
+				addr:      qemuAddr(""),
+				readLock:  &sync.Mutex{},
+				writeLock: &sync.Mutex{},
+			}, nil
+
 		}
 	}
 
-	return &Conn{
-		conn:      conn,
-		addr:      qemuAddr(""),
-		readLock:  &sync.Mutex{},
-		writeLock: &sync.Mutex{},
-	}, nil
 }
 
 // Close closes the connection
@@ -323,6 +334,12 @@ func (b *ConnBuilder) Next() (net.Conn, error) {
 		// sync with the server
 		rdy := []byte(rdyMsg)
 		if _, err := conn.Write(rdy); err != nil {
+			continue
+		}
+		if _, err := io.ReadFull(conn, rdy); err != nil {
+			continue
+		}
+		if !bytes.Equal([]byte(rdyMsg), rdy) {
 			continue
 		}
 
