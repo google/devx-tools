@@ -1,3 +1,4 @@
+// registry is a simple key-value store gRPC service
 package main
 
 import (

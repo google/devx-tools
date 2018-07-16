@@ -323,7 +323,7 @@ func (b *ConnBuilder) Close() error {
 	return b.lis.Close()
 }
 
-// Next will connect to the guest and return the connection.
+// ConnBuilder will connect to the guest and return the connection.
 func (b *ConnBuilder) Next() (net.Conn, error) {
 	for {
 		conn, err := b.lis.Accept()
@@ -352,6 +352,7 @@ func (b *ConnBuilder) Next() (net.Conn, error) {
 	}
 }
 
+// MakeConnBuilder creates a new ConnBuilder struct
 func MakeConnBuilder(dir string) (*ConnBuilder, error) {
 	wd, err := os.Getwd()
 	if err != nil {

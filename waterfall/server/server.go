@@ -196,11 +196,8 @@ func (s *WaterfallServer) Exec(cmdMsg *waterfall_grpc.Cmd, es waterfall_grpc.Wat
 	if err := cmd.Wait(); err != nil {
 		if exiterr, ok := err.(*exec.ExitError); ok {
 			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-				if err := es.Send(&waterfall_grpc.CmdProgress{
-					ExitCode: uint32(status.ExitStatus())}); err != nil {
-					return err
-				}
-				return nil
+				return es.Send(&waterfall_grpc.CmdProgress{
+					ExitCode: uint32(status.ExitStatus())})
 			}
 			// the server always runs on android so the type assertion will aways succeed
 			panic("this never happens")

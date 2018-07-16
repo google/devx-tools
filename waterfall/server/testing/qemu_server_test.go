@@ -89,10 +89,7 @@ func testBytes(size uint32) []byte {
 }
 
 func makeTestFile(path string, bits []byte) error {
-	if err := ioutil.WriteFile(path, bits, 0655); err != nil {
-		return err
-	}
-	return nil
+	return ioutil.WriteFile(path, bits, 0655)
 }
 
 func makeFs(baseDir string, tree fs) ([]string, error) {
