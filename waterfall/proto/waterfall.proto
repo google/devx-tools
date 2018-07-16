@@ -67,8 +67,9 @@ message Entry {
 
 message OpResult {
   enum Status {
-    SUCCESS = 0;
-    KEY_NOT_FOUND = 1;
+    UNSET = 0;
+    SUCCESS = 1;
+    KEY_NOT_FOUND = 2;
   }
   Status status = 1;
   Entry entry = 2;
