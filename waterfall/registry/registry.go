@@ -36,7 +36,7 @@ func (s *registryServer) Remove(ctx context.Context, e *waterfall_grpc.Entry) (*
 	return &waterfall_grpc.OpResult{Status: waterfall_grpc.OpResult_SUCCESS}, nil
 }
 
-func (s *registryServer) Get(ctx context.Context, e *waterfall_grpc.Entry) (*waterfall_grpc.Entry, error) {
+func (s *registryServer) Get(ctx context.Context, e *waterfall_grpc.Entry) (*waterfall_grpc.OpResult, error) {
 	val, ok := s.r[e.Key]
 	if !ok {
 		return &waterfall_grpc.OpResult{Status: waterfall_grpc.OpResult_KEY_NOT_FOUND}, nil
