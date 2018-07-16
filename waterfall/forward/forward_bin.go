@@ -4,12 +4,13 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/waterfall/net/qemu"
 	"io"
 	"log"
 	"net"
 	"strings"
 	"sync"
+
+	"github.com/waterfall/net/qemu"
 )
 
 const (
@@ -31,7 +32,7 @@ func init() {
 func parseAddr(addr string) (string, string, error) {
 	pts := strings.SplitN(addr, ":", 2)
 	if len(pts) < 2 {
-		return "", "", fmt.Errorf("failed to parse address %s.", addr)
+		return "", "", fmt.Errorf("failed to parse address %s", addr)
 	}
 	return pts[0], pts[1], nil
 }
