@@ -23,7 +23,7 @@ var (
 func main() {
 	flag.Parse()
 
-	log.Println("Starting kv store in port ...\n")
+	log.Println("Starting kv store in port ...")
 
 	var lis net.Listener
 	var err error
@@ -53,7 +53,7 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer()
-	waterfall_grpc.RegisterRegistryServer(grpcServer, registry.NewRegistryServerWithEntries(es))
+	waterfall_grpc.RegisterRegistryServer(grpcServer, registry.NewServerWithEntries(es))
 
 	log.Println("Serving ...")
 	grpcServer.Serve(lis)

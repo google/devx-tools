@@ -145,16 +145,17 @@ func Pull(ctx context.Context, client waterfall_grpc.WaterfallClient, src, dst s
 	return eg.Wait()
 }
 
-// ExecError contains the status code from the executed command
+// ExecError contains the status code from the executed command.
 type ExecError struct {
 	ExitCode uint32
 }
 
-// Error returns the string representation for an ExecError
+// Error returns the string representation for an ExecError.
 func (e ExecError) Error() string {
 	return fmt.Sprintf("non-zero exit code: %d", e.ExitCode)
 }
 
+// Exec executes the requested command on the device. Semantics are the same as execve.
 func Exec(ctx context.Context, client waterfall_grpc.WaterfallClient, stdout, stderr io.Writer, cmd string, args ...string) error {
 	xstream, err := client.Exec(ctx, &waterfall_grpc.Cmd{Path: cmd, Args: args})
 	if err != nil {

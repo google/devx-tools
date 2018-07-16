@@ -8,12 +8,13 @@ import (
 	waterfall_grpc "github.com/waterfall/proto/waterfall_go_grpc"
 )
 
-type RegistryServer struct {
+// Server exposes a kv store service.
+type Server struct {
 	r map[string]string
 }
 
-// Add adds a new device to the registry of devices
-func (s *RegistryServer) Add(ctx context.Context, e *waterfall_grpc.Entry) (*waterfall_grpc.OpResult, error) {
+// Add adds a new device to the registry of devices.
+func (s *Server) Add(ctx context.Context, e *waterfall_grpc.Entry) (*waterfall_grpc.OpResult, error) {
 	if e.Key == "" {
 		return nil, fmt.Errorf("entry key was not specified")
 	}
@@ -26,7 +27,8 @@ func (s *RegistryServer) Add(ctx context.Context, e *waterfall_grpc.Entry) (*wat
 	return &waterfall_grpc.OpResult{Status: waterfall_grpc.OpResult_SUCCESS}, nil
 }
 
-func (s *RegistryServer) Remove(ctx context.Context, e *waterfall_grpc.Entry) (*waterfall_grpc.OpResult, error) {
+// Remove removes the entry from the store.
+func (s *Server) Remove(ctx context.Context, e *waterfall_grpc.Entry) (*waterfall_grpc.OpResult, error) {
 	// Removing the empty string from the map will succeed, however this
 	// is most likely an error on the client side.
 	if e.Key == "" {
@@ -36,7 +38,8 @@ func (s *RegistryServer) Remove(ctx context.Context, e *waterfall_grpc.Entry) (*
 	return &waterfall_grpc.OpResult{Status: waterfall_grpc.OpResult_SUCCESS}, nil
 }
 
-func (s *RegistryServer) Get(ctx context.Context, e *waterfall_grpc.Entry) (*waterfall_grpc.OpResult, error) {
+// Get gets the requested key from the service.
+func (s *Server) Get(ctx context.Context, e *waterfall_grpc.Entry) (*waterfall_grpc.OpResult, error) {
 	val, ok := s.r[e.Key]
 	if !ok {
 		return &waterfall_grpc.OpResult{Status: waterfall_grpc.OpResult_KEY_NOT_FOUND}, nil
@@ -46,12 +49,12 @@ func (s *RegistryServer) Get(ctx context.Context, e *waterfall_grpc.Entry) (*wat
 		Entry: &waterfall_grpc.Entry{Key: e.Key, Val: val}}, nil
 }
 
-// NewRegistryServer creates a new empty RegistryServer
-func NewRegistryServer(ctx context.Context) *RegistryServer {
-	return NewRegistryServerWithEntries(make(map[string]string))
+// NewServer creates a new empty Server.
+func NewServer(ctx context.Context) *Server {
+	return NewServerWithEntries(make(map[string]string))
 }
 
-// NewRegistryServerWithEntries creates a new RegistryServer populated with entries
-func NewRegistryServerWithEntries(entries map[string]string) *RegistryServer {
-	return &RegistryServer{r: entries}
+// NewServerWithEntries creates a new Server populated with entries.
+func NewServerWithEntries(entries map[string]string) *Server {
+	return &Server{r: entries}
 }

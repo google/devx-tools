@@ -311,7 +311,7 @@ func MakePipe() (*Pipe, error) {
 	return &Pipe{}, nil
 }
 
-// ConnBuildier implements a qemu connection builder. It wraps around listener
+// ConnBuilder implements a qemu connection builder. It wraps around listener
 // listening on a qemu pipe. It accepts connectsion and sync with the client
 // before returning
 type ConnBuilder struct {
@@ -323,7 +323,7 @@ func (b *ConnBuilder) Close() error {
 	return b.lis.Close()
 }
 
-// ConnBuilder will connect to the guest and return the connection.
+// Next will connect to the guest and return the connection.
 func (b *ConnBuilder) Next() (net.Conn, error) {
 	for {
 		conn, err := b.lis.Accept()
