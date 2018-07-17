@@ -95,21 +95,20 @@ func (q *Conn) read(b []byte) (int, error) {
 		toRead = len(b)
 	}
 
-	// read leftovers from previous reads
-	ln := toRead
-	if q.left > 0 {
-		if n, err := io.ReadFull(q.conn, b[:toRead]); err != nil {
+	// read leftovers from previous reads before trying to read the size
+	if toRead > 0 {
+		n, err := io.ReadFull(q.conn, b[:toRead])
+		if err != nil {
 			return n, err
 		}
-		// If ReadFull finished without issues, exactly toRead bytes were read
-		q.left = q.left - toRead
+		q.left = q.left - n
 
-		if q.left > 0 || toRead == len(b) {
-			return toRead, nil
-		}
+		// b might be bigger than remaining bytes but conn might be empty and
+		// we dont want to block on size read, so return early.
+		return n, nil
 	}
 
-	var recd int32
+	var recd uint32
 	if err := binary.Read(q.conn, binary.LittleEndian, &recd); err != nil {
 		return 0, err
 	}
@@ -121,22 +120,20 @@ func (q *Conn) read(b []byte) (int, error) {
 			// No more to read or write, close the pipe
 			q.conn.Close()
 		}
-		return ln, io.EOF
+		return 0, io.EOF
 	}
 
-	sCap := len(b) - ln
 	toRead = int(recd)
-	if toRead > sCap {
-		toRead = sCap
+	if toRead > len(b) {
+		toRead = len(b)
 	}
-	b = b[ln : ln+toRead]
 
-	rn, err := io.ReadFull(q.conn, b)
+	n, err := io.ReadFull(q.conn, b[:toRead])
 	if err != nil {
-		return rn, err
+		return n, err
 	}
 	q.left = int(recd) - toRead
-	return ln + rn, nil
+	return n, nil
 }
 
 // Write writes the contents of b to the underlying connection
