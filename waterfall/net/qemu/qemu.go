@@ -39,11 +39,6 @@ func (a qemuAddr) String() string {
 	return svcName
 }
 
-// Pipe implements a net.Listener on top of a guest qemu pipe
-type Pipe struct {
-	closed bool
-}
-
 // Conn implements the net.Conn interface on top of a qemu_pipe
 type Conn struct {
 	// Backed by qemu_pipe
@@ -62,6 +57,9 @@ type Conn struct {
 	closedReads  bool
 	closedWrites bool
 
+	readsCloseChan  chan struct{}
+	writesCloseChan chan struct{}
+
 	readLock  *sync.Mutex
 	writeLock *sync.Mutex
 }
@@ -78,8 +76,11 @@ func (q *Conn) Read(b []byte) (int, error) {
 	// EIO with the string "input/output error". Since errno isn't visible to us,
 	// we check the error message and ensure the target string is not present.
 	n, err := q.read(b)
-	if err != nil && strings.Contains(err.Error(), ioErrMsg) {
-		return n, io.EOF
+	if err != nil {
+		go q.CloseRead()
+		if strings.Contains(err.Error(), ioErrMsg) {
+			return n, io.EOF
+		}
 	}
 	return n, err
 
@@ -115,11 +116,6 @@ func (q *Conn) read(b []byte) (int, error) {
 
 	// The other side has signaled an EOF. Close connection for reads, we might have leftover writes
 	if recd == 0 {
-		q.closedReads = true
-		if q.closedWrites {
-			// No more to read or write, close the pipe
-			q.conn.Close()
-		}
 		return 0, io.EOF
 	}
 
@@ -149,8 +145,40 @@ func (q *Conn) Write(b []byte) (int, error) {
 	if err := binary.Write(q.conn, binary.LittleEndian, uint32(len(b))); err != nil {
 		return 0, err
 	}
-	n, e := q.conn.Write(b)
-	return n, e
+	return q.conn.Write(b)
+}
+
+// Close closes the connection
+func (q *Conn) Close() error {
+	return q.CloseWrite()
+}
+
+// CloseRead closes the read side of the connection
+func (q *Conn) CloseRead() error {
+	q.readLock.Lock()
+	defer q.readLock.Unlock()
+
+	if q.closedReads {
+		return errClosed
+	}
+	q.closedReads = true
+	close(q.readsCloseChan)
+	return nil
+}
+
+// CloseWrite closes the write side of the connection
+func (q *Conn) CloseWrite() error {
+	q.writeLock.Lock()
+	defer q.writeLock.Unlock()
+
+	if q.closedWrites == true {
+		return errClosed
+	}
+	q.closedWrites = true
+
+	err := q.sendClose()
+	close(q.writesCloseChan)
+	return err
 }
 
 func (q *Conn) sendClose() error {
@@ -159,27 +187,6 @@ func (q *Conn) sendClose() error {
 	}
 	_, e := q.conn.Write([]byte{})
 	return e
-}
-
-// Close closes the connection
-func (q *Conn) Close() error {
-	q.writeLock.Lock()
-	defer q.writeLock.Unlock()
-
-	if q.closedWrites {
-		return errClosed
-	}
-	q.closedWrites = true
-	if err := q.sendClose(); err != nil {
-		return err
-	}
-	if q.closedReads {
-		// Nothing else to write or read, close the pipe
-		if err := q.conn.Close(); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // LocalAddr returns the qemu address
@@ -205,6 +212,94 @@ func (q *Conn) SetReadDeadline(t time.Time) error {
 // SetWriteDeadline sets the write deadline
 func (q *Conn) SetWriteDeadline(t time.Time) error {
 	return errNotImplemented
+}
+
+// closeConn waits for the read end and the write end of th connection
+// to be closed and then closes the underlying connection
+func (q *Conn) closeConn() {
+	// remember the ABC
+	<-q.readsCloseChan
+	<-q.writesCloseChan
+	q.conn.Close()
+}
+
+func makeConn(conn io.ReadWriteCloser) *Conn {
+	return &Conn{
+		conn:            conn,
+		addr:            qemuAddr(""),
+		readsCloseChan:  make(chan struct{}),
+		writesCloseChan: make(chan struct{}),
+		readLock:        &sync.Mutex{},
+		writeLock:       &sync.Mutex{},
+	}
+}
+
+// ConnBuilder implements a qemu connection builder. It wraps around listener
+// listening on a qemu pipe. It accepts connectsion and sync with the client
+// before returning
+type ConnBuilder struct {
+	lis net.Listener
+}
+
+// Close closes the underlying net.Listener
+func (b *ConnBuilder) Close() error {
+	return b.lis.Close()
+}
+
+// Next will connect to the guest and return the connection.
+func (b *ConnBuilder) Next() (net.Conn, error) {
+	for {
+		conn, err := b.lis.Accept()
+		if err != nil {
+			return nil, err
+		}
+
+		// sync with the server
+		rdy := []byte(rdyMsg)
+		if _, err := conn.Write(rdy); err != nil {
+			continue
+		}
+		if _, err := io.ReadFull(conn, rdy); err != nil {
+			continue
+		}
+		if !bytes.Equal([]byte(rdyMsg), rdy) {
+			continue
+		}
+
+		q := makeConn(conn)
+
+		go q.closeConn()
+		return q, nil
+	}
+}
+
+// MakeConnBuilder creates a new ConnBuilder struct
+func MakeConnBuilder(dir string) (*ConnBuilder, error) {
+	wd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := os.Chdir(dir); err != nil {
+		return nil, err
+	}
+
+	os.Remove(SocketName)
+	lis, err := net.Listen("unix", SocketName)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := os.Chdir(wd); err != nil {
+		return nil, err
+	}
+
+	return &ConnBuilder{lis: lis}, nil
+}
+
+// Pipe implements a net.Listener on top of a guest qemu pipe
+type Pipe struct {
+	closed bool
 }
 
 // Accept creates a new net.Conn backed by a qemu_pipe connetion
@@ -272,12 +367,10 @@ func (q *Pipe) Accept() (net.Conn, error) {
 				continue
 			}
 
-			return &Conn{
-				conn:      conn,
-				addr:      qemuAddr(""),
-				readLock:  &sync.Mutex{},
-				writeLock: &sync.Mutex{},
-			}, nil
+			q := makeConn(conn)
+
+			go q.closeConn()
+			return q, nil
 
 		}
 	}
@@ -306,69 +399,4 @@ func MakePipe() (*Pipe, error) {
 	}
 
 	return &Pipe{}, nil
-}
-
-// ConnBuilder implements a qemu connection builder. It wraps around listener
-// listening on a qemu pipe. It accepts connectsion and sync with the client
-// before returning
-type ConnBuilder struct {
-	lis net.Listener
-}
-
-// Close closes the underlying net.Listener
-func (b *ConnBuilder) Close() error {
-	return b.lis.Close()
-}
-
-// Next will connect to the guest and return the connection.
-func (b *ConnBuilder) Next() (net.Conn, error) {
-	for {
-		conn, err := b.lis.Accept()
-		if err != nil {
-			return nil, err
-		}
-
-		// sync with the server
-		rdy := []byte(rdyMsg)
-		if _, err := conn.Write(rdy); err != nil {
-			continue
-		}
-		if _, err := io.ReadFull(conn, rdy); err != nil {
-			continue
-		}
-		if !bytes.Equal([]byte(rdyMsg), rdy) {
-			continue
-		}
-
-		return &Conn{
-			conn:      conn,
-			addr:      qemuAddr(""),
-			readLock:  &sync.Mutex{},
-			writeLock: &sync.Mutex{},
-		}, nil
-	}
-}
-
-// MakeConnBuilder creates a new ConnBuilder struct
-func MakeConnBuilder(dir string) (*ConnBuilder, error) {
-	wd, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
-
-	if err := os.Chdir(dir); err != nil {
-		return nil, err
-	}
-
-	os.Remove(SocketName)
-	lis, err := net.Listen("unix", SocketName)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := os.Chdir(wd); err != nil {
-		return nil, err
-	}
-
-	return &ConnBuilder{lis: lis}, nil
 }

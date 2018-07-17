@@ -29,6 +29,22 @@ func init() {
 	flag.Parse()
 }
 
+type halfWCloser interface {
+	io.Writer
+	CloseWrite() error
+}
+
+type halfRCloser interface {
+	io.Reader
+	CloseRead() error
+}
+
+type rwCloser interface {
+	io.Closer
+	halfRCloser
+	halfWCloser
+}
+
 func parseAddr(addr string) (string, string, error) {
 	pts := strings.SplitN(addr, ":", 2)
 	if len(pts) < 2 {
@@ -50,8 +66,10 @@ func (d *dialBuilder) Next() (net.Conn, error) {
 	return net.Dial(d.netType, d.addr)
 }
 
-func asyncCopy(w io.Writer, r io.ReadCloser, wg *sync.WaitGroup, ch chan error) {
+func asyncCopy(w halfWCloser, r halfRCloser, wg *sync.WaitGroup, ch chan error) {
 	go func() {
+		defer r.CloseRead()
+		defer w.CloseWrite()
 		_, err := io.Copy(w, r)
 		if err != nil {
 			ch <- err
@@ -61,25 +79,24 @@ func asyncCopy(w io.Writer, r io.ReadCloser, wg *sync.WaitGroup, ch chan error) 
 	}()
 }
 
-func forward(x net.Conn, y net.Conn) {
+func forward(x rwCloser, y rwCloser) {
 	defer x.Close()
 	defer y.Close()
-
 	wg := &sync.WaitGroup{}
 
 	// wait for the outgoing and incoming copy goroutines
 	wg.Add(2)
 
-	doneCh := make(chan struct{}, 1)
-
 	// allow both the outgoing and incoming goroutine to send to the channel
 	errCh := make(chan error, 2)
+
 	asyncCopy(x, y, wg, errCh)
 	asyncCopy(y, x, wg, errCh)
 
+	doneCh := make(chan struct{})
 	go func() {
 		wg.Wait()
-		doneCh <- struct{}{}
+		close(doneCh)
 	}()
 
 	select {
@@ -115,7 +132,7 @@ func main() {
 	case qemuConn:
 		qb, err := qemu.MakeConnBuilder(ca)
 		if err != nil {
-			log.Fatalf("Got error creating qemu conn %v.", err)
+			log.Printf("Got error creating qemu conn %v.", err)
 		}
 		defer qb.Close()
 		b = qb
@@ -138,6 +155,6 @@ func main() {
 			log.Fatalf("Got error getting next conn: %v\n", err)
 		}
 		log.Println("Forwarding ...")
-		go forward(cx, cy)
+		go forward(cx.(rwCloser), cy.(rwCloser))
 	}
 }
