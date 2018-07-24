@@ -14,8 +14,8 @@ go_library(
     ],
     importpath = "github.com/waterfall/client",
     deps = [
+        "//waterfall",
         "//waterfall/net/qemu",
-        "//waterfall/stream",
         "//waterfall/proto:waterfall_go_grpc",
         "//waterfall/proto:waterfall_go_proto",
         "@org_golang_google_grpc//:go_default_library",

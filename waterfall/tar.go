@@ -1,5 +1,5 @@
-// Package stream provides functions to handle different stream formats
-package stream
+// Package waterfall provides provides functionality to control remote devices.
+package waterfall
 
 import (
 	"archive/tar"

@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 
 	waterfall_grpc "github.com/waterfall/proto/waterfall_go_grpc"
-	"github.com/waterfall/stream"
+	"github.com/waterfall"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -71,7 +71,7 @@ func Push(ctx context.Context, client waterfall_grpc.WaterfallClient, src, dst s
 	defer r.Close()
 	eg, ctx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
-		err := stream.Tar(w, src)
+		err := waterfall.Tar(w, src)
 		w.Close()
 		return err
 	})
@@ -121,7 +121,7 @@ func Pull(ctx context.Context, client waterfall_grpc.WaterfallClient, src, dst s
 	r, w := io.Pipe()
 	eg, ctx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
-		err := stream.Untar(r, dst)
+		err := waterfall.Untar(r, dst)
 		r.Close()
 		return err
 	})

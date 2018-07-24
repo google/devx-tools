@@ -9,7 +9,7 @@ import (
 	"syscall"
 
 	waterfall_grpc "github.com/waterfall/proto/waterfall_go_grpc"
-	"github.com/waterfall/stream"
+	"github.com/waterfall"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -53,7 +53,7 @@ func (s *WaterfallServer) Push(rpc waterfall_grpc.Waterfall_PushServer) error {
 	// the contents of the stream into the desired path
 	eg, _ := errgroup.WithContext(s.ctx)
 	eg.Go(func() error {
-		return stream.Untar(r, xfer.Path)
+		return waterfall.Untar(r, xfer.Path)
 	})
 
 	eg.Go(func() error {
@@ -92,7 +92,7 @@ func (s *WaterfallServer) Pull(t *waterfall_grpc.Transfer, ps waterfall_grpc.Wat
 	eg, _ := errgroup.WithContext(s.ctx)
 	eg.Go(func() error {
 		defer w.Close()
-		return stream.Tar(w, t.Path)
+		return waterfall.Tar(w, t.Path)
 	})
 
 	buff := make([]byte, bufSize)

@@ -21,8 +21,8 @@ export PATH="${PATH}:${HOME}/bin"
 
 cd "${ROOT_DIR}"
 
-# Test everyhing for now. Eventually will need to test only affected targets
-bazel test //waterfall/stream/... --test_output=streamed # --test_output=errors if this gets out of hand
+# Test non emulator tests for now. Eventually will need to run on KVM instaces.
+bazel test //waterfall:tar_test --test_output=streamed # --test_output=errors if this gets out of hand
 
 # TODO(mauriciogg): enable CI for this test. For now this needs to be ran
 # manually since we need to dowload the ANDROID sdk to make it work
