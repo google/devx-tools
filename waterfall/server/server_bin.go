@@ -14,6 +14,7 @@ import (
 )
 
 var mode = flag.String("mode", "qemu", "where to start the listener")
+var addr = flag.String("addr", "localhost:8088", "where to listen for connections")
 
 func main() {
 	flag.Parse()
@@ -30,6 +31,14 @@ func main() {
 		if err != nil {
 			log.Fatalf("failed to open qemu_pipe %v", err)
 		}
+	case "unix":
+		fallthrough
+	case "tcp":
+		lis, err = net.Listen(*mode, *addr)
+		if err != nil {
+			log.Fatalf("Failed to listen %v", err)
+		}
+
 	default:
 		log.Fatalf("Unsupported mode %s", *mode)
 	}

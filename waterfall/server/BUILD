@@ -6,6 +6,7 @@ load(
     "go_library",
 )
 package(default_visibility = ["//visibility:public"])
+
 go_library(
     name = "server",
     srcs = ["server.go"],
@@ -18,19 +19,55 @@ go_library(
         "@org_golang_x_sync//errgroup:go_default_library",
     ],
 )
+
+DEPS = [
+    ":server",
+    "//waterfall/net/qemu",
+    "//waterfall/proto:waterfall_go_grpc",
+    "//waterfall/proto:waterfall_go_proto",
+    "@org_golang_google_grpc//:go_default_library",
+]
+
 go_binary(
-    name = "server_bin",
+    name = "server_bin_386",
     srcs = ["server_bin.go"],
     # Attributes for an emulator binary
     goarch = "386",
     goos = "linux",
     pure = "on",
     static = "on",
-    deps = [
-        ":server",
-        "//waterfall/proto:waterfall_go_grpc",
-        "//waterfall/proto:waterfall_go_proto",
-        "//waterfall/net/qemu",
-        "@org_golang_google_grpc//:go_default_library",
-    ],
+    deps = DEPS,
+)
+
+go_binary(
+    name = "server_bin_amd64",
+    srcs = ["server_bin.go"],
+    # Attributes for an emulator binary
+    goarch = "amd64",
+    goos = "linux",
+    pure = "on",
+    static = "on",
+    deps = DEPS,
+)
+
+go_binary(
+    name = "server_bin_arm",
+    srcs = ["server_bin.go"],
+    # Attributes for a physical device
+    goarch = "arm",
+    goos = "linux",
+    pure = "on",
+    static = "on",
+    deps = DEPS,
+)
+
+go_binary(
+    name = "server_bin_arm64",
+    srcs = ["server_bin.go"],
+    # Attributes for a physical device
+    goarch = "arm64",
+    goos = "linux",
+    pure = "on",
+    static = "on",
+    deps = DEPS,
 )
