@@ -295,7 +295,7 @@ func TestPushPull(t *testing.T) {
 	}
 
 	k := waterfall_grpc.NewWaterfallClient(conn)
-	deviceDir := "/data/local/tmp/pushpulltest"
+	deviceDir := "/data/local/tmp/zoo"
 	if err := client.Push(ctx, k, filepath.Join(td, testDir.path), deviceDir); err != nil {
 		t.Fatalf("failed push: %v", err)
 	}
@@ -305,7 +305,7 @@ func TestPushPull(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := client.Pull(ctx, k, filepath.Join(deviceDir, testDir.path), pd); err != nil {
+	if err := client.Pull(ctx, k, deviceDir, pd); err != nil {
 		t.Fatalf("failed pull: %v", err)
 	}
 
