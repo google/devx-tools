@@ -40,7 +40,7 @@ func isFree(port int) bool {
 	return true
 }
 
-func pickUnusedPort() (port int, err error) {
+func PickUnusedPort() (port int, err error) {
 	// Start with random port in range [32768, 65536]
 	rng.Lock()
 	port = minPort + rng.Intn(maxPort-minPort+1)

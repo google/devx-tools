@@ -61,19 +61,19 @@ func ExecOnDevice(ctx context.Context, adbTurbo, device, cmd string, args []stri
 
 // GetAdbPorts picks unused ports for the adb_port, adb_server_port and emulator_port.
 func GetAdbPorts() (string, string, string, error) {
-	p, err := pickUnusedPort()
+	p, err := PickUnusedPort()
 	if err != nil {
 		return "", "", "", err
 	}
 	adbServerPort := strconv.Itoa(p)
 
-	p, err = pickUnusedPort()
+	p, err = PickUnusedPort()
 	if err != nil {
 		return "", "", "", err
 	}
 	adbPort := strconv.Itoa(p)
 
-	p, err = pickUnusedPort()
+	p, err = PickUnusedPort()
 	if err != nil {
 		return "", "", "", err
 	}

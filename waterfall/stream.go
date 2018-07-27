@@ -1,6 +1,14 @@
 package waterfall
 
-import "io"
+import (
+	"errors"
+	"io"
+)
+
+var (
+	errClosedRead  = errors.New("closed for reading")
+	errClosedWrite = errors.New("closed for writing")
+)
 
 // Stream defines an interface to send and receive messages.
 type Stream interface {
@@ -19,8 +27,8 @@ type StreamMessage interface {
 // StreamReadWriteCloser wraps arbitrary grpc streams around a ReadWriteCloser implementation.
 // Users create a new StreamReadWriteCloser by calling NewReadWriteCloser passing a base stream.
 // The stream needs to implement RecvMsg and SendMsg (i.e. ClientStream and ServerStream types),
-// And a function to set the bytes in the stream message type, get the bytes from the message and close the stream.
-// Note that the reader follows the same semantics as <Server|Client>Stream. It is ok to have concurrent writes
+// And a function to set bytes in the stream message type, get bytes from the message and close the stream.
+// NOTE: The reader follows the same semantics as <Server|Client>Stream. It is ok to have concurrent writes
 // and reads, but it's not ok to have multiple concurrent reads or multiple concurrent writes.
 type StreamReadWriteCloser struct {
 	io.ReadWriter
@@ -30,6 +38,9 @@ type StreamReadWriteCloser struct {
 	lastRead []byte
 	msgChan  chan []byte
 	errChan  chan error
+
+	cr bool
+	cw bool
 }
 
 // NewReadWriter returns an initialized StreamReadWriteCloser
@@ -68,6 +79,10 @@ func (s *StreamReadWriteCloser) startReads() {
 
 // Read reads from the underlying stream handling cases where the amount read > len(b).
 func (s *StreamReadWriteCloser) Read(b []byte) (int, error) {
+	if s.cr {
+		return 0, errClosedRead
+	}
+
 	if len(s.lastRead) > 0 {
 		// we have leftover bytes from last read
 		n := copy(b, s.lastRead)
@@ -75,19 +90,37 @@ func (s *StreamReadWriteCloser) Read(b []byte) (int, error) {
 		return n, nil
 	}
 
-	rb, ok := <-s.msgChan
-	if !ok {
-		err := <-s.errChan
-		return 0, err
+	// Try to drain the msg channel before returning in order to fulfill the requested slice.
+	nt := 0
+	for {
+		select {
+		case rb, ok := <-s.msgChan:
+			if !ok {
+				if nt == 0 {
+					// The channel was closed and nothing was read
+					return 0, <-s.errChan
+				}
+				// Return what we read and return the error on the next read
+				return nt, nil
+			}
+			n := copy(b[nt:], rb)
+			nt += n
+			s.lastRead = rb[n:]
+			if nt == len(b) {
+				return nt, nil
+			}
+		default:
+			return nt, nil
+		}
 	}
-	n := copy(b, rb)
-	// Keep track of any overflow bytes we didn't read
-	s.lastRead = rb[n:]
-	return n, nil
 }
 
 // Write writes b to the underlying stream
 func (s *StreamReadWriteCloser) Write(b []byte) (int, error) {
+	if s.cw {
+		return 0, errClosedWrite
+	}
+
 	msg := s.BuildMsg()
 	s.SetBytes(msg, b)
 	if err := s.Stream.SendMsg(msg); err != nil {
@@ -96,11 +129,22 @@ func (s *StreamReadWriteCloser) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
-// Close indicates the other side of the stream that we are closing the connection.
+// Close closes the the stream
 func (s *StreamReadWriteCloser) Close() error {
-	msg := s.CloseMsg()
-	if err := s.Stream.SendMsg(msg); err != nil {
-		return err
-	}
+	s.cr = true
+	s.cw = true
+	s.CloseRead()
+	return s.CloseWrite()
+}
+
+// CloseRead closes the read side of the stream.
+func (s *StreamReadWriteCloser) CloseRead() error {
+	s.cr = true
 	return nil
+}
+
+// CloseWrite closes the write side of the stream and signals the other side.
+func (s *StreamReadWriteCloser) CloseWrite() error {
+	s.cw = true
+	return s.Stream.SendMsg(s.CloseMsg())
 }

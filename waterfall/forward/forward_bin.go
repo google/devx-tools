@@ -4,12 +4,11 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"strings"
-	"sync"
 
+	"github.com/waterfall/forward"
 	"github.com/waterfall/net/qemu"
 )
 
@@ -27,22 +26,6 @@ var (
 
 func init() {
 	flag.Parse()
-}
-
-type halfWCloser interface {
-	io.Writer
-	CloseWrite() error
-}
-
-type halfRCloser interface {
-	io.Reader
-	CloseRead() error
-}
-
-type rwCloser interface {
-	io.Closer
-	halfRCloser
-	halfWCloser
 }
 
 func parseAddr(addr string) (string, string, error) {
@@ -64,45 +47,6 @@ type dialBuilder struct {
 
 func (d *dialBuilder) Next() (net.Conn, error) {
 	return net.Dial(d.netType, d.addr)
-}
-
-func asyncCopy(w halfWCloser, r halfRCloser, wg *sync.WaitGroup, ch chan error) {
-	go func() {
-		defer r.CloseRead()
-		defer w.CloseWrite()
-		_, err := io.Copy(w, r)
-		if err != nil {
-			ch <- err
-			return
-		}
-		wg.Done()
-	}()
-}
-
-func forward(x rwCloser, y rwCloser) {
-	defer x.Close()
-	defer y.Close()
-	wg := &sync.WaitGroup{}
-
-	// wait for the outgoing and incoming copy goroutines
-	wg.Add(2)
-
-	// allow both the outgoing and incoming goroutine to send to the channel
-	errCh := make(chan error, 2)
-
-	asyncCopy(x, y, wg, errCh)
-	asyncCopy(y, x, wg, errCh)
-
-	doneCh := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(doneCh)
-	}()
-
-	select {
-	case <-doneCh:
-	case <-errCh: // just ignore, there's not much we can do.
-	}
 }
 
 func main() {
@@ -155,6 +99,6 @@ func main() {
 			log.Fatalf("Got error getting next conn: %v\n", err)
 		}
 		log.Println("Forwarding ...")
-		go forward(cx.(rwCloser), cy.(rwCloser))
+		go forward.Forward(cx.(forward.HalfReadWriteCloser), cy.(forward.HalfReadWriteCloser))
 	}
 }

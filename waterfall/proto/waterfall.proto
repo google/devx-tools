@@ -46,6 +46,30 @@ message CmdProgress {
   bytes stderr = 3;
 }
 
+message ForwardMessage {
+  enum Kind {
+    UNSET = 0;
+    TCP = 1;
+    UDP = 2;
+    UNIX = 3;
+  }
+
+  enum Op {
+    OPEN = 0;
+    FWD = 1;
+    CLOSE = 2;
+  }
+
+  // Kind of connection to start (tcp|udp|unix)
+  Kind kind = 1;
+  Op op = 2;
+
+  // Address to open and redirect payload to.
+  string addr = 3;
+  // Data to be pushed to connection established on addr.
+  bytes payload = 4;
+}
+
 service Waterfall {
   // Echo exists solely for test purposes.
   rpc Echo(stream Message) returns (stream Message);
