@@ -4,13 +4,17 @@ package server
 import (
 	"context"
 	"io"
+	"net"
 	"os"
 	"os/exec"
 	"syscall"
 
-	waterfall_grpc "github.com/waterfall/proto/waterfall_go_grpc"
 	"github.com/waterfall"
+	"github.com/waterfall/forward"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	waterfall_grpc "github.com/waterfall/proto/waterfall_go_grpc"
 )
 
 const bufSize = 32 * 1024
@@ -206,6 +210,32 @@ func (s *WaterfallServer) Exec(cmdMsg *waterfall_grpc.Cmd, es waterfall_grpc.Wat
 		return err
 	}
 	return es.Send(&waterfall_grpc.CmdProgress{ExitCode: 0})
+}
+
+func (s *WaterfallServer) Forward(stream waterfall_grpc.Waterfall_ForwardServer) error {
+	fwd, err := stream.Recv()
+	if err != nil {
+		return err
+	}
+
+	var kind string
+	switch fwd.Kind {
+	case waterfall_grpc.ForwardMessage_TCP:
+		kind = "tcp"
+	case waterfall_grpc.ForwardMessage_UDP:
+		kind = "udp"
+	case waterfall_grpc.ForwardMessage_UNIX:
+		kind = "unix"
+	default:
+		return status.Error(codes.InvalidArgument, "unsupported network type")
+	}
+
+	conn, err := net.Dial(kind, fwd.Addr)
+	if err != nil {
+		return err
+	}
+	sf := forward.NewStreamForwarder(stream, conn.(forward.HalfReadWriteCloser))
+	return sf.Forward()
 }
 
 // NewWaterfallServer returns a gRPC server that implements the waterfall service

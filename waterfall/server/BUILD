@@ -13,9 +13,12 @@ go_library(
     importpath = "github.com/waterfall/server",
     deps = [
         "//waterfall",
+        "//waterfall/forward",
         "//waterfall/proto:waterfall_go_grpc",
         "//waterfall/proto:waterfall_go_proto",
         "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//codes:go_default_library",
+        "@org_golang_google_grpc//status:go_default_library",
         "@org_golang_x_sync//errgroup:go_default_library",
     ],
 )

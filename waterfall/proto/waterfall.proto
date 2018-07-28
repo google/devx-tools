@@ -82,6 +82,9 @@ service Waterfall {
 
   // Execute cmd in the device and foward stdout and stderr to client
   rpc Exec(Cmd) returns (stream CmdProgress);
+
+  // Forward forwards the stream payload to the requested socket
+  rpc Forward(stream ForwardMessage) returns (stream ForwardMessage);
 }
 
 message Entry {
