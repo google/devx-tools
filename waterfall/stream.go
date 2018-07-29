@@ -43,7 +43,7 @@ type StreamReadWriteCloser struct {
 	cw bool
 }
 
-// NewReadWriter returns an initialized StreamReadWriteCloser
+// NewReadWriteCloser returns an initialized StreamReadWriteCloser
 func NewReadWriteCloser(stream Stream, sm StreamMessage) *StreamReadWriteCloser {
 	rw := &StreamReadWriteCloser{
 		Stream:        stream,

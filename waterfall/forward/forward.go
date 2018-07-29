@@ -1,4 +1,4 @@
-// package forward provides functions to forward connections.
+// Package forward provides functions to forward connections.
 package forward
 
 import (

@@ -212,6 +212,7 @@ func (s *WaterfallServer) Exec(cmdMsg *waterfall_grpc.Cmd, es waterfall_grpc.Wat
 	return es.Send(&waterfall_grpc.CmdProgress{ExitCode: 0})
 }
 
+// Forward forwards the grpc stream to the requested port.
 func (s *WaterfallServer) Forward(stream waterfall_grpc.Waterfall_ForwardServer) error {
 	fwd, err := stream.Recv()
 	if err != nil {

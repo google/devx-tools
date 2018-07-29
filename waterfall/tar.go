@@ -136,7 +136,7 @@ func Tar(writer io.Writer, src string) error {
 			t, err := filepath.EvalSymlinks(file)
 			if err != nil {
 				// Don't include broken symlinks
-				log.Printf("Skipping broken link %s -> %s\n", file)
+				log.Printf("Skipping broken link %s\n", file)
 				return nil
 			}
 

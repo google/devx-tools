@@ -40,6 +40,9 @@ func isFree(port int) bool {
 	return true
 }
 
+// PickUnusedPort returns the first unused port that it finds.
+// Note that this function has an inherent race condition.
+// Callers should bind to the port as soon as possible.
 func PickUnusedPort() (port int, err error) {
 	// Start with random port in range [32768, 65536]
 	rng.Lock()
