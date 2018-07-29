@@ -29,6 +29,7 @@ go_library(
     deps = [
         "//waterfall",
         "//waterfall/proto:waterfall_go_grpc",
+        "//waterfall/proto:waterfall_go_proto",
     ],
     importpath = "github.com/waterfall/forward",
 )
@@ -43,6 +44,7 @@ go_test(
     deps = [
         "//waterfall",
         "//waterfall/proto:waterfall_go_grpc",
+        "//waterfall/proto:waterfall_go_proto",
     ],
     importpath = "github.com/waterfall/forward",
 )
