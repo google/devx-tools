@@ -30,6 +30,7 @@ var (
 )
 
 const emuWorkingDir = "images/session"
+const socketName = "sockets/h2o"
 
 func runfilesRoot(path string) string {
 	sep := "qemu_test.runfiles/__main__"
@@ -120,7 +121,7 @@ func TestSingleConn(t *testing.T) {
 		t.Fatalf("error starting server: %v", err)
 	}
 
-	cb, err := MakeConnBuilder(filepath.Join(emuDir, emuWorkingDir))
+	cb, err := MakeConnBuilder(filepath.Join(emuDir, emuWorkingDir), socketName)
 	if err != nil {
 		t.Fatalf("error opening qemu connection: %v", err)
 	}
@@ -198,7 +199,7 @@ func TestMultipleConn(t *testing.T) {
 		t.Fatalf("error starting server: %v", err)
 	}
 
-	cb, err := MakeConnBuilder(filepath.Join(emuDir, emuWorkingDir))
+	cb, err := MakeConnBuilder(filepath.Join(emuDir, emuWorkingDir), socketName)
 	if err != nil {
 		t.Fatalf("error opening qemu connection: %v", err)
 	}

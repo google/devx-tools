@@ -14,6 +14,7 @@ import (
 )
 
 var mode = flag.String("mode", "qemu", "where to start the listener")
+var qemuSocket = flag.String("qemu_socket", "sockets/h2o", "The socket name in the host")
 var addr = flag.String("addr", "localhost:8088", "where to listen for connections")
 
 func main() {

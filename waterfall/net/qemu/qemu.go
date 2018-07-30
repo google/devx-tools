@@ -15,9 +15,6 @@ import (
 )
 
 const (
-	// SocketName value passed to the emulator at startup time and can't change.
-	SocketName = "sockets/h2o"
-
 	qemuDriver = "/dev/qemu_pipe"
 	svcName    = "pipe:unix:sockets/h2o"
 	ioErrMsg   = "input/output error"
@@ -274,18 +271,20 @@ func (b *ConnBuilder) Next() (net.Conn, error) {
 }
 
 // MakeConnBuilder creates a new ConnBuilder struct
-func MakeConnBuilder(dir string) (*ConnBuilder, error) {
+func MakeConnBuilder(emuDir, socket string) (*ConnBuilder, error) {
 	wd, err := os.Getwd()
 	if err != nil {
 		return nil, err
 	}
 
-	if err := os.Chdir(dir); err != nil {
+	if err := os.Chdir(emuDir); err != nil {
 		return nil, err
 	}
 
-	os.Remove(SocketName)
-	lis, err := net.Listen("unix", SocketName)
+	if err := os.Remove(socket); err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
+	lis, err := net.Listen("unix", socket)
 	if err != nil {
 		return nil, err
 	}

@@ -59,6 +59,7 @@ type fs struct {
 }
 
 const emuWorkingDir = "images/session"
+const socketName = "sockets/h2o"
 
 func init() {
 	flag.Parse()
@@ -189,7 +190,7 @@ func TestConnection(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cb, err := qemu.MakeConnBuilder(filepath.Join(emuDir, emuWorkingDir))
+	cb, err := qemu.MakeConnBuilder(filepath.Join(emuDir, emuWorkingDir), socketName)
 	if err != nil {
 		t.Fatalf("error opening qemu connection: %v", err)
 	}
@@ -262,7 +263,7 @@ func TestPushPull(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cb, err := qemu.MakeConnBuilder(filepath.Join(emuDir, emuWorkingDir))
+	cb, err := qemu.MakeConnBuilder(filepath.Join(emuDir, emuWorkingDir), socketName)
 	if err != nil {
 		t.Fatalf("error opening qemu connection: %v", err)
 	}
@@ -356,7 +357,7 @@ func TestExec(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cb, err := qemu.MakeConnBuilder(filepath.Join(emuDir, emuWorkingDir))
+	cb, err := qemu.MakeConnBuilder(filepath.Join(emuDir, emuWorkingDir), socketName)
 	if err != nil {
 		t.Fatalf("error opening qemu connection: %v", err)
 	}
