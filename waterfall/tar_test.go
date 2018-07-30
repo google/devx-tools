@@ -18,7 +18,7 @@ const (
 )
 
 var (
-	contents = testBytes()
+	contents = makeTestBytes()
 
 	rootVar = "$ROOT"
 
@@ -69,12 +69,11 @@ func makeFs(baseDir string, tree fs) ([]string, error) {
 		}
 	}
 
-	bits := testBytes()
 	for _, f := range tree.files {
 		seen = append(seen, filepath.Join(tree.path, f.name))
 		switch f.kind {
 		case kindFile:
-			if err := ioutil.WriteFile(filepath.Join(dirPath, f.name), bits, 0655); err != nil {
+			if err := ioutil.WriteFile(filepath.Join(dirPath, f.name), contents, 0655); err != nil {
 				return nil, err
 			}
 		case kindSymlink:
@@ -98,7 +97,7 @@ func makeFs(baseDir string, tree fs) ([]string, error) {
 	return seen, nil
 }
 
-func testBytes() []byte {
+func makeTestBytes() []byte {
 	// Just create a sequential byte stream to avoid having to create test files
 	b := make([]byte, 1024)
 	bb := bytes.NewBuffer(b)
