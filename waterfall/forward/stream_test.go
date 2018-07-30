@@ -43,8 +43,8 @@ func runEcho(lis net.Listener) error {
 	return err
 }
 
-// TestForward forwards bytes from a stream to an echo server and verifies bytes xfer == bytes received
-func TestForward(t *testing.T) {
+// TestStreamForward forwards bytes from a stream to an echo server and verifies bytes xfer == bytes received
+func TestStreamForward(t *testing.T) {
 	lis, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		t.Fatal(err)
