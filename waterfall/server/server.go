@@ -50,17 +50,17 @@ func (s *WaterfallServer) Push(rpc waterfall_grpc.Waterfall_PushServer) error {
 	}
 
 	r, w := io.Pipe()
-	defer r.Close()
-	defer w.Close()
 
 	// Connect the gRPC stream with a reader that untars
 	// the contents of the stream into the desired path
 	eg, _ := errgroup.WithContext(s.ctx)
 	eg.Go(func() error {
+		defer r.Close()
 		return waterfall.Untar(r, xfer.Path)
 	})
 
 	eg.Go(func() error {
+		defer w.Close()
 		for {
 			if err == io.EOF {
 				return rpc.SendAndClose(
@@ -88,8 +88,6 @@ func (s *WaterfallServer) Pull(t *waterfall_grpc.Transfer, ps waterfall_grpc.Wat
 	}
 
 	r, w := io.Pipe()
-	defer r.Close()
-	defer w.Close()
 
 	// Connect a writer that traverses a the filesystem
 	// tars the contents to the gRPC stream
