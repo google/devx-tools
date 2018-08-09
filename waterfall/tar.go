@@ -9,9 +9,18 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 )
 
-var modeDir os.FileMode = 0755
+var (
+	modeDir os.FileMode = 0755
+	umask os.FileMode
+)
+
+func init() {
+	umask = os.FileMode(syscall.Umask(0))
+	syscall.Umask(int(umask))
+}
 
 // Untar untars the contents of a reader into dst
 func Untar(r io.Reader, dst string) error {
@@ -81,16 +90,15 @@ func Untar(r io.Reader, dst string) error {
 			fallthrough
 		case tar.TypeReg:
 			os.RemoveAll(name)
-			f, err := os.OpenFile(name, os.O_CREATE|os.O_RDWR, os.FileMode(hdr.Mode))
+			f, err := os.OpenFile(name, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0644 & ^umask)
 			if err != nil {
 				return err
 			}
 			// Close file ASAP to avoid too many open files
-			_, err = io.Copy(f, tr)
-			if err := f.Close(); err != nil {
+			if _, err = io.Copy(f, tr); err != nil {
 				return err
 			}
-			if err != nil {
+			if err := f.Close(); err != nil {
 				return err
 			}
 		case tar.TypeDir:
@@ -143,9 +151,9 @@ func Tar(writer io.Writer, src string) error {
 			// ok to ignore error file always lives inside src
 			sr, _ := filepath.Rel(src, file)
 			name := filepath.Join(filepath.Base(src), sr)
-			if rel, err := filepath.Rel(src, t); err == nil {
+			if strings.HasPrefix(t, src) {
 				// Pointee lives under same root as pointer, so write the symlink.
-				if hdr, err = tar.FileInfoHeader(fi, rel); err != nil {
+				if hdr, err = tar.FileInfoHeader(fi, t); err != nil {
 					return err
 				}
 				hdr.Name = name
