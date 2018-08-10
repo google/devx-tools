@@ -14,7 +14,7 @@ import (
 
 var (
 	modeDir os.FileMode = 0755
-	umask os.FileMode
+	umask   os.FileMode
 )
 
 func init() {
