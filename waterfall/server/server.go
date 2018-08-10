@@ -9,12 +9,13 @@ import (
 	"os/exec"
 	"syscall"
 
+	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/waterfall"
 	"github.com/waterfall/forward"
+	waterfall_grpc "github.com/waterfall/proto/waterfall_go_grpc"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	waterfall_grpc "github.com/waterfall/proto/waterfall_go_grpc"
 )
 
 const bufSize = 32 * 1024
@@ -152,11 +153,24 @@ func (ew *execWriter) Write(b []byte) (int, error) {
 }
 
 // Exec forks a new process with the desired command and pipes its output to the gRPC stream
-func (s *WaterfallServer) Exec(cmdMsg *waterfall_grpc.Cmd, es waterfall_grpc.Waterfall_ExecServer) error {
+func (s *WaterfallServer) Exec(es waterfall_grpc.Waterfall_ExecServer) error {
+
+	// The first message contains the actual command to execute.
+	// Implmented as a streaming method in order to support stdin redirection in the future.
+	cmdMsg, err := es.Recv()
+	if err != nil {
+		return err
+	}
+
+	if cmdMsg.Cmd.PipeIn {
+		// stdin redirection is not implemented. Field exists to avoid future incompatibilities.
+		return status.Error(codes.Unimplemented, "stdin redirection is not implemented")
+	}
+
 	// Avoid doing any sort of input check, e.g. check that the path exists
 	// this way we can forward the exact shell output and exit code.
-	cmd := exec.CommandContext(s.ctx, cmdMsg.Path, cmdMsg.Args...)
-	cmd.Dir = cmdMsg.Dir
+	cmd := exec.CommandContext(s.ctx, cmdMsg.Cmd.Path, cmdMsg.Cmd.Args...)
+	cmd.Dir = cmdMsg.Cmd.Dir
 	if cmd.Dir == "" {
 		cmd.Dir = "/"
 	}
@@ -197,9 +211,9 @@ func (s *WaterfallServer) Exec(cmdMsg *waterfall_grpc.Cmd, es waterfall_grpc.Wat
 
 	if err := cmd.Wait(); err != nil {
 		if exiterr, ok := err.(*exec.ExitError); ok {
-			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
+			if stat, ok := exiterr.Sys().(syscall.WaitStatus); ok {
 				return es.Send(&waterfall_grpc.CmdProgress{
-					ExitCode: uint32(status.ExitStatus())})
+					ExitCode: uint32(stat.ExitStatus())})
 			}
 			// the server always runs on android so the type assertion will aways succeed
 			panic("this never happens")
@@ -235,6 +249,11 @@ func (s *WaterfallServer) Forward(stream waterfall_grpc.Waterfall_ForwardServer)
 	}
 	sf := forward.NewStreamForwarder(stream, conn.(forward.HalfReadWriteCloser))
 	return sf.Forward()
+}
+
+// Version returns the version of the server.
+func (s *WaterfallServer) Version(context.Context, *empty.Empty) (*waterfall_grpc.VersionMessage, error) {
+	return &waterfall_grpc.VersionMessage{Version: "0.0"}, nil
 }
 
 // NewWaterfallServer returns a gRPC server that implements the waterfall service

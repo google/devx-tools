@@ -9,8 +9,8 @@ import (
 	"os"
 	"path/filepath"
 
-	waterfall_grpc "github.com/waterfall/proto/waterfall_go_grpc"
 	"github.com/waterfall"
+	waterfall_grpc "github.com/waterfall/proto/waterfall_go_grpc"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -157,8 +157,14 @@ func (e ExecError) Error() string {
 
 // Exec executes the requested command on the device. Semantics are the same as execve.
 func Exec(ctx context.Context, client waterfall_grpc.WaterfallClient, stdout, stderr io.Writer, cmd string, args ...string) error {
-	xstream, err := client.Exec(ctx, &waterfall_grpc.Cmd{Path: cmd, Args: args})
+	xstream, err := client.Exec(ctx)
 	if err != nil {
+		return err
+	}
+
+	// send the command at the head of the stream. After that the server will ignore subsequent messages.
+	if err := xstream.Send(
+		&waterfall_grpc.CmdProgress{Cmd: &waterfall_grpc.Cmd{Path: cmd, Args: args}}); err != nil {
 		return err
 	}
 

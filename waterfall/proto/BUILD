@@ -10,6 +10,7 @@ package(default_visibility = ["//visibility:public"])
 proto_library(
     name = "waterfall_proto",
     srcs = ["waterfall.proto"],
+    deps = ["@com_google_protobuf//:empty_proto"]
 )
 
 go_proto_library(

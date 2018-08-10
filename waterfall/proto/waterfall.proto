@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package waterfall;
 
+import "google/protobuf/empty.proto";
+
 message Message {
   bytes payload = 1;
 }
@@ -34,9 +36,20 @@ message Cmd {
 
   // Directory to execute the command
   string dir = 3;
+
+  // Whether to pipe stdin to the command
+  bool pipeIn = 4;
+
+  // Enviroment to use
+  map<string, string> env = 5;
+
 }
 
 message CmdProgress {
+
+  // Command to execute. Only valid for the initial message of the stream.
+  Cmd cmd = 5;
+
   // the exit code of the command.
   // Only populated when the gRPC stream is done.
   // I.e. the last message before the EOF.
@@ -44,6 +57,7 @@ message CmdProgress {
 
   bytes stdout = 2;
   bytes stderr = 3;
+  bytes stdin = 4;
 }
 
 message ForwardMessage {
@@ -68,6 +82,12 @@ message ForwardMessage {
   string addr = 3;
   // Data to be pushed to connection established on addr.
   bytes payload = 4;
+  // Wheter or not to rebind the port
+  bool rebind = 5;
+}
+
+message VersionMessage {
+  string version = 1;
 }
 
 service Waterfall {
@@ -80,11 +100,16 @@ service Waterfall {
   // Pull file/dir from device to host.
   rpc Pull(Transfer) returns (stream Transfer);
 
-  // Execute cmd in the device and foward stdout and stderr to client
-  rpc Exec(Cmd) returns (stream CmdProgress);
+  // Exec executes cmd in the device and foward stdout and stderr to client
+  // Exec expects a single initial CmdProgress message if stdin is not
+  // being redirected. Otherwise Exec will read std from the stream.
+  rpc Exec(stream CmdProgress) returns (stream CmdProgress);
 
   // Forward forwards the stream payload to the requested socket
   rpc Forward(stream ForwardMessage) returns (stream ForwardMessage);
+
+  // Version gets the version of the server.
+  rpc Version(google.protobuf.Empty) returns (VersionMessage);
 }
 
 message Entry {
