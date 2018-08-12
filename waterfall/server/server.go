@@ -9,7 +9,7 @@ import (
 	"os/exec"
 	"syscall"
 
-	"github.com/golang/protobuf/ptypes/empty"
+	empty_pb "github.com/golang/protobuf/ptypes/empty"
 	"github.com/waterfall"
 	"github.com/waterfall/forward"
 	waterfall_grpc "github.com/waterfall/proto/waterfall_go_grpc"
@@ -252,7 +252,7 @@ func (s *WaterfallServer) Forward(stream waterfall_grpc.Waterfall_ForwardServer)
 }
 
 // Version returns the version of the server.
-func (s *WaterfallServer) Version(context.Context, *empty.Empty) (*waterfall_grpc.VersionMessage, error) {
+func (s *WaterfallServer) Version(context.Context, *empty_pb.Empty) (*waterfall_grpc.VersionMessage, error) {
 	return &waterfall_grpc.VersionMessage{Version: "0.0"}, nil
 }
 
