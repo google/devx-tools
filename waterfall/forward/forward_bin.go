@@ -136,7 +136,7 @@ func main() {
 	case qemuConn:
 		qb, err := qemu.MakeConnBuilder(cpa.addr, cpa.socketName)
 		if err != nil {
-			log.Printf("Got error creating qemu conn %v.", err)
+			log.Fatalf("Got error creating qemu conn %v.", err)
 		}
 		defer qb.Close()
 		b = qb
