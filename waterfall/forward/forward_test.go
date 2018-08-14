@@ -18,7 +18,7 @@ import (
 
 // Tests in this package perform integration tests with the forward binary
 
-var fwdr = flag.String("fwdr", "", "The path to forwarder server")
+var fwdrBin = flag.String("fwdr_bin", "", "The path to forwarder server")
 
 func init() {
 	flag.Parse()
@@ -98,7 +98,7 @@ func TestForward(t *testing.T) {
 	ec := make(chan error, 3)
 	go runCloseableEcho(svrLis, ec)
 	go func() {
-		err := runFwdr(filepath.Join(testutils.RunfilesRoot(), *fwdr), fwdrPort, svrPort)
+		err := runFwdr(filepath.Join(testutils.RunfilesRoot(), *fwdrBin), fwdrPort, svrPort)
 		if err != nil {
 			ec <- err
 		}
