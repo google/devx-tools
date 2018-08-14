@@ -21,8 +21,6 @@ import (
 )
 
 var (
-	runfiles string
-
 	adbBin       = flag.String("adb_bin", "", "The path to adb binary.")
 	waterfallBin = flag.String("waterfall_bin", "", "The path to test server.")
 	forwarderBin = flag.String("forwarder_bin", "", "The path to forwarder binary.")
@@ -48,16 +46,10 @@ func init() {
 		log.Fatalf("launcher, adb_bin and waterfall_bin args need to be provided")
 	}
 
-	wd, err := os.Getwd()
-	if err != nil {
-		panic("unable to get wd")
-	}
-	runfiles = testutils.RunfilesRoot(wd)
-
-	l = filepath.Join(runfiles, *launcherBin)
-	a = filepath.Join(runfiles, *adbBin)
-	fwdr = filepath.Join(runfiles, *forwarderBin)
-	svrBin = filepath.Join(runfiles, *waterfallBin)
+	l = filepath.Join(testutils.RunfilesRoot(), *launcherBin)
+	a = filepath.Join(testutils.RunfilesRoot(), *adbBin)
+	fwdr = filepath.Join(testutils.RunfilesRoot(), *forwarderBin)
+	svrBin = filepath.Join(testutils.RunfilesRoot(), *waterfallBin)
 	svr = []string{"x86:" + svrBin}
 }
 
