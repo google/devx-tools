@@ -158,6 +158,7 @@ func waterfallPath(adbConn *adb.Device, paths []string) (string, error) {
 	return "", fmt.Errorf("no valid server for architectures %s got %v", abis, paths)
 }
 
+// Bootstrap installs h2o on the device and starts the host forwarder if needed.
 func Bootstrap(adbConn *adb.Device, waterfallBin []string, forwarderBin, socketName string) (*BootstrapResult, error) {
 	// The default bootstrap address.
 	unixName := fmt.Sprintf("h2o_%s", adbConn.DeviceName)

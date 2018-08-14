@@ -15,6 +15,7 @@ const (
 	abstractPort  = "localabstract:"
 )
 
+// Device implements functionality to talk to an Android device through ADB.
 type Device struct {
 	AdbPath       string
 	DeviceName    string
@@ -34,6 +35,7 @@ func (a *Device) deviceArgs() []string {
 	return a.args
 }
 
+// Shell executes a command on the device.
 func (a *Device) Shell(args []string) (string, error) {
 	fullArgs := append(a.deviceArgs(), "shell", strings.Join(args, " ")+"; echo ret=$?")
 	cmd := exec.Command(a.AdbPath, fullArgs...)
@@ -55,6 +57,7 @@ func (a *Device) Shell(args []string) (string, error) {
 	return o, nil
 }
 
+// Connect tries to connect the device to ADB.
 func (a *Device) Connect() error {
 	// Ignore error, verify the device is connected.
 	exec.Command(a.AdbPath, append(a.deviceArgs(), "connect", a.DeviceName)...).CombinedOutput()
@@ -79,6 +82,7 @@ func (a *Device) Connect() error {
 	return fmt.Errorf("%s not connected. devices output:\n %s", a.DeviceName, out)
 }
 
+// Push pushes a file from the host to the device.
 func (a *Device) Push(src, dst string) error {
 	cmd := exec.Command(a.AdbPath, append(a.deviceArgs(), "push", src, dst)...)
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -87,6 +91,7 @@ func (a *Device) Push(src, dst string) error {
 	return nil
 }
 
+// QemuPipeDir returns the directory where the qemu sockets live if qemu pipes are supported.
 func (a *Device) QemuPipeDir() (string, error) {
 	p, err := a.Shell([]string{"getprop", socketDirProp})
 	if err != nil {
@@ -95,6 +100,7 @@ func (a *Device) QemuPipeDir() (string, error) {
 	return strings.TrimSpace(p), nil
 }
 
+// AbiList returns the list of supported ABI's
 func (a *Device) AbiList() (string, error) {
 	p, err := a.Shell([]string{"getprop", abiListProp})
 	if err != nil {
@@ -103,6 +109,7 @@ func (a *Device) AbiList() (string, error) {
 	return strings.TrimSpace(p), nil
 }
 
+// ForwardAbstract forwards a unix abstract socket from the host to the device.
 func (a *Device) ForwardAbstract(local, remote string) error {
 	cmd := exec.Command(a.AdbPath, append(a.deviceArgs(), "forward", abstractPort+local, abstractPort+remote)...)
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -111,10 +118,11 @@ func (a *Device) ForwardAbstract(local, remote string) error {
 	return nil
 }
 
+// StatCmd starts a new command on the device without waitin for it to finish.
 func (a *Device) StartCmd(script string) error {
 	cmd := exec.Command(a.AdbPath, append(a.deviceArgs(), "shell", script)...)
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("error running script %s %v", err)
+		return fmt.Errorf("error running script %s %v", script, err)
 	}
 	cmd.Process.Release()
 	return nil
