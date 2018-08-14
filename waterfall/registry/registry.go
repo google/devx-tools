@@ -46,7 +46,7 @@ func (s *Server) Get(ctx context.Context, e *waterfall_grpc.Entry) (*waterfall_g
 	}
 	return &waterfall_grpc.OpResult{
 		Status: waterfall_grpc.OpResult_SUCCESS,
-		Entry: &waterfall_grpc.Entry{Key: e.Key, Val: val}}, nil
+		Entry:  &waterfall_grpc.Entry{Key: e.Key, Val: val}}, nil
 }
 
 // NewServer creates a new empty Server.
