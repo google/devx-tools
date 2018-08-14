@@ -6,7 +6,6 @@ import (
 	"io"
 	"math/rand"
 	"net"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
@@ -19,20 +18,10 @@ import (
 
 // Tests in this package perform integration tests with the forward binary
 
-var (
-	runfiles string
-
-	fwdr = flag.String("fwdr", "", "The path to forwarder server")
-)
+var fwdr = flag.String("fwdr", "", "The path to forwarder server")
 
 func init() {
 	flag.Parse()
-
-	wd, err := os.Getwd()
-	if err != nil {
-		panic("unable to get wd")
-	}
-	runfiles = testutils.RunfilesRoot(wd)
 }
 
 type eofReader struct {
@@ -109,7 +98,7 @@ func TestForward(t *testing.T) {
 	ec := make(chan error, 3)
 	go runCloseableEcho(svrLis, ec)
 	go func() {
-		err := runFwdr(filepath.Join(runfiles, *fwdr), fwdrPort, svrPort)
+		err := runFwdr(filepath.Join(testutils.RunfilesRoot(), *fwdr), fwdrPort, svrPort)
 		if err != nil {
 			ec <- err
 		}

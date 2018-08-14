@@ -20,8 +20,6 @@ import (
 )
 
 var (
-	runfiles string
-
 	// test args
 	launcher = flag.String("launcher", "", "The path to the emulator launcher")
 	adbTurbo = flag.String("adb_turbo", "", "The path to abd.turbo binary")
@@ -37,12 +35,6 @@ func init() {
 	if *launcher == "" || *adbTurbo == "" || *server == "" {
 		log.Fatalf("launcher, adb and server args need to be provided")
 	}
-
-	wd, err := os.Getwd()
-	if err != nil {
-		panic("unable to get wd")
-	}
-	runfiles = testutils.RunfilesRoot(wd)
 }
 
 func testBytes(size int) []byte {
@@ -94,9 +86,9 @@ func TestSingleConn(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	l := filepath.Join(runfiles, *launcher)
-	a := filepath.Join(runfiles, *adbTurbo)
-	svr := filepath.Join(runfiles, *server)
+	l := filepath.Join(testutils.RunfilesRoot(), *launcher)
+	a := filepath.Join(testutils.RunfilesRoot(), *adbTurbo)
+	svr := filepath.Join(testutils.RunfilesRoot(), *server)
 
 	emuDir, err := testutils.SetupEmu(l, adbServerPort, adbPort, emuPort)
 	if err != nil {
@@ -171,9 +163,9 @@ func TestMultipleConn(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	l := filepath.Join(runfiles, *launcher)
-	a := filepath.Join(runfiles, *adbTurbo)
-	svr := filepath.Join(runfiles, *server)
+	l := filepath.Join(testutils.RunfilesRoot(), *launcher)
+	a := filepath.Join(testutils.RunfilesRoot(), *adbTurbo)
+	svr := filepath.Join(testutils.RunfilesRoot(), *server)
 
 	emuDir, err := testutils.SetupEmu(l, adbServerPort, adbPort, emuPort)
 	if err != nil {
