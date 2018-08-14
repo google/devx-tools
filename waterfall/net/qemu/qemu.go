@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -243,23 +244,38 @@ func (b *ConnBuilder) Close() error {
 	return b.lis.Close()
 }
 
+func (b *ConnBuilder) next() (net.Conn, error) {
+	conn, err := b.lis.Accept()
+	if err != nil {
+		return nil, err
+	}
+
+	// sync with the server
+	rdy := []byte(rdyMsg)
+	if _, err = conn.Write(rdy); err != nil {
+		conn.Close()
+		return nil, err
+	}
+	if _, err = io.ReadFull(conn, rdy); err != nil {
+		conn.Close()
+		return nil, err
+	}
+	if !bytes.Equal([]byte(rdyMsg), rdy) {
+		conn.Close()
+		return nil, fmt.Errorf("handshake missmatch %v != %v", rdyMsg, rdy)
+	}
+
+	return conn, nil
+}
+
 // Next will connect to the guest and return the connection.
 func (b *ConnBuilder) Next() (net.Conn, error) {
-	for {
-		conn, err := b.lis.Accept()
+	var conn net.Conn
+	var err error
+	for i := 0; i < 3; i++ {
+		conn, err = b.next()
 		if err != nil {
-			return nil, err
-		}
-
-		// sync with the server
-		rdy := []byte(rdyMsg)
-		if _, err := conn.Write(rdy); err != nil {
-			continue
-		}
-		if _, err := io.ReadFull(conn, rdy); err != nil {
-			continue
-		}
-		if !bytes.Equal([]byte(rdyMsg), rdy) {
+			time.Sleep(time.Millisecond * 100)
 			continue
 		}
 
@@ -268,6 +284,7 @@ func (b *ConnBuilder) Next() (net.Conn, error) {
 		go q.closeConn()
 		return q, nil
 	}
+	return nil, err
 }
 
 // MakeConnBuilder creates a new ConnBuilder struct
