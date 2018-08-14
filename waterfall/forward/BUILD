@@ -62,7 +62,7 @@ go_test(
         "forward_test.go",
     ],
     args = [
-        "--fwdr=$(location :forward_bin)",
+        "--fwdr_bin=$(location :forward_bin)",
     ],
     data = [
         ":forward_bin",
