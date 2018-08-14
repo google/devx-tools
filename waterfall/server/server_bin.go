@@ -6,6 +6,7 @@ import (
 	"flag"
 	"log"
 	"net"
+	"strings"
 
 	"github.com/waterfall/net/qemu"
 	waterfall_grpc "github.com/waterfall/proto/waterfall_go_grpc"
@@ -13,35 +14,47 @@ import (
 	"google.golang.org/grpc"
 )
 
-var mode = flag.String("mode", "qemu", "where to start the listener")
-var qemuSocket = flag.String("qemu_socket", "sockets/h2o", "The socket name in the host")
-var addr = flag.String("addr", "localhost:8088", "where to listen for connections")
+var addr = flag.String(
+	"addr", "qemu:sockets/h2o", "Where to start listening. <qemu|tcp|unix>:addr."+
+		" If qemu is specified, addr is the name of the pipe socket")
 
 func main() {
 	flag.Parse()
 
 	log.Println("Starting waterfall server ...")
 
+	if *addr == "" {
+		log.Fatalf("Need to specify -addr.")
+	}
+
+	pts := strings.SplitN(*addr, ":", 2)
+	if len(pts) != 2 {
+		log.Fatalf("Failed to parse addres %s", *addr)
+	}
+
+	kind := pts[0]
+	loc := pts[1]
+
+	log.Printf("Starting %s:%s\n", kind, loc)
+
 	var lis net.Listener
 	var err error
-
-	// for now we just support qemu
-	switch *mode {
+	switch kind {
 	case "qemu":
-		lis, err = qemu.MakePipe()
+		lis, err = qemu.MakePipe(loc)
 		if err != nil {
 			log.Fatalf("failed to open qemu_pipe %v", err)
 		}
 	case "unix":
 		fallthrough
 	case "tcp":
-		lis, err = net.Listen(*mode, *addr)
+		lis, err = net.Listen(kind, loc)
 		if err != nil {
 			log.Fatalf("Failed to listen %v", err)
 		}
 
 	default:
-		log.Fatalf("Unsupported mode %s", *mode)
+		log.Fatalf("Unsupported kind %s", kind)
 	}
 
 	grpcServer := grpc.NewServer()

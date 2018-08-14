@@ -1,0 +1,16 @@
+# Description:
+#   Package adb provides a thin wrapper around adb for bootstrapping h2o
+
+licenses(["notice"])  # Apache 2.0
+
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+package(default_visibility = ["//visibility:public"])
+
+go_library(
+    name = "adb",
+    srcs = [
+        "adb.go",
+    ],
+    importpath = "github.com/waterfall/adb",
+)

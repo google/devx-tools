@@ -16,7 +16,7 @@ import (
 
 const (
 	qemuDriver = "/dev/qemu_pipe"
-	svcName    = "pipe:unix:sockets/h2o"
+	qemuSvc    = "pipe:unix:"
 	ioErrMsg   = "input/output error"
 	rdyMsg     = "rdy"
 )
@@ -33,7 +33,7 @@ func (a qemuAddr) Network() string {
 
 // String returns the description of the connection
 func (a qemuAddr) String() string {
-	return svcName
+	return string(a)
 }
 
 // Conn implements the net.Conn interface on top of a qemu_pipe
@@ -298,7 +298,8 @@ func MakeConnBuilder(emuDir, socket string) (*ConnBuilder, error) {
 
 // Pipe implements a net.Listener on top of a guest qemu pipe
 type Pipe struct {
-	closed bool
+	socketName string
+	closed     bool
 }
 
 // Accept creates a new net.Conn backed by a qemu_pipe connetion
@@ -331,6 +332,7 @@ func (q *Pipe) Accept() (net.Conn, error) {
 			return nil, err
 		}
 
+		svcName := qemuSvc + q.socketName
 		buff := make([]byte, len(svcName)+1)
 		copy(buff, svcName)
 
@@ -384,7 +386,7 @@ func (q *Pipe) Close() error {
 
 // Addr returns the connection address
 func (q *Pipe) Addr() net.Addr {
-	return qemuAddr("")
+	return qemuAddr(q.socketName)
 }
 
 // MakePipe will return a new net.Listener
@@ -392,10 +394,10 @@ func (q *Pipe) Addr() net.Addr {
 // devices. To get a handle an open("/dev/qemu_pipe") is issued.
 // The virtual driver keeps a map of file descriptors to available
 // services. In this case we open a unix socket service and return that.
-func MakePipe() (*Pipe, error) {
+func MakePipe(socketName string) (*Pipe, error) {
 	if _, err := os.Stat(qemuDriver); err != nil {
 		return nil, err
 	}
 
-	return &Pipe{}, nil
+	return &Pipe{socketName: socketName}, nil
 }

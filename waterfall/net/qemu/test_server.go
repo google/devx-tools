@@ -37,7 +37,7 @@ func main() {
 		log.SetOutput(f)
 	}
 
-	lis, err := qemu.MakePipe()
+	lis, err := qemu.MakePipe("sockets/h2o")
 	if err != nil {
 		log.Fatalf("error opening pipe: %v", err)
 	}

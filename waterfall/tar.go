@@ -159,7 +159,6 @@ func Tar(writer io.Writer, src string) error {
 				hdr.Name = name
 			} else {
 				// Pointee lives outside pointer root, write the file pointed to.
-				log.Printf("Resolving symlink %s before pushing\n", file)
 				var ti os.FileInfo
 				if ti, err = os.Stat(t); err != nil {
 					// Skip broken links. Error out on everything else.
