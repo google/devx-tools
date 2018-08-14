@@ -118,7 +118,7 @@ func (a *Device) ForwardAbstract(local, remote string) error {
 	return nil
 }
 
-// StatCmd starts a new command on the device without waitin for it to finish.
+// StartCmd starts a new command on the device without waitin for it to finish.
 func (a *Device) StartCmd(script string) error {
 	cmd := exec.Command(a.AdbPath, append(a.deviceArgs(), "shell", script)...)
 	if err := cmd.Start(); err != nil {
