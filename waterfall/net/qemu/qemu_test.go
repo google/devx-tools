@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -32,11 +31,6 @@ var (
 const emuWorkingDir = "images/session"
 const socketName = "sockets/h2o"
 
-func runfilesRoot(path string) string {
-	sep := "qemu_test.runfiles/__main__"
-	return path[0 : strings.LastIndex(path, sep)+len(sep)]
-}
-
 func init() {
 	flag.Parse()
 
@@ -48,7 +42,7 @@ func init() {
 	if err != nil {
 		panic("unable to get wd")
 	}
-	runfiles = runfilesRoot(wd)
+	runfiles = testutils.RunfilesRoot(wd)
 }
 
 func testBytes(size int) []byte {

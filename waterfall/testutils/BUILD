@@ -9,6 +9,7 @@ go_library(
     srcs = [
         "net.go",
         "emu.go",
+        "runfiles.go",
     ],
     importpath = "github.com/waterfall/testutils",
 )

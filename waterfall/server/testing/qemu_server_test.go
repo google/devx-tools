@@ -72,12 +72,7 @@ func init() {
 	if err != nil {
 		panic("unable to get wd")
 	}
-	runfiles = runfilesRoot(wd)
-}
-
-func runfilesRoot(path string) string {
-	sep := "qemu_server_test.runfiles/__main__"
-	return path[0 : strings.LastIndex(path, sep)+len(sep)]
+	runfiles = testutils.RunfilesRoot(wd)
 }
 
 func testBytes(size uint32) []byte {

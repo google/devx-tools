@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -33,12 +32,7 @@ func init() {
 	if err != nil {
 		panic("unable to get wd")
 	}
-	runfiles = runfilesRoot(wd)
-}
-
-func runfilesRoot(path string) string {
-	sep := "forward_test.runfiles/__main__"
-	return path[0 : strings.LastIndex(path, sep)+len(sep)]
+	runfiles = testutils.RunfilesRoot(wd)
 }
 
 type eofReader struct {
