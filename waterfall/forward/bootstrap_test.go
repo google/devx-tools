@@ -20,11 +20,6 @@ import (
 	waterfall_grpc "github.com/waterfall/proto/waterfall_go_grpc"
 )
 
-func runfilesRoot(path string) string {
-	sep := filepath.Base(os.Args[0]) + ".runfiles/__main__"
-	return path[:strings.LastIndex(path, sep)+len(sep)]
-}
-
 var (
 	runfiles string
 
@@ -57,7 +52,7 @@ func init() {
 	if err != nil {
 		panic("unable to get wd")
 	}
-	runfiles = runfilesRoot(wd)
+	runfiles = testutils.RunfilesRoot(wd)
 
 	l = filepath.Join(runfiles, *launcherBin)
 	a = filepath.Join(runfiles, *adbBin)
