@@ -127,54 +127,6 @@ func TestQemuNeedsBootstrap(t *testing.T) {
 	}
 }
 
-func TestQemuServerIsRunning(t *testing.T) {
-	adbServerPort, adbPort, emuPort, err := testutils.GetAdbPorts()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	emuDir, err := testutils.SetupEmu(l, adbServerPort, adbPort, emuPort)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(emuDir)
-	defer testutils.KillEmu(l, adbServerPort, adbPort, emuPort)
-
-	adbConn := initAdb(a, adbPort, adbServerPort)
-	if err := startWaterfall(adbConn, svrBin, "qemu:"+socketName); err != nil {
-		t.Fatalf("Unable to start waterfall server: %v", err)
-	}
-
-	if err := setSocketProp(adbConn, emuDir); err != nil {
-		t.Fatalf("Unable to set qemu socket dir prop: %v", err)
-	}
-
-	r, err := Bootstrap(adbConn, svr, fwdr, socketName)
-	if err != nil {
-		t.Fatalf("Error during bootstrap %v", err)
-	}
-
-	if r.StartedServer {
-		t.Errorf("Started server but it was already running!")
-	}
-
-	if !r.StartedForwarder {
-		t.Errorf("Forwader daemon not started!")
-	}
-
-	if out, err := adbConn.Shell([]string{"setprop", prop, propVal}); err != nil {
-		t.Fatalf("Unable to set canary prop: %s %v", out, err)
-	}
-
-	out, err := getProp("unix:@h2o_"+adbConn.DeviceName, prop)
-	if err != nil {
-		t.Fatalf("Server ping failed %v", err)
-	}
-	if out != propVal {
-		t.Fatalf("Got prop value %v but expected %v", out, propVal)
-	}
-}
-
 func TestQemuNoBootsrapNeeded(t *testing.T) {
 	adbServerPort, adbPort, emuPort, err := testutils.GetAdbPorts()
 	if err != nil {

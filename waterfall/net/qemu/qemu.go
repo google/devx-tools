@@ -5,8 +5,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"io"
+	"log"
 	"net"
 	"os"
 	"strings"
@@ -244,38 +244,23 @@ func (b *ConnBuilder) Close() error {
 	return b.lis.Close()
 }
 
-func (b *ConnBuilder) next() (net.Conn, error) {
-	conn, err := b.lis.Accept()
-	if err != nil {
-		return nil, err
-	}
-
-	// sync with the server
-	rdy := []byte(rdyMsg)
-	if _, err = conn.Write(rdy); err != nil {
-		conn.Close()
-		return nil, err
-	}
-	if _, err = io.ReadFull(conn, rdy); err != nil {
-		conn.Close()
-		return nil, err
-	}
-	if !bytes.Equal([]byte(rdyMsg), rdy) {
-		conn.Close()
-		return nil, fmt.Errorf("handshake missmatch %v != %v", rdyMsg, rdy)
-	}
-
-	return conn, nil
-}
-
 // Next will connect to the guest and return the connection.
 func (b *ConnBuilder) Next() (net.Conn, error) {
-	var conn net.Conn
-	var err error
-	for i := 0; i < 3; i++ {
-		conn, err = b.next()
+	for {
+		conn, err := b.lis.Accept()
 		if err != nil {
-			time.Sleep(time.Millisecond * 100)
+			return nil, err
+		}
+
+		// sync with the server
+		rdy := []byte(rdyMsg)
+		if _, err := conn.Write(rdy); err != nil {
+			continue
+		}
+		if _, err := io.ReadFull(conn, rdy); err != nil {
+			continue
+		}
+		if !bytes.Equal([]byte(rdyMsg), rdy) {
 			continue
 		}
 
@@ -284,7 +269,6 @@ func (b *ConnBuilder) Next() (net.Conn, error) {
 		go q.closeConn()
 		return q, nil
 	}
-	return nil, err
 }
 
 // MakeConnBuilder creates a new ConnBuilder struct
@@ -322,6 +306,7 @@ type Pipe struct {
 // Accept creates a new net.Conn backed by a qemu_pipe connetion
 func (q *Pipe) Accept() (net.Conn, error) {
 
+	log.Println("Creating new conn")
 	if q.closed {
 		return nil, errClosed
 	}
@@ -340,9 +325,11 @@ func (q *Pipe) Accept() (net.Conn, error) {
 			time.Sleep(20 * time.Millisecond)
 		}
 
+		log.Println("Opening file")
 		if conn, err = os.OpenFile(qemuDriver, os.O_RDWR, 0600); err != nil {
 			return nil, err
 		}
+		log.Println("File opened")
 
 		// qemu_pipe does not properly support polling io. Force blocking io
 		if err := syscall.SetNonblock(int(conn.Fd()), false); err != nil {
@@ -355,6 +342,7 @@ func (q *Pipe) Accept() (net.Conn, error) {
 
 		// retry loop to wait until we can start the service on the qemu_pipe
 		for {
+			log.Println("Writing service")
 			written, err := conn.Write(buff)
 			if err != nil {
 				// The host has not opened the socket. Sleep and try again
@@ -364,6 +352,7 @@ func (q *Pipe) Accept() (net.Conn, error) {
 			}
 			buff = buff[written:]
 			if len(buff) == 0 {
+				log.Println("Wrote service")
 				br = true
 				break
 			}
@@ -372,6 +361,7 @@ func (q *Pipe) Accept() (net.Conn, error) {
 		if br {
 			// Wait for the client to open a socket on the host
 			waitBuff := make([]byte, len(rdyMsg))
+			log.Println("Reading rdy")
 			if _, err := io.ReadFull(conn, waitBuff); err != nil {
 				br = false
 				continue
@@ -380,11 +370,13 @@ func (q *Pipe) Accept() (net.Conn, error) {
 				br = false
 				continue
 			}
+			log.Println("Writing rdy")
 			if _, err := conn.Write(waitBuff); err != nil {
 				br = false
 				continue
 			}
 
+			log.Println("Done")
 			q := makeConn(conn)
 
 			go q.closeConn()

@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/waterfall/adb"
 	"github.com/waterfall/forward"
@@ -140,6 +141,20 @@ func main() {
 		}
 		defer qb.Close()
 		b = qb
+
+		// The emulator can die at any point and we need to die as well.
+		// When the emulator dies its working directory its removed.
+		// Poll the filesystem and terminate the process if we can't
+		// find the emulator dir.
+		go func() {
+			for {
+				time.Sleep(time.Millisecond * 2500)
+				if _, err := os.Stat(cpa.addr); err != nil {
+					panic(err)
+				}
+			}
+		}()
+
 	case unixConn:
 		b = &dialBuilder{netType: cpa.kind, addr: cpa.addr}
 	case tcpConn:
