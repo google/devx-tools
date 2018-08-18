@@ -126,30 +126,16 @@ func (s *WaterfallServer) Pull(t *waterfall_grpc.Transfer, ps waterfall_grpc.Wat
 	return err
 }
 
-const (
-	sendOut = iota
-	sendErr
-)
+// chanWriter implements Writer and allows us to use the channel for Copy calls
+type chanWriter chan []byte
 
-// execWriter wraps the exec grpc server around the Writer interface
-type execWriter struct {
-	es     waterfall_grpc.Waterfall_ExecServer
-	sendTo int32
-}
-
-func (ew *execWriter) Write(b []byte) (int, error) {
-	cp := &waterfall_grpc.CmdProgress{}
-	switch ew.sendTo {
-	case sendOut:
-		cp.Stdout = b
-	case sendErr:
-		cp.Stderr = b
-	}
-
-	if err := ew.es.Send(cp); err != nil {
-		return 0, err
-	}
-	return len(b), nil
+func (c chanWriter) Write(b []byte) (int, error) {
+	// make a copy of the slice, the caller might reuse the slice
+	// before we have a chance to flush the bytes to the stream.
+	nb := make([]byte, len(b))
+	copy(nb, b)
+	c <- nb
+	return len(nb), nil
 }
 
 // Exec forks a new process with the desired command and pipes its output to the gRPC stream
@@ -187,22 +173,56 @@ func (s *WaterfallServer) Exec(es waterfall_grpc.Waterfall_ExecServer) error {
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-	// Kill the process in case somehting went wrong with the connection
+	// Kill the process in case something went wrong with the connection
 	defer cmd.Process.Kill()
 	defer cmd.Process.Release()
 
-	outWriter := &execWriter{es: es, sendTo: sendOut}
-	errWriter := &execWriter{es: es, sendTo: sendErr}
+	// We want to read concurrently from stdout/stderr
+	// but we only have one stream to send it to so we need to merge streams before writing.
+	// Note that order is not necessarily preserverd.
+	stdoutCh := make(chan []byte, 1)
+	stderrCh := make(chan []byte, 1)
 
 	eg, _ := errgroup.WithContext(s.ctx)
+
+	// Serialize and multiplex stdout/stderr channels to the grpc stream
 	eg.Go(func() error {
-		_, err := io.Copy(outWriter, stdout)
+		_, err := io.Copy(chanWriter(stdoutCh), stdout)
+		close(stdoutCh)
 		return err
 
 	})
 	eg.Go(func() error {
-		_, err := io.Copy(errWriter, stderr)
+		_, err := io.Copy(chanWriter(stderrCh), stderr)
+		close(stderrCh)
 		return err
+	})
+	eg.Go(func() error {
+		var o []byte
+		var e []byte
+		oo := true
+		eo := true
+		for oo || eo {
+			var msg *waterfall_grpc.CmdProgress
+			select {
+			case o, oo = <-stdoutCh:
+				if !oo {
+					break
+				}
+				msg = &waterfall_grpc.CmdProgress{Stdout: o}
+			case e, eo = <-stderrCh:
+				if !eo {
+					break
+				}
+				msg = &waterfall_grpc.CmdProgress{Stderr: e}
+			}
+			if msg != nil {
+				if err := es.Send(msg); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
 	})
 
 	if err := eg.Wait(); err != nil {
