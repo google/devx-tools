@@ -138,6 +138,23 @@ func (c chanWriter) Write(b []byte) (int, error) {
 	return len(nb), nil
 }
 
+type execMessageReader struct{}
+
+func (em execMessageReader) BuildMsg() interface{} {
+	return new(waterfall_grpc.CmdProgress)
+}
+
+// SetBytes sets the meessage bytes.
+func (em execMessageReader) GetBytes(m interface{}) ([]byte, error) {
+	msg, ok := m.(*waterfall_grpc.CmdProgress)
+	if !ok {
+		// this never happens
+		panic("incorrect type")
+	}
+
+	return msg.Stdin, nil
+}
+
 // Exec forks a new process with the desired command and pipes its output to the gRPC stream
 func (s *WaterfallServer) Exec(es waterfall_grpc.Waterfall_ExecServer) error {
 
@@ -146,11 +163,6 @@ func (s *WaterfallServer) Exec(es waterfall_grpc.Waterfall_ExecServer) error {
 	cmdMsg, err := es.Recv()
 	if err != nil {
 		return err
-	}
-
-	if cmdMsg.Cmd.PipeIn {
-		// stdin redirection is not implemented. Field exists to avoid future incompatibilities.
-		return status.Error(codes.Unimplemented, "stdin redirection is not implemented")
 	}
 
 	// Avoid doing any sort of input check, e.g. check that the path exists
@@ -170,6 +182,10 @@ func (s *WaterfallServer) Exec(es waterfall_grpc.Waterfall_ExecServer) error {
 		return err
 	}
 
+	if cmdMsg.Cmd.PipeIn {
+		cmd.Stdin = waterfall.NewReader(es, execMessageReader{})
+	}
+
 	if err := cmd.Start(); err != nil {
 		return err
 	}
@@ -179,7 +195,7 @@ func (s *WaterfallServer) Exec(es waterfall_grpc.Waterfall_ExecServer) error {
 
 	// We want to read concurrently from stdout/stderr
 	// but we only have one stream to send it to so we need to merge streams before writing.
-	// Note that order is not necessarily preserverd.
+	// Note that order is not necessarily preserved.
 	stdoutCh := make(chan []byte, 1)
 	stderrCh := make(chan []byte, 1)
 

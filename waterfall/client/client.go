@@ -155,17 +155,50 @@ func (e ExecError) Error() string {
 	return fmt.Sprintf("non-zero exit code: %d", e.ExitCode)
 }
 
+type execMessageWriter struct{}
+
+// BuildMsg returns a reference to a new CmdProgress struct.
+func (em execMessageWriter) BuildMsg() interface{} {
+	return new(waterfall_grpc.CmdProgress)
+}
+
+// SetBytes writes the payload b to stdin.
+func (em execMessageWriter) SetBytes(m interface{}, b []byte) {
+	msg, ok := m.(*waterfall_grpc.CmdProgress)
+	if !ok {
+		// this never happens
+		panic("incorrect type")
+	}
+	nb := make([]byte, len(b))
+	copy(nb, b)
+	msg.Stdin = nb
+}
+
 // Exec executes the requested command on the device. Semantics are the same as execve.
-func Exec(ctx context.Context, client waterfall_grpc.WaterfallClient, stdout, stderr io.Writer, cmd string, args ...string) error {
+func Exec(ctx context.Context, client waterfall_grpc.WaterfallClient, stdout, stderr io.Writer, stdin io.Reader, cmd string, args ...string) error {
 	xstream, err := client.Exec(ctx)
 	if err != nil {
 		return err
 	}
 
-	// send the command at the head of the stream. After that the server will ignore subsequent messages.
+	// initializes the command execution on the server
 	if err := xstream.Send(
-		&waterfall_grpc.CmdProgress{Cmd: &waterfall_grpc.Cmd{Path: cmd, Args: args}}); err != nil {
+		&waterfall_grpc.CmdProgress{
+			Cmd: &waterfall_grpc.Cmd{Path: cmd,
+				Args:   args,
+				PipeIn: stdin != nil}}); err != nil {
 		return err
+	}
+
+	eg, _ := errgroup.WithContext(ctx)
+	if stdin != nil {
+		eg.Go(func() error {
+			_, err := io.Copy(waterfall.NewWriter(xstream, execMessageWriter{}), stdin)
+			if err == nil || err == io.EOF {
+				return xstream.CloseSend()
+			}
+			return err
+		})
 	}
 
 	var last *waterfall_grpc.CmdProgress
@@ -190,6 +223,11 @@ func Exec(ctx context.Context, client waterfall_grpc.WaterfallClient, stdout, st
 		}
 		last = pgrs
 	}
+
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+
 	if last.ExitCode != 0 {
 		return ExecError{ExitCode: last.ExitCode}
 	}

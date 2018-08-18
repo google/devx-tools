@@ -1,9 +1,6 @@
 package waterfall
 
-import (
-	"errors"
-	"io"
-)
+import "errors"
 
 var (
 	errClosedRead  = errors.New("closed for reading")
@@ -16,49 +13,50 @@ type Stream interface {
 	RecvMsg(m interface{}) error
 }
 
-// StreamMessage defines a generic interface to build messages with byte contents
-type StreamMessage interface {
+// Given that embedding is not an option, we need to duplicate method names in the
+// interface declarations. See https://github.com/golang/go/issues/6977).
+
+// StreamMessage defines a generic interface to build messages with byte contents.
+type StreamMessageReadWriteCloser interface {
 	BuildMsg() interface{}
 	GetBytes(interface{}) ([]byte, error)
 	SetBytes(interface{}, []byte)
 	CloseMsg() interface{}
 }
 
-// StreamReadWriteCloser wraps arbitrary grpc streams around a ReadWriteCloser implementation.
-// Users create a new StreamReadWriteCloser by calling NewReadWriteCloser passing a base stream.
-// The stream needs to implement RecvMsg and SendMsg (i.e. ClientStream and ServerStream types),
-// And a function to set bytes in the stream message type, get bytes from the message and close the stream.
-// NOTE: The reader follows the same semantics as <Server|Client>Stream. It is ok to have concurrent writes
-// and reads, but it's not ok to have multiple concurrent reads or multiple concurrent writes.
-type StreamReadWriteCloser struct {
-	io.ReadWriter
-	Stream
-	StreamMessage
-
-	lastRead []byte
-	msgChan  chan []byte
-	errChan  chan error
-
-	cr bool
-	cw bool
+// StreamMessageReader defines a generic interface to read bytes from a message.
+type StreamMessageReader interface {
+	BuildMsg() interface{}
+	GetBytes(interface{}) ([]byte, error)
 }
 
-// NewReadWriteCloser returns an initialized StreamReadWriteCloser
-func NewReadWriteCloser(stream Stream, sm StreamMessage) *StreamReadWriteCloser {
-	rw := &StreamReadWriteCloser{
-		Stream:        stream,
-		StreamMessage: sm,
+// StreamMessageWriter defines a generic interface to set bytes in a message.
+type StreamMessageWriter interface {
+	BuildMsg() interface{}
+	SetBytes(interface{}, []byte)
+}
 
+// StreamMessageCloser defines a generic interface create a message that closes a stream.
+type StreamMessageCloser interface {
+	BuildMsg() interface{}
+	CloseMsg() interface{}
+}
+
+// NewReader creates and initializes a new StreamReader.
+func NewReader(stream Stream, sm StreamMessageReader) *StreamReader {
+	sr := &StreamReader{
+		Stream:              stream,
+		StreamMessageReader: sm,
 		// Avoid blocking when Read is never called
 		msgChan: make(chan []byte, 1),
 		errChan: make(chan error, 1),
 	}
-	go rw.startReads()
-	return rw
+	go sr.startReads()
+	return sr
 }
 
 // startReads reads from the stream in an out of band goroutine in order to handle overflow reads.
-func (s *StreamReadWriteCloser) startReads() {
+func (s *StreamReader) startReads() {
 	for {
 		msg := s.BuildMsg()
 		err := s.Stream.RecvMsg(msg)
@@ -77,12 +75,17 @@ func (s *StreamReadWriteCloser) startReads() {
 	}
 }
 
-// Read reads from the underlying stream handling cases where the amount read > len(b).
-func (s *StreamReadWriteCloser) Read(b []byte) (int, error) {
-	if s.cr {
-		return 0, errClosedRead
-	}
+// StreamReader wraps arbitrary grpc streams around a Reader implementation.
+type StreamReader struct {
+	Stream
+	StreamMessageReader
+	lastRead []byte
+	msgChan  chan []byte
+	errChan  chan error
+}
 
+// Read reads from the underlying stream handling cases where the amount read > len(b).
+func (s *StreamReader) Read(b []byte) (int, error) {
 	if len(s.lastRead) > 0 {
 		// we have leftover bytes from last read
 		n := copy(b, s.lastRead)
@@ -115,12 +118,19 @@ func (s *StreamReadWriteCloser) Read(b []byte) (int, error) {
 	}
 }
 
-// Write writes b to the underlying stream
-func (s *StreamReadWriteCloser) Write(b []byte) (int, error) {
-	if s.cw {
-		return 0, errClosedWrite
-	}
+// NewWriter creates a new StreamWriter.
+func NewWriter(stream Stream, sm StreamMessageWriter) *StreamWriter {
+	return &StreamWriter{Stream: stream, StreamMessageWriter: sm}
+}
 
+// StreamWriter implements a Writer backed by a stream.
+type StreamWriter struct {
+	Stream
+	StreamMessageWriter
+}
+
+// StreamWriter writes b to the message in the underlying stream.
+func (s *StreamWriter) Write(b []byte) (int, error) {
 	msg := s.BuildMsg()
 	s.SetBytes(msg, b)
 	if err := s.Stream.SendMsg(msg); err != nil {
@@ -129,7 +139,49 @@ func (s *StreamReadWriteCloser) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
-// Close closes the the stream
+// StreamReadWriteCloser wraps arbitrary grpc streams around a ReadWriteCloser implementation.
+// Users create a new StreamReadWriteCloser by calling NewReadWriteCloser passing a base stream.
+// The stream needs to implement RecvMsg and SendMsg (i.e. ClientStream and ServerStream types),
+// And a function to set bytes in the stream message type, get bytes from the message and close the stream.
+// NOTE: The reader follows the same semantics as <Server|Client>Stream. It is ok to have concurrent writes
+// and reads, but it's not ok to have multiple concurrent reads or multiple concurrent writes.
+type StreamReadWriteCloser struct {
+	Stream
+	StreamMessageReadWriteCloser
+	r  *StreamReader
+	w  *StreamWriter
+	cr bool
+	cw bool
+}
+
+// NewReadWriteCloser returns an initialized StreamReadWriteCloser.
+func NewReadWriteCloser(stream Stream, sm StreamMessageReadWriteCloser) *StreamReadWriteCloser {
+	rwc := &StreamReadWriteCloser{
+		Stream: stream,
+		StreamMessageReadWriteCloser: sm,
+		r: NewReader(stream, sm),
+		w: NewWriter(stream, sm),
+	}
+	return rwc
+}
+
+// Read calls the Read method of the underlying StreamReader if the stream is not closed.
+func (s *StreamReadWriteCloser) Read(b []byte) (int, error) {
+	if s.cr {
+		return 0, errClosedRead
+	}
+	return s.r.Read(b)
+}
+
+// Write writes b to the underlying stream.
+func (s *StreamReadWriteCloser) Write(b []byte) (int, error) {
+	if s.cw {
+		return 0, errClosedWrite
+	}
+	return s.w.Write(b)
+}
+
+// Close closes the the stream.
 func (s *StreamReadWriteCloser) Close() error {
 	s.cr = true
 	s.cw = true

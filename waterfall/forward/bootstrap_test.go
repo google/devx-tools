@@ -61,7 +61,7 @@ func getProp(addr, prop string) (string, error) {
 
 	wc := waterfall_grpc.NewWaterfallClient(cc)
 	sOut := new(bytes.Buffer)
-	if err := client.Exec(context.Background(), wc, sOut, ioutil.Discard, "getprop", prop); err != nil {
+	if err := client.Exec(context.Background(), wc, sOut, ioutil.Discard, nil, "getprop", prop); err != nil {
 		return "", err
 	}
 	return strings.TrimSpace(sOut.String()), nil

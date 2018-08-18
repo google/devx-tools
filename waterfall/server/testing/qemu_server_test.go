@@ -7,11 +7,14 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -369,13 +372,13 @@ func TestExec(t *testing.T) {
 
 	stdout := new(bytes.Buffer)
 	stderr := new(bytes.Buffer)
-	if err := client.Exec(ctx, k, stdout, stderr, "setprop", "ninjas.h20.running", "yes"); err != nil {
+	if err := client.Exec(ctx, k, stdout, stderr, nil, "setprop", "ninjas.h20.running", "yes"); err != nil {
 		t.Fatal(err)
 	}
 
 	stdout = new(bytes.Buffer)
 	stderr = new(bytes.Buffer)
-	if err := client.Exec(ctx, k, stdout, stderr, "getprop", "ninjas.h20.running"); err != nil {
+	if err := client.Exec(ctx, k, stdout, stderr, nil, "getprop", "ninjas.h20.running"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -386,13 +389,13 @@ func TestExec(t *testing.T) {
 
 	stdout = new(bytes.Buffer)
 	stderr = new(bytes.Buffer)
-	if err := client.Exec(ctx, k, stdout, stderr, "true"); err != nil {
+	if err := client.Exec(ctx, k, stdout, stderr, nil, "true"); err != nil {
 		t.Fatal(err)
 	}
 
 	stdout = new(bytes.Buffer)
 	stderr = new(bytes.Buffer)
-	err = client.Exec(ctx, k, stdout, stderr, "false")
+	err = client.Exec(ctx, k, stdout, stderr, nil, "false")
 	if err == nil {
 		t.Errorf("expected non-zero exit code error but got none")
 	}
@@ -402,4 +405,78 @@ func TestExec(t *testing.T) {
 		t.Errorf("expected non-zero exit code but got %d", execErr.ExitCode)
 	}
 
+}
+
+func TestExecPipeIn(t *testing.T) {
+	adbServerPort, adbPort, emuPort, err := testutils.GetAdbPorts()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	l := filepath.Join(testutils.RunfilesRoot(), *launcher)
+	a := filepath.Join(testutils.RunfilesRoot(), *adbTurbo)
+	svr := filepath.Join(testutils.RunfilesRoot(), *server)
+
+	emuDir, err := testutils.SetupEmu(l, adbServerPort, adbPort, emuPort)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(emuDir)
+	defer testutils.KillEmu(l, adbServerPort, adbPort, emuPort)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	if err := runServer(ctx, a, adbPort, svr); err != nil {
+		t.Fatal(err)
+	}
+
+	cb, err := qemu.MakeConnBuilder(filepath.Join(emuDir, emuWorkingDir), socketName)
+	if err != nil {
+		t.Fatalf("error opening qemu connection: %v", err)
+	}
+	defer cb.Close()
+
+	qconn, err := cb.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer qconn.Close()
+
+	opts := []grpc.DialOption{grpc.WithInsecure()}
+	opts = append(opts, grpc.WithDialer(func(addr string, d time.Duration) (net.Conn, error) {
+		return qconn, nil
+	}))
+	conn, err := grpc.Dial("", opts...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+
+	k := waterfall_grpc.NewWaterfallClient(conn)
+
+	st := []string{"foo", "bar", "qux", "baz", "broom", "zoo", "tux", "12", "rust", "fox", "fux"}
+
+	r, w := io.Pipe()
+	go func() {
+		for _, l := range st {
+			w.Write([]byte(fmt.Sprintf("%s\n", l)))
+		}
+		w.Close()
+	}()
+
+	stdout := new(bytes.Buffer)
+	if err := client.Exec(ctx, k, stdout, ioutil.Discard, r, "sort"); err != nil {
+		t.Fatal(err)
+	}
+
+	sort.Strings(st)
+	res := strings.Split(stdout.String(), "\n")
+
+	for i, s := range st {
+		if s != res[i] {
+			t.Errorf("got unexpected output %s != %s", s, res[i])
+			break
+		}
+	}
 }
