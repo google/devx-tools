@@ -12,6 +12,7 @@ import (
 	waterfall_grpc "github.com/waterfall/proto/waterfall_go_grpc"
 	"github.com/waterfall/server"
 	"google.golang.org/grpc"
+	_ "google.golang.org/grpc/encoding/gzip"
 )
 
 var addr = flag.String(
