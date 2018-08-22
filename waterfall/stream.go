@@ -16,7 +16,7 @@ type Stream interface {
 // Given that embedding is not an option, we need to duplicate method names in the
 // interface declarations. See https://github.com/golang/go/issues/6977).
 
-// StreamMessage defines a generic interface to build messages with byte contents.
+// StreamMessageReadWriteCloser defines a generic interface to build messages with byte contents.
 type StreamMessageReadWriteCloser interface {
 	BuildMsg() interface{}
 	GetBytes(interface{}) ([]byte, error)
