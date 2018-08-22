@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"strings"
+	"syscall"
 
 	"github.com/waterfall/net/qemu"
 	waterfall_grpc "github.com/waterfall/proto/waterfall_go_grpc"
@@ -21,6 +22,10 @@ var addr = flag.String(
 
 func main() {
 	flag.Parse()
+
+	// do not chown - owners and groups will not be valid.
+	// adb will always create files with 0644 permission
+	syscall.Umask(0)
 
 	log.Println("Starting waterfall server ...")
 

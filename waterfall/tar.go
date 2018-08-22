@@ -9,18 +9,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 )
 
 var (
 	modeDir os.FileMode = 0755
-	umask   os.FileMode
 )
-
-func init() {
-	umask = os.FileMode(syscall.Umask(0))
-	syscall.Umask(int(umask))
-}
 
 // Untar untars the contents of a reader into dst
 func Untar(r io.Reader, dst string) error {
@@ -90,7 +83,7 @@ func Untar(r io.Reader, dst string) error {
 			fallthrough
 		case tar.TypeReg:
 			os.RemoveAll(name)
-			f, err := os.OpenFile(name, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0644 & ^umask)
+			f, err := os.OpenFile(name, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0644)
 			if err != nil {
 				return err
 			}
