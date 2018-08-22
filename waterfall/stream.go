@@ -157,10 +157,10 @@ type StreamReadWriteCloser struct {
 // NewReadWriteCloser returns an initialized StreamReadWriteCloser.
 func NewReadWriteCloser(stream Stream, sm StreamMessageReadWriteCloser) *StreamReadWriteCloser {
 	rwc := &StreamReadWriteCloser{
-		Stream: stream,
+		Stream:                       stream,
 		StreamMessageReadWriteCloser: sm,
-		r: NewReader(stream, sm),
-		w: NewWriter(stream, sm),
+		r:                            NewReader(stream, sm),
+		w:                            NewWriter(stream, sm),
 	}
 	return rwc
 }
