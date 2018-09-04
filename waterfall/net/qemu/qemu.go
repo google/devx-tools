@@ -255,12 +255,15 @@ func (b *ConnBuilder) Next() (net.Conn, error) {
 		// sync with the server
 		rdy := []byte(rdyMsg)
 		if _, err := conn.Write(rdy); err != nil {
+			conn.Close()
 			continue
 		}
 		if _, err := io.ReadFull(conn, rdy); err != nil {
+			conn.Close()
 			continue
 		}
 		if !bytes.Equal([]byte(rdyMsg), rdy) {
+			conn.Close()
 			continue
 		}
 
@@ -297,6 +300,20 @@ func MakeConnBuilder(emuDir, socket string) (*ConnBuilder, error) {
 	return &ConnBuilder{lis: lis}, nil
 }
 
+func openQemuDevBlocking() (*os.File, error) {
+	// Open device manually in blocking mode. Qemu pipes don't support polling io.
+	r, err := syscall.Open(qemuDriver, os.O_RDWR|syscall.O_CLOEXEC, 0600)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := syscall.SetNonblock(r, false); err != nil {
+		syscall.Close(r)
+		return nil, err
+	}
+	return os.NewFile(uintptr(r), qemuDriver), nil
+}
+
 // Pipe implements a net.Listener on top of a guest qemu pipe
 type Pipe struct {
 	socketName string
@@ -325,16 +342,11 @@ func (q *Pipe) Accept() (net.Conn, error) {
 			time.Sleep(20 * time.Millisecond)
 		}
 
-		log.Println("Opening file")
-		if conn, err = os.OpenFile(qemuDriver, os.O_RDWR, 0600); err != nil {
+		conn, err = openQemuDevBlocking()
+		if err != nil {
 			return nil, err
 		}
 		log.Println("File opened")
-
-		// qemu_pipe does not properly support polling io. Force blocking io
-		if err := syscall.SetNonblock(int(conn.Fd()), false); err != nil {
-			return nil, err
-		}
 
 		svcName := qemuSvc + q.socketName
 		buff := make([]byte, len(svcName)+1)
