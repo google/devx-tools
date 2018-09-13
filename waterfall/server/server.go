@@ -22,7 +22,6 @@ const bufSize = 32 * 1024
 
 // WaterfallServer implements the waterfall gRPC service
 type WaterfallServer struct {
-	ctx context.Context
 }
 
 // Echo exists solely for test purposes. It's a utility function to
@@ -54,7 +53,7 @@ func (s *WaterfallServer) Push(rpc waterfall_grpc.Waterfall_PushServer) error {
 
 	// Connect the gRPC stream with a reader that untars
 	// the contents of the stream into the desired path
-	eg, _ := errgroup.WithContext(s.ctx)
+	eg, _ := errgroup.WithContext(rpc.Context())
 	eg.Go(func() error {
 		defer r.Close()
 		return waterfall.Untar(r, xfer.Path)
@@ -83,7 +82,7 @@ func (s *WaterfallServer) Push(rpc waterfall_grpc.Waterfall_PushServer) error {
 }
 
 // Pull tars up a file/dir and sends it over a gRPC stream
-func (s *WaterfallServer) Pull(t *waterfall_grpc.Transfer, ps waterfall_grpc.Waterfall_PullServer) error {
+func (s *WaterfallServer) Pull(t *waterfall_grpc.Transfer, rpc waterfall_grpc.Waterfall_PullServer) error {
 	if _, err := os.Stat(t.Path); os.IsNotExist(err) {
 		return err
 	}
@@ -92,7 +91,7 @@ func (s *WaterfallServer) Pull(t *waterfall_grpc.Transfer, ps waterfall_grpc.Wat
 
 	// Connect a writer that traverses a the filesystem
 	// tars the contents to the gRPC stream
-	eg, _ := errgroup.WithContext(s.ctx)
+	eg, _ := errgroup.WithContext(rpc.Context())
 	eg.Go(func() error {
 		defer w.Close()
 		return waterfall.Tar(w, t.Path)
@@ -112,7 +111,7 @@ func (s *WaterfallServer) Pull(t *waterfall_grpc.Transfer, ps waterfall_grpc.Wat
 				// No need to populate anything else. Sending the path
 				// everytime is just overhead.
 				xfer := &waterfall_grpc.Transfer{Payload: buff[0:n]}
-				if err := ps.Send(xfer); err != nil {
+				if err := rpc.Send(xfer); err != nil {
 					return err
 				}
 			}
@@ -156,18 +155,18 @@ func (em execMessageReader) GetBytes(m interface{}) ([]byte, error) {
 }
 
 // Exec forks a new process with the desired command and pipes its output to the gRPC stream
-func (s *WaterfallServer) Exec(es waterfall_grpc.Waterfall_ExecServer) error {
+func (s *WaterfallServer) Exec(rpc waterfall_grpc.Waterfall_ExecServer) error {
 
 	// The first message contains the actual command to execute.
 	// Implmented as a streaming method in order to support stdin redirection in the future.
-	cmdMsg, err := es.Recv()
+	cmdMsg, err := rpc.Recv()
 	if err != nil {
 		return err
 	}
 
 	// Avoid doing any sort of input check, e.g. check that the path exists
 	// this way we can forward the exact shell output and exit code.
-	cmd := exec.CommandContext(s.ctx, cmdMsg.Cmd.Path, cmdMsg.Cmd.Args...)
+	cmd := exec.CommandContext(rpc.Context(), cmdMsg.Cmd.Path, cmdMsg.Cmd.Args...)
 	cmd.Dir = cmdMsg.Cmd.Dir
 	if cmd.Dir == "" {
 		cmd.Dir = "/"
@@ -183,7 +182,7 @@ func (s *WaterfallServer) Exec(es waterfall_grpc.Waterfall_ExecServer) error {
 	}
 
 	if cmdMsg.Cmd.PipeIn {
-		cmd.Stdin = waterfall.NewReader(es, execMessageReader{})
+		cmd.Stdin = waterfall.NewReader(rpc, execMessageReader{})
 	}
 
 	if err := cmd.Start(); err != nil {
@@ -199,7 +198,7 @@ func (s *WaterfallServer) Exec(es waterfall_grpc.Waterfall_ExecServer) error {
 	stdoutCh := make(chan []byte, 1)
 	stderrCh := make(chan []byte, 1)
 
-	eg, _ := errgroup.WithContext(s.ctx)
+	eg, _ := errgroup.WithContext(rpc.Context())
 
 	// Serialize and multiplex stdout/stderr channels to the grpc stream
 	eg.Go(func() error {
@@ -233,7 +232,7 @@ func (s *WaterfallServer) Exec(es waterfall_grpc.Waterfall_ExecServer) error {
 				msg = &waterfall_grpc.CmdProgress{Stderr: e}
 			}
 			if msg != nil {
-				if err := es.Send(msg); err != nil {
+				if err := rpc.Send(msg); err != nil {
 					return err
 				}
 			}
@@ -248,7 +247,7 @@ func (s *WaterfallServer) Exec(es waterfall_grpc.Waterfall_ExecServer) error {
 	if err := cmd.Wait(); err != nil {
 		if exiterr, ok := err.(*exec.ExitError); ok {
 			if stat, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-				return es.Send(&waterfall_grpc.CmdProgress{
+				return rpc.Send(&waterfall_grpc.CmdProgress{
 					ExitCode: uint32(stat.ExitStatus())})
 			}
 			// the server always runs on android so the type assertion will aways succeed
@@ -257,12 +256,12 @@ func (s *WaterfallServer) Exec(es waterfall_grpc.Waterfall_ExecServer) error {
 		// we got some other kind of error
 		return err
 	}
-	return es.Send(&waterfall_grpc.CmdProgress{ExitCode: 0})
+	return rpc.Send(&waterfall_grpc.CmdProgress{ExitCode: 0})
 }
 
 // Forward forwards the grpc stream to the requested port.
-func (s *WaterfallServer) Forward(stream waterfall_grpc.Waterfall_ForwardServer) error {
-	fwd, err := stream.Recv()
+func (s *WaterfallServer) Forward(rpc waterfall_grpc.Waterfall_ForwardServer) error {
+	fwd, err := rpc.Recv()
 	if err != nil {
 		return err
 	}
@@ -283,16 +282,11 @@ func (s *WaterfallServer) Forward(stream waterfall_grpc.Waterfall_ForwardServer)
 	if err != nil {
 		return err
 	}
-	sf := forward.NewStreamForwarder(stream, conn.(forward.HalfReadWriteCloser))
+	sf := forward.NewStreamForwarder(rpc, conn.(forward.HalfReadWriteCloser))
 	return sf.Forward()
 }
 
 // Version returns the version of the server.
 func (s *WaterfallServer) Version(context.Context, *empty_pb.Empty) (*waterfall_grpc.VersionMessage, error) {
 	return &waterfall_grpc.VersionMessage{Version: "0.0"}, nil
-}
-
-// NewWaterfallServer returns a gRPC server that implements the waterfall service
-func NewWaterfallServer(ctx context.Context) *WaterfallServer {
-	return &WaterfallServer{ctx: ctx}
 }

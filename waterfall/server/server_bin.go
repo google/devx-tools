@@ -2,7 +2,6 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"log"
 	"net"
@@ -64,8 +63,7 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer()
-	waterfall_grpc.RegisterWaterfallServer(
-		grpcServer, server.NewWaterfallServer(context.Background()))
+	waterfall_grpc.RegisterWaterfallServer(grpcServer, new(server.WaterfallServer))
 
 	log.Println("Serving ...")
 	grpcServer.Serve(lis)
