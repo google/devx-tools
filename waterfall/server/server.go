@@ -53,7 +53,7 @@ func (s *WaterfallServer) Push(rpc waterfall_grpc.Waterfall_PushServer) error {
 
 	// Connect the gRPC stream with a reader that untars
 	// the contents of the stream into the desired path
-	eg, _ := errgroup.WithContext(rpc.Context())
+	eg := &errgroup.Group{}
 	eg.Go(func() error {
 		defer r.Close()
 		return waterfall.Untar(r, xfer.Path)
@@ -91,7 +91,7 @@ func (s *WaterfallServer) Pull(t *waterfall_grpc.Transfer, rpc waterfall_grpc.Wa
 
 	// Connect a writer that traverses a the filesystem
 	// tars the contents to the gRPC stream
-	eg, _ := errgroup.WithContext(rpc.Context())
+	eg := &errgroup.Group{}
 	eg.Go(func() error {
 		defer w.Close()
 		return waterfall.Tar(w, t.Path)
@@ -198,7 +198,7 @@ func (s *WaterfallServer) Exec(rpc waterfall_grpc.Waterfall_ExecServer) error {
 	stdoutCh := make(chan []byte, 1)
 	stderrCh := make(chan []byte, 1)
 
-	eg, _ := errgroup.WithContext(rpc.Context())
+	eg := &errgroup.Group{}
 
 	// Serialize and multiplex stdout/stderr channels to the grpc stream
 	eg.Go(func() error {

@@ -20,7 +20,7 @@ func Echo(ctx context.Context, client waterfall_grpc.WaterfallClient, r []byte) 
 	if err != nil {
 		return nil, err
 	}
-	eg, ctx := errgroup.WithContext(ctx)
+	eg := &errgroup.Group{}
 	rec := new(bytes.Buffer)
 	eg.Go(func() error {
 		for {
@@ -69,7 +69,8 @@ func Push(ctx context.Context, client waterfall_grpc.WaterfallClient, src, dst s
 
 	r, w := io.Pipe()
 	defer r.Close()
-	eg, ctx := errgroup.WithContext(ctx)
+
+	eg := &errgroup.Group{}
 	eg.Go(func() error {
 		err := waterfall.Tar(w, src)
 		w.Close()
@@ -119,7 +120,7 @@ func Pull(ctx context.Context, client waterfall_grpc.WaterfallClient, src, dst s
 	}
 
 	r, w := io.Pipe()
-	eg, ctx := errgroup.WithContext(ctx)
+	eg := &errgroup.Group{}
 	eg.Go(func() error {
 		err := waterfall.Untar(r, dst)
 		r.Close()
@@ -190,7 +191,8 @@ func Exec(ctx context.Context, client waterfall_grpc.WaterfallClient, stdout, st
 		return err
 	}
 
-	eg, _ := errgroup.WithContext(ctx)
+	eg := &errgroup.Group{}
+
 	if stdin != nil {
 		eg.Go(func() error {
 			_, err := io.Copy(waterfall.NewWriter(xstream, execMessageWriter{}), stdin)
