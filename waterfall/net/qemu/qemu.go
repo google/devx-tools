@@ -54,12 +54,14 @@ type Conn struct {
 
 	closedReads  bool
 	closedWrites bool
+	closed	     bool
 
 	readsCloseChan  chan struct{}
 	writesCloseChan chan struct{}
 
 	readLock  *sync.Mutex
 	writeLock *sync.Mutex
+	closeLock *sync.Mutex
 }
 
 // Read reads from from the Conn connection.
@@ -75,7 +77,6 @@ func (q *Conn) Read(b []byte) (int, error) {
 	// we check the error message and ensure the target string is not present.
 	n, err := q.read(b)
 	if err != nil {
-		go q.CloseRead()
 		if strings.Contains(err.Error(), ioErrMsg) {
 			return n, io.EOF
 		}
@@ -148,7 +149,21 @@ func (q *Conn) Write(b []byte) (int, error) {
 
 // Close closes the connection
 func (q *Conn) Close() error {
-	return q.CloseWrite()
+	q.closeLock.Lock()
+	defer q.closeLock.Unlock()
+
+	if q.closed {
+		return errClosed
+	}
+
+	q.closed = true
+
+	q.CloseWrite()
+	q.CloseRead()
+
+	q.conn.Close()
+	return nil
+
 }
 
 // CloseRead closes the read side of the connection
@@ -229,6 +244,7 @@ func makeConn(conn io.ReadWriteCloser) *Conn {
 		writesCloseChan: make(chan struct{}),
 		readLock:        &sync.Mutex{},
 		writeLock:       &sync.Mutex{},
+		closeLock:	 &sync.Mutex{},
 	}
 }
 
