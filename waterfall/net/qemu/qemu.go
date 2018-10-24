@@ -2,6 +2,7 @@
 package qemu
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/binary"
 	"errors"
@@ -20,6 +21,10 @@ const (
 	qemuSvc    = "pipe:unix:"
 	ioErrMsg   = "input/output error"
 	rdyMsg     = "rdy"
+
+	// We pick a sufficiently large buffer size to avoid hitting an underlying bug on the emulator.
+	// See https://issuetracker.google.com/issues/115894209 for context.
+	buffSize = 1 << 16
 )
 
 var errClosed = errors.New("error connection closed")
@@ -40,7 +45,9 @@ func (a qemuAddr) String() string {
 // Conn implements the net.Conn interface on top of a qemu_pipe
 type Conn struct {
 	// Backed by qemu_pipe
-	conn io.ReadWriteCloser
+	wb *bufio.Writer
+	rb *bufio.Reader
+	cl io.Closer
 
 	// Dummy addr
 	addr net.Addr
@@ -54,7 +61,7 @@ type Conn struct {
 
 	closedReads  bool
 	closedWrites bool
-	closed	     bool
+	closed       bool
 
 	readsCloseChan  chan struct{}
 	writesCloseChan chan struct{}
@@ -97,7 +104,7 @@ func (q *Conn) read(b []byte) (int, error) {
 
 	// read leftovers from previous reads before trying to read the size
 	if toRead > 0 {
-		n, err := io.ReadFull(q.conn, b[:toRead])
+		n, err := io.ReadFull(q.rb, b[:toRead])
 		if err != nil {
 			return n, err
 		}
@@ -109,7 +116,7 @@ func (q *Conn) read(b []byte) (int, error) {
 	}
 
 	var recd uint32
-	if err := binary.Read(q.conn, binary.LittleEndian, &recd); err != nil {
+	if err := binary.Read(q.rb, binary.LittleEndian, &recd); err != nil {
 		return 0, err
 	}
 
@@ -123,7 +130,7 @@ func (q *Conn) read(b []byte) (int, error) {
 		toRead = len(b)
 	}
 
-	n, err := io.ReadFull(q.conn, b[:toRead])
+	n, err := io.ReadFull(q.rb, b[:toRead])
 	if err != nil {
 		return n, err
 	}
@@ -141,10 +148,14 @@ func (q *Conn) Write(b []byte) (int, error) {
 	}
 
 	// Prepend the message with size
-	if err := binary.Write(q.conn, binary.LittleEndian, uint32(len(b))); err != nil {
+	if err := binary.Write(q.wb, binary.LittleEndian, uint32(len(b))); err != nil {
 		return 0, err
 	}
-	return q.conn.Write(b)
+	n, err := q.wb.Write(b)
+	if err != nil {
+		return n, err
+	}
+	return n, q.wb.Flush()
 }
 
 // Close closes the connection
@@ -159,9 +170,6 @@ func (q *Conn) Close() error {
 	q.closed = true
 
 	q.CloseWrite()
-	q.CloseRead()
-
-	q.conn.Close()
 	return nil
 
 }
@@ -195,11 +203,13 @@ func (q *Conn) CloseWrite() error {
 }
 
 func (q *Conn) sendClose() error {
-	if err := binary.Write(q.conn, binary.LittleEndian, uint32(0)); err != nil {
+	if err := binary.Write(q.wb, binary.LittleEndian, uint32(0)); err != nil {
 		return err
 	}
-	_, e := q.conn.Write([]byte{})
-	return e
+	if _, err := q.wb.Write([]byte{}); err != nil {
+		return err
+	}
+	return q.wb.Flush()
 }
 
 // LocalAddr returns the qemu address
@@ -233,18 +243,20 @@ func (q *Conn) closeConn() {
 	// remember the ABC
 	<-q.readsCloseChan
 	<-q.writesCloseChan
-	q.conn.Close()
+	q.cl.Close()
 }
 
 func makeConn(conn io.ReadWriteCloser) *Conn {
 	return &Conn{
-		conn:            conn,
+		wb:              bufio.NewWriterSize(conn, buffSize),
+		rb:              bufio.NewReaderSize(conn, buffSize),
+		cl:              conn,
 		addr:            qemuAddr(""),
 		readsCloseChan:  make(chan struct{}),
 		writesCloseChan: make(chan struct{}),
 		readLock:        &sync.Mutex{},
 		writeLock:       &sync.Mutex{},
-		closeLock:	 &sync.Mutex{},
+		closeLock:       &sync.Mutex{},
 	}
 }
 
@@ -323,10 +335,6 @@ func openQemuDevBlocking() (*os.File, error) {
 		return nil, err
 	}
 
-	if err := syscall.SetNonblock(r, false); err != nil {
-		syscall.Close(r)
-		return nil, err
-	}
 	return os.NewFile(uintptr(r), qemuDriver), nil
 }
 
