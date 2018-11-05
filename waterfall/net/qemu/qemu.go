@@ -54,7 +54,7 @@ type Conn struct {
 
 	closedReads  bool
 	closedWrites bool
-	closed	     bool
+	closed       bool
 
 	readsCloseChan  chan struct{}
 	writesCloseChan chan struct{}
@@ -244,7 +244,7 @@ func makeConn(conn io.ReadWriteCloser) *Conn {
 		writesCloseChan: make(chan struct{}),
 		readLock:        &sync.Mutex{},
 		writeLock:       &sync.Mutex{},
-		closeLock:	 &sync.Mutex{},
+		closeLock:       &sync.Mutex{},
 	}
 }
 
