@@ -146,16 +146,6 @@ func Pull(ctx context.Context, client waterfall_grpc.WaterfallClient, src, dst s
 	return eg.Wait()
 }
 
-// ExecError contains the status code from the executed command.
-type ExecError struct {
-	ExitCode uint32
-}
-
-// Error returns the string representation for an ExecError.
-func (e ExecError) Error() string {
-	return fmt.Sprintf("non-zero exit code: %d", e.ExitCode)
-}
-
 type execMessageWriter struct{}
 
 // BuildMsg returns a reference to a new CmdProgress struct.
@@ -176,10 +166,10 @@ func (em execMessageWriter) SetBytes(m interface{}, b []byte) {
 }
 
 // Exec executes the requested command on the device. Semantics are the same as execve.
-func Exec(ctx context.Context, client waterfall_grpc.WaterfallClient, stdout, stderr io.Writer, stdin io.Reader, cmd string, args ...string) error {
+func Exec(ctx context.Context, client waterfall_grpc.WaterfallClient, stdout, stderr io.Writer, stdin io.Reader, cmd string, args ...string) (int, error) {
 	xstream, err := client.Exec(ctx)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	// initializes the command execution on the server
@@ -188,7 +178,7 @@ func Exec(ctx context.Context, client waterfall_grpc.WaterfallClient, stdout, st
 			Cmd: &waterfall_grpc.Cmd{Path: cmd,
 				Args:   args,
 				PipeIn: stdin != nil}}); err != nil {
-		return err
+		return 0, err
 	}
 
 	eg := &errgroup.Group{}
@@ -210,28 +200,25 @@ func Exec(ctx context.Context, client waterfall_grpc.WaterfallClient, stdout, st
 			if err == io.EOF {
 				break
 			}
-			return err
+			return 0, err
 		}
 
 		if pgrs.Stdout != nil {
 			if _, err := stdout.Write(pgrs.Stdout); err != nil {
-				return err
+				return 0, err
 			}
 		}
 		if pgrs.Stderr != nil {
 			if _, err := stdout.Write(pgrs.Stderr); err != nil {
-				return err
+				return 0, err
 			}
 		}
 		last = pgrs
 	}
 
 	if err := eg.Wait(); err != nil {
-		return err
+		return 0, err
 	}
 
-	if last.ExitCode != 0 {
-		return ExecError{ExitCode: last.ExitCode}
-	}
-	return nil
+	return int(last.ExitCode), nil
 }
