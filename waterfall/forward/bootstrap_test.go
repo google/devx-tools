@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -61,8 +62,12 @@ func getProp(addr, prop string) (string, error) {
 
 	wc := waterfall_grpc.NewWaterfallClient(cc)
 	sOut := new(bytes.Buffer)
-	if err := client.Exec(context.Background(), wc, sOut, ioutil.Discard, nil, "getprop", prop); err != nil {
+	r, err := client.Exec(context.Background(), wc, sOut, ioutil.Discard, nil, "getprop", prop)
+	if err != nil {
 		return "", err
+	}
+	if r != 0 {
+		return "", fmt.Errorf("got non-zero exit code: %d", r)
 	}
 	return strings.TrimSpace(sOut.String()), nil
 }

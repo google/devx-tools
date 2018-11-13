@@ -372,14 +372,24 @@ func TestExec(t *testing.T) {
 
 	stdout := new(bytes.Buffer)
 	stderr := new(bytes.Buffer)
-	if err := client.Exec(ctx, k, stdout, stderr, nil, "setprop", "ninjas.h20.running", "yes"); err != nil {
+	r, err := client.Exec(ctx, k, stdout, stderr, nil, "setprop", "ninjas.h20.running", "yes")
+	if err != nil {
 		t.Fatal(err)
+	}
+	if r != 0 {
+		t.Errorf("setprop command returned non-zero status: %d", r)
+		return
 	}
 
 	stdout = new(bytes.Buffer)
 	stderr = new(bytes.Buffer)
-	if err := client.Exec(ctx, k, stdout, stderr, nil, "getprop", "ninjas.h20.running"); err != nil {
+	r, err = client.Exec(ctx, k, stdout, stderr, nil, "getprop", "ninjas.h20.running")
+	if err != nil {
 		t.Fatal(err)
+	}
+	if r != 0 {
+		t.Errorf("getprop command returned non-zero status: %d", r)
+		return
 	}
 
 	expected := []byte{'y', 'e', 's', '\n'}
@@ -389,22 +399,24 @@ func TestExec(t *testing.T) {
 
 	stdout = new(bytes.Buffer)
 	stderr = new(bytes.Buffer)
-	if err := client.Exec(ctx, k, stdout, stderr, nil, "true"); err != nil {
+	r, err = client.Exec(ctx, k, stdout, stderr, nil, "true")
+	if err != nil {
 		t.Fatal(err)
+	}
+	if r != 0 {
+		t.Errorf("true command returned non-zero status: %d", r)
+		return
 	}
 
 	stdout = new(bytes.Buffer)
 	stderr = new(bytes.Buffer)
-	err = client.Exec(ctx, k, stdout, stderr, nil, "false")
-	if err == nil {
-		t.Errorf("expected non-zero exit code error but got none")
+	r, err = client.Exec(ctx, k, stdout, stderr, nil, "false")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if execErr, ok := err.(client.ExecError); !ok {
-		t.Errorf("expected ExecError but got %v instead", err)
-	} else if execErr.ExitCode == 0 {
-		t.Errorf("expected non-zero exit code but got %d", execErr.ExitCode)
+	if r == 0 {
+		t.Errorf("expected non-zero exit code but got %d", r)
 	}
-
 }
 
 func TestExecPipeIn(t *testing.T) {
@@ -466,8 +478,13 @@ func TestExecPipeIn(t *testing.T) {
 	}()
 
 	stdout := new(bytes.Buffer)
-	if err := client.Exec(ctx, k, stdout, ioutil.Discard, r, "sort"); err != nil {
+	ret, err := client.Exec(ctx, k, stdout, ioutil.Discard, r, "sort")
+	if err != nil {
 		t.Fatal(err)
+	}
+	if ret != 0 {
+		t.Errorf("sort command returned non-zero status: %d", ret)
+		return
 	}
 
 	sort.Strings(st)
