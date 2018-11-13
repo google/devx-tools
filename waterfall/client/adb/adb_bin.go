@@ -14,8 +14,8 @@ import (
 	"unicode"
 
 	"github.com/waterfall/client"
-	"google.golang.org/grpc"
 	waterfall_grpc "github.com/waterfall/proto/waterfall_go_grpc"
+	"google.golang.org/grpc"
 )
 
 const (
