@@ -170,8 +170,9 @@ func (q *Conn) Close() error {
 	q.closed = true
 
 	q.CloseWrite()
+	q.CloseRead()
+	q.cl.Close()
 	return nil
-
 }
 
 // CloseRead closes the read side of the connection
