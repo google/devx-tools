@@ -6,11 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 	"unicode"
 
 	"github.com/waterfall/client"
@@ -281,10 +283,21 @@ func runCommand(ctx context.Context, args []string) error {
 			// Let adb try to figure out if there is only one device.
 			fallbackADB(originalArgs)
 		}
+
+		// We do dial outside gRPC domain in order to fallback to regular adb without grpc intervention
+		cc, err := net.Dial("unix", "@h2o_"+deviceName)
+		if err != nil {
+			fallbackADB(originalArgs)
+		}
+
 		if fn, ok := cmds[args[0]]; ok {
 			err := fn(ctx, func() (*grpc.ClientConn, error) {
 				conn, err := grpc.Dial(
-					fmt.Sprintf("unix:@h2o_%s", deviceName),
+					"",
+					grpc.WithDialer(func(addr string, t time.Duration) (net.Conn, error) {
+						return cc, nil
+					}),
+					grpc.WithBlock(),
 					grpc.WithInsecure())
 				if err != nil {
 					return nil, err

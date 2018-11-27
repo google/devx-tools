@@ -126,12 +126,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	lis, err := net.Listen(lpa.kind, lpa.addr)
-	if err != nil {
-		log.Fatalf("Failed to listen on address: %v.", err)
-	}
-	defer lis.Close()
-
 	var b connBuilder
 	switch cpa.kind {
 	case qemuConn:
@@ -163,17 +157,30 @@ func main() {
 		log.Fatalf("Unsupported network type: %s", cpa.kind)
 	}
 
+	cy, err := b.Next()
+	if err != nil {
+		log.Fatalf("Got error getting next conn: %v\n", err)
+	}
+
+	// Don't accept connections from the host until we are sure the guest is up.
+	lis, err := net.Listen(lpa.kind, lpa.addr)
+	if err != nil {
+		log.Fatalf("Failed to listen on address: %v.", err)
+	}
+	defer lis.Close()
+
 	for {
 		cx, err := lis.Accept()
 		if err != nil {
 			log.Fatalf("Got error accepting conn: %v\n", err)
 		}
 
-		cy, err := b.Next()
+		log.Println("Forwarding ...")
+		go forward.Forward(cx.(forward.HalfReadWriteCloser), cy.(forward.HalfReadWriteCloser))
+
+		cy, err = b.Next()
 		if err != nil {
 			log.Fatalf("Got error getting next conn: %v\n", err)
 		}
-		log.Println("Forwarding ...")
-		go forward.Forward(cx.(forward.HalfReadWriteCloser), cy.(forward.HalfReadWriteCloser))
 	}
 }
