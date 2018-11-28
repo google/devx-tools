@@ -75,7 +75,7 @@ func getProp(addr, prop string) (string, error) {
 func initAdb(adbPath, adbPort, serverPort string) *adb.Device {
 	adbConn := &adb.Device{
 		AdbPath:       adbPath,
-		DeviceName:    "127.0.0.1:" + adbPort,
+		DeviceName:    "localhost:" + adbPort,
 		AdbServerPort: serverPort}
 
 	// issue a connect and ignore the error. We are dealing with real adb at this point so
