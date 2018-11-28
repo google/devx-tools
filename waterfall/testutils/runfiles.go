@@ -7,6 +7,8 @@ import (
 	"sync"
 )
 
+const workspaceDir = "runfiles/__main__"
+
 var (
 	runfiles string
 	rfsOnce  sync.Once
@@ -19,8 +21,16 @@ func RunfilesRoot() string {
 		if err != nil {
 			panic("unable to get wd")
 		}
-		sep := filepath.Base(os.Args[0]) + ".runfiles/__main__"
+
+		if strings.HasSuffix(wd, workspaceDir) {
+			// We are executing inside the runfiles dir
+			runfiles = wd
+			return
+		}
+
+		sep := filepath.Base(os.Args[0]) + "." + workspaceDir
 		runfiles = wd[:strings.LastIndex(wd, sep)+len(sep)]
+
 	})
 	return runfiles
 }
