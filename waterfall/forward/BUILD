@@ -65,7 +65,7 @@ go_test(
         "--fwdr_bin=$(location :forward_bin)",
     ],
     data = [
-        ":forward_bin",
+        "//waterfall/forward:forward_bin",
     ],
     deps = [
         "//waterfall/testutils:testutils",
