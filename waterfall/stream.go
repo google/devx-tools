@@ -48,7 +48,7 @@ func NewReader(stream Stream, sm StreamMessageReader) *StreamReader {
 		Stream:              stream,
 		StreamMessageReader: sm,
 		// Avoid blocking when Read is never called
-		msgChan: make(chan []byte, 1),
+		msgChan: make(chan []byte, 256),
 		errChan: make(chan error, 1),
 	}
 	go sr.startReads()

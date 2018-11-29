@@ -41,9 +41,7 @@ func (fm forwardMsg) SetBytes(m interface{}, b []byte) {
 		panic("incorrect type")
 	}
 
-	nb := make([]byte, len(b))
-	copy(nb, b)
-	msg.Payload = nb
+	msg.Payload = b
 }
 
 // CloseMsg returns a new message to notify the other side that the stream is closed.
