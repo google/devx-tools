@@ -22,6 +22,11 @@ type chanStream struct {
 // SendMsg writes the msg to the stream channel.
 func (b *chanStream) SendMsg(m interface{}) error {
 	msg := m.(*waterfall_grpc.ForwardMessage)
+
+	bs := make([]byte, len(msg.Payload))
+	copy(bs, msg.Payload)
+	msg.Payload = bs
+
 	b.msgOut <- msg
 	return nil
 }
