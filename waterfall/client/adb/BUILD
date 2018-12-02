@@ -13,6 +13,7 @@ go_binary(
         "adb_bin.go",
     ],
     deps = [
+        "@io_bazel_rules_go//proto/wkt:empty_go_proto",
         "//waterfall/client",
         "//waterfall/proto:waterfall_go_grpc",
         "@org_golang_google_grpc//:go_default_library",

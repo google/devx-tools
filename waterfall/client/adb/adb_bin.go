@@ -15,6 +15,7 @@ import (
 	"time"
 	"unicode"
 
+	empty_pb "github.com/golang/protobuf/ptypes/empty"
 	"github.com/waterfall/client"
 	waterfall_grpc "github.com/waterfall/proto/waterfall_go_grpc"
 	"google.golang.org/grpc"
@@ -42,6 +43,7 @@ var (
 		"shell":     shellFn,
 		"push":      pushFn,
 		"pull":      pullFn,
+		"forward":   forwardFn,
 		"bugreport": passthroughFn,
 		"logcat":    passthroughFn,
 		"install":   installFn,
@@ -204,6 +206,77 @@ func installFn(ctx context.Context, cfn clientFn, args []string) error {
 	return shell(ctx, c, "/system/bin/pm", append(args[:len(args)-1], filepath.Join(tmp, filepath.Base(path)))...)
 }
 
+func parseFwd(addr string) (string, error) {
+	pts := strings.Split(addr, ":")
+	if len(pts) != 2 {
+		return "", parseError{}
+	}
+
+	switch pts[0] {
+	case "tcp":
+		return "tcp:localhost:" + pts[1], nil
+	case "localabstract":
+		return "unix:@" + pts[1], nil
+	case "localreserved":
+		fallthrough
+	case "localfilesystem":
+		return "unix:" + pts[1], nil
+	default:
+		return "", parseError{}
+	}
+}
+
+func forwardFn(ctx context.Context, cfn clientFn, args []string) error {
+	if len(args) < 2 || len(args) > 4 {
+		return parseError{}
+	}
+
+	conn, err := cfn()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	c := waterfall_grpc.NewPortForwarderClient(conn)
+
+	var src, dst string
+	switch args[1] {
+	case "--remove":
+		if len(args) != 3 {
+			return parseError{}
+		}
+		fwd, err := parseFwd(args[2])
+		if err != nil {
+			return err
+		}
+		_, err = c.Stop(ctx, &waterfall_grpc.PortForwardRequest{Src: fwd})
+		return err
+	case "--remove-all":
+		if len(args) != 2 {
+			return parseError{}
+		}
+		_, err = c.StopAll(ctx, &empty_pb.Empty{})
+		return err
+	case "--no-rebind":
+		if src, err = parseFwd(args[2]); err != nil {
+			return err
+		}
+		if dst, err = parseFwd(args[3]); err != nil {
+			return err
+		}
+		_, err = c.ForwardPort(ctx, &waterfall_grpc.PortForwardRequest{Src: src, Dst: dst, Rebind: false})
+		return err
+	default:
+		if src, err = parseFwd(args[1]); err != nil {
+			return err
+		}
+		if dst, err = parseFwd(args[2]); err != nil {
+			return err
+		}
+		_, err = c.ForwardPort(ctx, &waterfall_grpc.PortForwardRequest{Src: src, Dst: dst, Rebind: true})
+		return err
+	}
+}
+
 func passthroughFn(ctx context.Context, cfn clientFn, args []string) error {
 	conn, err := cfn()
 	if err != nil {
@@ -291,20 +364,25 @@ func runCommand(ctx context.Context, args []string) error {
 		}
 
 		if fn, ok := cmds[args[0]]; ok {
-			err := fn(ctx, func() (*grpc.ClientConn, error) {
-				conn, err := grpc.Dial(
+
+			cfn := func() (*grpc.ClientConn, error) {
+				return grpc.Dial(
 					"",
 					grpc.WithDialer(func(addr string, t time.Duration) (net.Conn, error) {
 						return cc, nil
 					}),
 					grpc.WithBlock(),
 					grpc.WithInsecure())
-				if err != nil {
-					return nil, err
-				}
-				return conn, nil
-			}, args)
+			}
 
+			// Forward request uses a different service, so we need to dial accordingly.
+			if args[0] == "forward" {
+				cfn = func() (*grpc.ClientConn, error) {
+					return grpc.Dial(fmt.Sprintf("unix:@h2o_%s_xforward", deviceName), grpc.WithInsecure())
+				}
+			}
+
+			err := fn(ctx, cfn, args)
 			if err != nil {
 				if _, ok := err.(parseError); ok {
 					fallbackADB(originalArgs)

@@ -112,6 +112,21 @@ service Waterfall {
   rpc Version(google.protobuf.Empty) returns (VersionMessage);
 }
 
+message PortForwardRequest {
+  string src = 1;
+  string dst = 2;
+  bool rebind = 3;
+}
+
+// PortForwarder service runs a port forwarding session via waterfall.
+// It allows start and stop forwarding connections when the waterfall client
+// is unable to mantains any state (e.g. the waterfall adb binary).
+service PortForwarder {
+  rpc ForwardPort(PortForwardRequest) returns (google.protobuf.Empty);
+  rpc Stop(PortForwardRequest) returns (google.protobuf.Empty);
+  rpc StopAll(google.protobuf.Empty) returns (google.protobuf.Empty);
+}
+
 message Entry {
   string key = 1;
   string val = 2;

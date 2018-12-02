@@ -12,7 +12,10 @@ import (
 
 	"github.com/waterfall/adb"
 	"github.com/waterfall/forward"
+	"github.com/waterfall/forward/ports"
 	"github.com/waterfall/net/qemu"
+	waterfall_grpc "github.com/waterfall/proto/waterfall_go_grpc"
+	"google.golang.org/grpc"
 )
 
 const (
@@ -32,7 +35,8 @@ var (
 	adbServerPort = flag.String("adb_server_port", "5037", "The adb port of the adb server.")
 	statusFile    = flag.String("status_file", "", "Output infomation about the waterfall process to this file.")
 
-	listenAddr = flag.String("listen_addr", "", "Address to listen for connection on the host. <unix|tcp>:addr")
+	listenAddr        = flag.String("listen_addr", "", "Address to listen for connection on the host. <unix|tcp>:addr")
+	portForwarderAddr = flag.String("port_forwarder_addr", "", "Address to listen for port forwarding requests. <unix|tcp>:addr")
 
 	// For qemu connections addr is the working dir of the emulator
 	connectAddr = flag.String(
@@ -126,6 +130,11 @@ func main() {
 		log.Fatal(err)
 	}
 
+	var fpa *parsedAddr
+	if fpa, err = parseAddr(*portForwarderAddr); *portForwarderAddr != "" && err != nil {
+		log.Fatal(err)
+	}
+
 	var b connBuilder
 	switch cpa.kind {
 	case qemuConn:
@@ -157,30 +166,59 @@ func main() {
 		log.Fatalf("Unsupported network type: %s", cpa.kind)
 	}
 
+	// Block until the guest server process is ready.
 	cy, err := b.Next()
 	if err != nil {
 		log.Fatalf("Got error getting next conn: %v\n", err)
 	}
 
-	// Don't accept connections from the host until we are sure the guest is up.
-	lis, err := net.Listen(lpa.kind, lpa.addr)
-	if err != nil {
-		log.Fatalf("Failed to listen on address: %v.", err)
-	}
-	defer lis.Close()
-
-	for {
-		cx, err := lis.Accept()
+	go func() {
+		lis, err := net.Listen(lpa.kind, lpa.addr)
 		if err != nil {
-			log.Fatalf("Got error accepting conn: %v\n", err)
+			log.Fatalf("Failed to listen on address: %v.", err)
+		}
+		defer lis.Close()
+
+		for {
+			cx, err := lis.Accept()
+			if err != nil {
+				log.Fatalf("Got error accepting conn: %v\n", err)
+			}
+
+			log.Println("Forwarding conns ...")
+			go forward.Forward(cx.(forward.HalfReadWriteCloser), cy.(forward.HalfReadWriteCloser))
+
+			cy, err = b.Next()
+			if err != nil {
+				log.Fatalf("Got error getting next conn: %v\n", err)
+			}
+		}
+	}()
+
+	go func() {
+		if *portForwarderAddr == "" {
+			return
 		}
 
-		log.Println("Forwarding ...")
-		go forward.Forward(cx.(forward.HalfReadWriteCloser), cy.(forward.HalfReadWriteCloser))
-
-		cy, err = b.Next()
+		conn, err := grpc.Dial(*listenAddr, grpc.WithInsecure())
 		if err != nil {
-			log.Fatalf("Got error getting next conn: %v\n", err)
+			log.Fatalf("Failed to establish connection to waterfall server: %v", err)
 		}
-	}
+		defer conn.Close()
+
+		lis, err := net.Listen(fpa.kind, fpa.addr)
+		if err != nil {
+			log.Fatalf("Failed to listen %v", err)
+		}
+
+		grpcServer := grpc.NewServer()
+		waterfall_grpc.RegisterPortForwarderServer(grpcServer, ports.NewServer(waterfall_grpc.NewWaterfallClient(conn)))
+
+		log.Println("Forwarding ports ...")
+		grpcServer.Serve(lis)
+
+	}()
+
+	br := make(chan struct{})
+	<-br
 }

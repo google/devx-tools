@@ -17,7 +17,10 @@ go_binary(
     deps = [
         ":forward",
         "//waterfall/adb",
+        "//waterfall/forward/ports",
         "//waterfall/net/qemu",
+        "//waterfall/proto:waterfall_go_grpc",
+        "@org_golang_google_grpc//:go_default_library",
     ],
 )
 
