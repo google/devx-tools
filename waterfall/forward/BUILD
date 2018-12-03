@@ -9,15 +9,37 @@ load(
 
 package(default_visibility = ["//visibility:public"])
 
-go_binary(
-    name = "forward_bin",
-    srcs = [
-        "forward_bin.go",
-    ],
-    deps = [
+DEPS = [
         ":forward",
         "//waterfall/net/qemu",
-    ],
+]
+
+# Host binary
+go_binary(
+    name = "forward_bin_amd64",
+    srcs = ["forward_bin.go"],
+    deps = DEPS,
+)
+
+# Emulator binaries
+go_binary(
+    name = "forward_bin_386",
+    srcs = ["forward_bin.go"],
+    goarch = "386",
+    goos = "linux",
+    pure = "on",
+    static = "on",
+    deps = DEPS,
+)
+
+go_binary(
+    name = "forward_bin_arm",
+    srcs = ["forward_bin.go"],
+    goarch = "arm",
+    goos = "linux",
+    pure = "on",
+    static = "on",
+    deps = DEPS,
 )
 
 go_library(

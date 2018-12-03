@@ -113,7 +113,7 @@ func TestSingleConn(t *testing.T) {
 	}
 	defer cb.Close()
 
-	c, err := cb.Next()
+	c, err := cb.Accept()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,7 +196,7 @@ func TestMultipleConn(t *testing.T) {
 
 		// Lets avoid variable aliasing
 		func() {
-			c, err := cb.Next()
+			c, err := cb.Accept()
 			if err != nil {
 				t.Fatal(err)
 			}

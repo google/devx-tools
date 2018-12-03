@@ -102,7 +102,7 @@ func connectToPipe(socketDir, socketName string) error {
 
 	// If the server is not running this will block waiting for a connection.
 	go func() {
-		c, err := qb.Next()
+		c, err := qb.Accept()
 		if err != nil {
 			errCh <- err
 			return

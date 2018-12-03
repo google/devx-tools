@@ -190,7 +190,7 @@ func TestConnection(t *testing.T) {
 	for i := 0; i < 16; i++ {
 		eg.Go(func() error {
 
-			qconn, err := cb.Next()
+			qconn, err := cb.Accept()
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -258,7 +258,7 @@ func TestPushPull(t *testing.T) {
 	}
 	defer cb.Close()
 
-	qconn, err := cb.Next()
+	qconn, err := cb.Accept()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -352,7 +352,7 @@ func TestExec(t *testing.T) {
 	}
 	defer cb.Close()
 
-	qconn, err := cb.Next()
+	qconn, err := cb.Accept()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -449,7 +449,7 @@ func TestExecPipeIn(t *testing.T) {
 	}
 	defer cb.Close()
 
-	qconn, err := cb.Next()
+	qconn, err := cb.Accept()
 	if err != nil {
 		t.Fatal(err)
 	}

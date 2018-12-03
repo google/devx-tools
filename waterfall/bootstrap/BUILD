@@ -48,13 +48,13 @@ go_test(
     ],
     args = [
         "--waterfall_bin=$(location //waterfall/server:server_bin_386)",
-        "--forwarder_bin=$(location //waterfall/forward:forward_bin)",
+        "--forwarder_bin=$(location //waterfall/forward:forward_bin_amd64)",
         "--adb_bin=$(location @androidsdk//:adb)",
         "--launcher_bin=$(location @android_test_support//tools/android/emulated_devices/generic_phone:android_24_x86)",
     ],
     data = [
         "//waterfall/server:server_bin_386",
-        "//waterfall/forward:forward_bin",
+        "//waterfall/forward:forward_bin_amd64",
         "@androidsdk//:adb",
         "@android_test_support//tools/android/emulated_devices/generic_phone:android_24_x86",
     ],

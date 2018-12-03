@@ -265,18 +265,13 @@ func makeConn(conn io.ReadWriteCloser) *Conn {
 // listening on a qemu pipe. It accepts connectsion and sync with the client
 // before returning
 type ConnBuilder struct {
-	lis net.Listener
+	net.Listener
 }
 
-// Close closes the underlying net.Listener
-func (b *ConnBuilder) Close() error {
-	return b.lis.Close()
-}
-
-// Next will connect to the guest and return the connection.
-func (b *ConnBuilder) Next() (net.Conn, error) {
+// Accept will connect to the guest and return the connection.
+func (b *ConnBuilder) Accept() (net.Conn, error) {
 	for {
-		conn, err := b.lis.Accept()
+		conn, err := b.Listener.Accept()
 		if err != nil {
 			return nil, err
 		}
@@ -326,7 +321,7 @@ func MakeConnBuilder(emuDir, socket string) (*ConnBuilder, error) {
 		return nil, err
 	}
 
-	return &ConnBuilder{lis: lis}, nil
+	return &ConnBuilder{Listener: lis}, nil
 }
 
 func openQemuDevBlocking() (*os.File, error) {

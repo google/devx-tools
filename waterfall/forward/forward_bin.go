@@ -15,9 +15,12 @@ import (
 )
 
 const (
-	qemuConn = "qemu"
-	unixConn = "unix"
-	tcpConn  = "tcp"
+	qemuHost  = "qemu"
+	qemuGuest = "qemu-guest"
+	unixConn  = "unix"
+	tcpConn   = "tcp"
+
+	sleepTime = time.Millisecond * 2500
 )
 
 var (
@@ -48,7 +51,7 @@ func parseAddr(addr string) (*parsedAddr, error) {
 
 	host := pts[1]
 	socket := ""
-	if pts[0] == qemuConn {
+	if pts[0] == qemuHost || pts[0] == qemuGuest {
 		p := strings.SplitN(pts[1], ":", 2)
 		if len(p) != 2 {
 			return nil, fmt.Errorf("failed to parse address %s", addr)
@@ -60,7 +63,8 @@ func parseAddr(addr string) (*parsedAddr, error) {
 }
 
 type connBuilder interface {
-	Next() (net.Conn, error)
+	Accept() (net.Conn, error)
+	Close() error
 }
 
 type dialBuilder struct {
@@ -68,8 +72,30 @@ type dialBuilder struct {
 	addr    string
 }
 
-func (d *dialBuilder) Next() (net.Conn, error) {
+func (d *dialBuilder) Accept() (net.Conn, error) {
 	return net.Dial(d.netType, d.addr)
+}
+
+func (d *dialBuilder) Close() error {
+	return nil
+}
+
+func makeQemuBuilder(pa *parsedAddr) (connBuilder, error) {
+	qb, err := qemu.MakeConnBuilder(pa.addr, pa.socketName)
+
+	// The emulator can die at any point and we need to die as well.
+	// When the emulator dies its working directory is removed.
+	// Poll the filesystem and terminate the process if we can't
+	// find the emulator dir.
+	go func() {
+		for {
+			time.Sleep(sleepTime)
+			if _, err := os.Stat(pa.addr); err != nil {
+				log.Fatal(err)
+			}
+		}
+	}()
+	return qb, err
 }
 
 func main() {
@@ -91,29 +117,22 @@ func main() {
 
 	var b connBuilder
 	switch cpa.kind {
-	case qemuConn:
-		qb, err := qemu.MakeConnBuilder(cpa.addr, cpa.socketName)
+	case qemuHost:
+		qb, err := makeQemuBuilder(cpa)
 		if err != nil {
 			log.Fatalf("Got error creating qemu conn %v.", err)
 		}
 		defer qb.Close()
 		b = qb
-
-		// The emulator can die at any point and we need to die as well.
-		// When the emulator dies its working directory its removed.
-		// Poll the filesystem and terminate the process if we can't
-		// find the emulator dir.
-		go func() {
-			for {
-				time.Sleep(time.Millisecond * 2500)
-				if _, err := os.Stat(cpa.addr); err != nil {
-					panic(err)
-				}
-			}
-		}()
-
+	case qemuGuest:
+		qb, err := qemu.MakePipe(cpa.socketName)
+		if err != nil {
+			log.Fatalf("Got error creating qemu conn %v.", err)
+		}
+		defer qb.Close()
+		b = qb
 	case unixConn:
-		b = &dialBuilder{netType: cpa.kind, addr: cpa.addr}
+		fallthrough
 	case tcpConn:
 		b = &dialBuilder{netType: cpa.kind, addr: cpa.addr}
 	default:
@@ -121,16 +140,30 @@ func main() {
 	}
 
 	// Block until the guest server process is ready.
-	cy, err := b.Next()
+	cy, err := b.Accept()
 	if err != nil {
 		log.Fatalf("Got error getting next conn: %v\n", err)
 	}
 
-	lis, err := net.Listen(lpa.kind, lpa.addr)
-	if err != nil {
-		log.Fatalf("Failed to listen on address: %v.", err)
+	var lis connBuilder
+	switch lpa.kind {
+	case qemuHost:
+		l, err := makeQemuBuilder(lpa)
+		if err != nil {
+			log.Fatalf("Got error creating qemu conn %v.", err)
+		}
+		defer l.Close()
+		lis = l
+	case unixConn:
+		fallthrough
+	case tcpConn:
+		l, err := net.Listen(lpa.kind, lpa.addr)
+		if err != nil {
+			log.Fatalf("Failed to listen on address: %v.", err)
+		}
+		defer l.Close()
+		lis = l
 	}
-	defer lis.Close()
 
 	for {
 		cx, err := lis.Accept()
@@ -141,7 +174,7 @@ func main() {
 		log.Println("Forwarding conns ...")
 		go forward.Forward(cx.(forward.HalfReadWriteCloser), cy.(forward.HalfReadWriteCloser))
 
-		cy, err = b.Next()
+		cy, err = b.Accept()
 		if err != nil {
 			log.Fatalf("Got error getting next conn: %v\n", err)
 		}
