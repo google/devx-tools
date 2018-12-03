@@ -2,11 +2,24 @@ licenses(["notice"])  # Apache 2.0
 
 load(
     "@io_bazel_rules_go//go:def.bzl",
+    "go_binary",
     "go_library",
     "go_test",
 )
 
 package(default_visibility = ["//visibility:public"])
+
+go_binary(
+    name = "ports_bin",
+    srcs = [
+        "ports_bin.go",
+    ],
+    deps = [
+        "//waterfall/forward/ports",
+        "//waterfall/proto:waterfall_go_grpc",
+        "@org_golang_google_grpc//:go_default_library",
+    ],
+)
 
 go_library(
     name = "ports",
