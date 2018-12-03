@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/waterfall/adb"
 	"github.com/waterfall/forward"
 	"github.com/waterfall/forward/ports"
 	"github.com/waterfall/net/qemu"
@@ -25,16 +24,6 @@ const (
 )
 
 var (
-	bootstrap = flag.Bool("bootstrap", false, "If bootstrap is true, h2o bootsraps itself through adb.")
-
-	// information requiered to bootstrap through adb.
-	qemuSocket    = flag.String("qemu_socket", "sockets/h2o", "The qemu pipe socket name.")
-	waterfallBin  = flag.String("waterfall_bin", "", "Comma separated list arch:path server binaries.")
-	adbBin        = flag.String("adb_bin", "", "Path to the adb binary to use.")
-	adbDeviceName = flag.String("adb_device_name", "", "The adb device name.")
-	adbServerPort = flag.String("adb_server_port", "5037", "The adb port of the adb server.")
-	statusFile    = flag.String("status_file", "", "Output infomation about the waterfall process to this file.")
-
 	listenAddr        = flag.String("listen_addr", "", "Address to listen for connection on the host. <unix|tcp>:addr")
 	portForwarderAddr = flag.String("port_forwarder_addr", "", "Address to listen for port forwarding requests. <unix|tcp>:addr")
 
@@ -89,32 +78,6 @@ func (d *dialBuilder) Next() (net.Conn, error) {
 
 func main() {
 	log.Println("Starting forwarding server ...")
-
-	if *bootstrap {
-
-		if *waterfallBin == "" || *qemuSocket == "" || *adbBin == "" || *adbDeviceName == "" || *adbServerPort == "" {
-			log.Fatalf(
-				"need to provide -waterfall_bin, -qemu_socket, -adb_bin, " +
-					"-device_name, -adb_server_port, and -status_file when bootstrapping.")
-		}
-
-		svrs := strings.Split(*waterfallBin, ",")
-		adbConn := &adb.Device{
-			AdbPath:       *adbBin,
-			DeviceName:    *adbDeviceName,
-			AdbServerPort: *adbServerPort}
-
-		// make sure the device is connected before anything else
-		if err := adbConn.Connect(); err != nil {
-			log.Fatalf("Error connecting to device %s: %v", adbConn.DeviceName, err)
-		}
-
-		_, err := forward.Bootstrap(adbConn, svrs, os.Args[0], *qemuSocket)
-		if err != nil {
-			log.Fatalf("failed to bootstrap h2o: %v", err)
-		}
-		return
-	}
 
 	if *listenAddr == "" || *connectAddr == "" {
 		log.Fatalf("Need to specify -listen_addr and -connect_addr.")

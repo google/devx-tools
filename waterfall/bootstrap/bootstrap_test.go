@@ -1,4 +1,4 @@
-package forward
+package bootstrap
 
 import (
 	"bytes"
@@ -84,12 +84,6 @@ func initAdb(adbPath, adbPort, serverPort string) *adb.Device {
 	return adbConn
 }
 
-func setSocketProp(a *adb.Device, emuDir string) error {
-	_, err := a.Shell([]string{
-		"setprop", socketDirProp, filepath.Join(emuDir, "images/session/sockets")})
-	return err
-}
-
 func TestQemuNeedsBootstrap(t *testing.T) {
 	adbServerPort, adbPort, emuPort, err := testutils.GetAdbPorts()
 	if err != nil {
@@ -105,12 +99,7 @@ func TestQemuNeedsBootstrap(t *testing.T) {
 
 	adbConn := initAdb(a, adbPort, adbServerPort)
 
-	// Set the emulator dir property. Mini boot does not set it.
-	if err := setSocketProp(adbConn, emuDir); err != nil {
-		t.Fatalf("Unable to set qemu socket dir prop: %v", err)
-	}
-
-	r, err := Bootstrap(adbConn, svr, fwdr, socketName)
+	r, err := Bootstrap(adbConn, svr, fwdr, emuDir, socketName)
 	if err != nil {
 		t.Fatalf("Error during bootstrap %v", err)
 	}
@@ -150,17 +139,13 @@ func TestQemuNoBootsrapNeeded(t *testing.T) {
 		t.Fatalf("Unable to start waterfall server: %v", err)
 	}
 
-	if err := setSocketProp(adbConn, emuDir); err != nil {
-		t.Fatalf("Unable to set qemu socket dir prop: %v", err)
-	}
-
-	r, err := Bootstrap(adbConn, svr, fwdr, socketName)
+	r, err := Bootstrap(adbConn, svr, fwdr, emuDir, socketName)
 	if err != nil {
 		t.Fatalf("Error during bootstrap %v", err)
 	}
 
 	// Second bootstrap should be a no-op
-	r, err = Bootstrap(adbConn, svr, fwdr, socketName)
+	r, err = Bootstrap(adbConn, svr, fwdr, emuDir, socketName)
 	if err != nil {
 		t.Fatalf("Error during bootstrap %v", err)
 	}
@@ -202,7 +187,7 @@ func TestAdbNeedsBootstrap(t *testing.T) {
 	adbConn := initAdb(a, adbPort, adbServerPort)
 
 	// Don't set qemu prop so this gets treated as a physical device
-	r, err := Bootstrap(adbConn, svr, fwdr, socketName)
+	r, err := Bootstrap(adbConn, svr, fwdr, "", socketName)
 	if err != nil {
 		t.Fatalf("Error during bootstrap %v", err)
 	}
@@ -248,7 +233,7 @@ func TestAdbServerIsRunning(t *testing.T) {
 	// wait for the server to come up
 	time.Sleep(time.Millisecond * 300)
 
-	r, err := Bootstrap(adbConn, svr, fwdr, socketName)
+	r, err := Bootstrap(adbConn, svr, fwdr, emuDir, socketName)
 	if err != nil {
 		t.Fatalf("Error during bootstrap %v", err)
 	}

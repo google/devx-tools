@@ -1,9 +1,10 @@
-package forward
+package bootstrap
 
 import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net"
 	"os"
 	"os/exec"
@@ -144,6 +145,8 @@ func startWaterfall(adbConn *adb.Device, wtf, addr string) error {
 }
 
 func startForwarder(forwarderBin, lisAddr, connAddr string) error {
+	log.Println("Starting forwarder server ...")
+
 	// fork a new process with the right params.
 	cmd := exec.Command(forwarderBin, "-connect_addr", connAddr, "-listen_addr", lisAddr)
 
@@ -178,19 +181,15 @@ func waterfallPath(adbConn *adb.Device, paths []string) (string, error) {
 }
 
 // Bootstrap installs h2o on the device and starts the host forwarder if needed.
-func Bootstrap(adbConn *adb.Device, waterfallBin []string, forwarderBin, socketName string) (*BootstrapResult, error) {
+func Bootstrap(adbConn *adb.Device, waterfallBin []string, forwarderBin, socketDir string, socketName string) (*BootstrapResult, error) {
 	// The default bootstrap address.
 	unixName := fmt.Sprintf("h2o_%s", adbConn.DeviceName)
 	lisAddr := fmt.Sprintf("unix:@%s", unixName)
 
-	fmt.Println("Pinging server ...")
+	log.Println("Pinging server ...")
 	if err := pingServer(lisAddr); err == nil {
 		// There is responsive forwarder server already running
 		return &BootstrapResult{}, nil
-	}
-	socketDir, err := adbConn.QemuPipeDir()
-	if err != nil {
-		return nil, fmt.Errorf("error getting pipe dir: %v", err)
 	}
 
 	svr, err := waterfallPath(adbConn, waterfallBin)
