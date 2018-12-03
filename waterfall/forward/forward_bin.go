@@ -21,7 +21,7 @@ const (
 )
 
 var (
-	listenAddr        = flag.String("listen_addr", "", "Address to listen for connection on the host. <unix|tcp>:addr")
+	listenAddr = flag.String("listen_addr", "", "Address to listen for connection on the host. <unix|tcp>:addr")
 
 	// For qemu connections addr is the working dir of the emulator
 	connectAddr = flag.String(
