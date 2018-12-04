@@ -1,3 +1,4 @@
+// Package bootstraps bootstraps waterfall using adb.
 package bootstrap
 
 import (
@@ -37,8 +38,8 @@ su -c nohup "${waterfall_bin}" --addr "${addr}" || nohup "${waterfall_bin}" --ad
 
 var defaultTimeout = 300 * time.Millisecond
 
-// BootstrapResult has information about a succesful bootstrap session.
-type BootstrapResult struct {
+// Result has information about a succesful bootstrap session.
+type Result struct {
 	StartedServer    bool
 	StartedForwarder bool
 }
@@ -181,7 +182,7 @@ func waterfallPath(adbConn *adb.Device, paths []string) (string, error) {
 }
 
 // Bootstrap installs h2o on the device and starts the host forwarder if needed.
-func Bootstrap(adbConn *adb.Device, waterfallBin []string, forwarderBin, socketDir string, socketName string) (*BootstrapResult, error) {
+func Bootstrap(adbConn *adb.Device, waterfallBin []string, forwarderBin, socketDir string, socketName string) (*Result, error) {
 	// The default bootstrap address.
 	unixName := fmt.Sprintf("h2o_%s", adbConn.DeviceName)
 	lisAddr := fmt.Sprintf("unix:@%s", unixName)
@@ -189,7 +190,7 @@ func Bootstrap(adbConn *adb.Device, waterfallBin []string, forwarderBin, socketD
 	log.Println("Pinging server ...")
 	if err := pingServer(lisAddr); err == nil {
 		// There is responsive forwarder server already running
-		return &BootstrapResult{}, nil
+		return &Result{}, nil
 	}
 
 	svr, err := waterfallPath(adbConn, waterfallBin)
@@ -215,7 +216,7 @@ func Bootstrap(adbConn *adb.Device, waterfallBin []string, forwarderBin, socketD
 			return pingServer(lisAddr)
 		}, 3, defaultTimeout); err == nil {
 			// There is responsive forwarder server already running
-			return &BootstrapResult{StartedServer: ss, StartedForwarder: false}, nil
+			return &Result{StartedServer: ss, StartedForwarder: false}, nil
 		}
 		if err := startForwarder(forwarderBin, lisAddr, connAddr); err != nil {
 			return nil, err
@@ -241,5 +242,5 @@ func Bootstrap(adbConn *adb.Device, waterfallBin []string, forwarderBin, socketD
 	if err := retry(func() error { return pingServer(lisAddr) }, 3, defaultTimeout); err != nil {
 		return nil, err
 	}
-	return &BootstrapResult{StartedServer: ss, StartedForwarder: sf}, nil
+	return &Result{StartedServer: ss, StartedForwarder: sf}, nil
 }
