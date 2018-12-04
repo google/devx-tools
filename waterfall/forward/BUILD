@@ -82,10 +82,10 @@ go_test(
         "forward_test.go",
     ],
     args = [
-        "--fwdr_bin=$(location :forward_bin)",
+        "--fwdr_bin=$(location :forward_bin_amd64)",
     ],
     data = [
-        "//waterfall/forward:forward_bin",
+        "//waterfall/forward:forward_bin_amd64",
     ],
     deps = [
         "//waterfall/testutils:testutils",
