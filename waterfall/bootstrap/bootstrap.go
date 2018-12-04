@@ -202,7 +202,6 @@ func Bootstrap(adbConn *adb.Device, waterfallBin []string, forwarderBin, socketD
 	sf := false
 	if socketDir != "" {
 		// has qemu pipe support
-		socketDir = filepath.Dir(socketDir)
 		connAddr := fmt.Sprintf("qemu:%s:%s", socketDir, socketName)
 		svrAddr := fmt.Sprintf("qemu:%s", socketName)
 

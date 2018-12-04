@@ -4,6 +4,7 @@ package main
 import (
 	"flag"
 	"log"
+	"path/filepath"
 	"strings"
 
 	"github.com/waterfall/adb"
@@ -57,6 +58,7 @@ func main() {
 		if sts, err = adbConn.QemuPipeDir(); err != nil {
 			log.Fatalf("error getting pipe dir: %v", err)
 		}
+		sts = filetpath.Dir(sts)
 	}
 
 	_, err := bootstrap.Bootstrap(adbConn, svrs, *forwarderBin, sts, *qemuSocket)
