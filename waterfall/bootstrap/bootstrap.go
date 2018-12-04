@@ -1,4 +1,4 @@
-// Package bootstraps bootstraps waterfall using adb.
+// Package bootstrap bootstraps waterfall using adb.
 package bootstrap
 
 import (
