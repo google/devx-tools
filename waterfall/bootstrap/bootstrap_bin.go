@@ -58,7 +58,7 @@ func main() {
 		if sts, err = adbConn.QemuPipeDir(); err != nil {
 			log.Fatalf("error getting pipe dir: %v", err)
 		}
-		sts = filetpath.Dir(sts)
+		sts = filepath.Dir(sts)
 	}
 
 	_, err := bootstrap.Bootstrap(adbConn, svrs, *forwarderBin, sts, *qemuSocket)
