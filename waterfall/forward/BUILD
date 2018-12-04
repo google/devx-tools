@@ -16,7 +16,7 @@ DEPS = [
 
 # Host binary
 go_binary(
-    name = "forward_bin_amd64",
+    name = "forward_bin",
     srcs = ["forward_bin.go"],
     deps = DEPS,
 )
