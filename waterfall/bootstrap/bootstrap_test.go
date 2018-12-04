@@ -99,7 +99,7 @@ func TestQemuNeedsBootstrap(t *testing.T) {
 
 	adbConn := initAdb(a, adbPort, adbServerPort)
 
-	r, err := Bootstrap(adbConn, svr, fwdr, emuDir, socketName)
+	r, err := Bootstrap(adbConn, svr, fwdr, filepath.Join(emuDir, "images/session"), socketName)
 	if err != nil {
 		t.Fatalf("Error during bootstrap %v", err)
 	}
@@ -139,13 +139,13 @@ func TestQemuNoBootsrapNeeded(t *testing.T) {
 		t.Fatalf("Unable to start waterfall server: %v", err)
 	}
 
-	r, err := Bootstrap(adbConn, svr, fwdr, emuDir, socketName)
+	r, err := Bootstrap(adbConn, svr, fwdr, filepath.Join(emuDir, "images/session"), socketName)
 	if err != nil {
 		t.Fatalf("Error during bootstrap %v", err)
 	}
 
 	// Second bootstrap should be a no-op
-	r, err = Bootstrap(adbConn, svr, fwdr, emuDir, socketName)
+	r, err = Bootstrap(adbConn, svr, fwdr, filepath.Join(emuDir, "images/session"), socketName)
 	if err != nil {
 		t.Fatalf("Error during bootstrap %v", err)
 	}
@@ -233,7 +233,7 @@ func TestAdbServerIsRunning(t *testing.T) {
 	// wait for the server to come up
 	time.Sleep(time.Millisecond * 300)
 
-	r, err := Bootstrap(adbConn, svr, fwdr, emuDir, socketName)
+	r, err := Bootstrap(adbConn, svr, fwdr, "", socketName)
 	if err != nil {
 		t.Fatalf("Error during bootstrap %v", err)
 	}
