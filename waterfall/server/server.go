@@ -18,8 +18,6 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-const bufSize = 32 * 1024
-
 // WaterfallServer implements the waterfall gRPC service
 type WaterfallServer struct {
 }
@@ -97,12 +95,17 @@ func (s *WaterfallServer) Pull(t *waterfall_grpc.Transfer, rpc waterfall_grpc.Wa
 		return waterfall.Tar(w, t.Path)
 	})
 
-	buff := make([]byte, bufSize)
+	buff := make([]byte, waterfall.WriteBufferSize)
 	eg.Go(func() error {
 		defer r.Close()
 
 		for {
-			n, err := r.Read(buff)
+			// try to read full payloads to avoid unnecessary rpc message overhead.
+			n, err := io.ReadFull(r, buff)
+			if err == io.ErrUnexpectedEOF {
+				err = io.EOF
+			}
+
 			if err != nil && err != io.EOF {
 				return err
 			}

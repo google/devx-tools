@@ -26,6 +26,7 @@ go_library(
 
 DEPS = [
     ":server",
+    "//waterfall",
     "//waterfall/net/qemu",
     "//waterfall/proto:waterfall_go_grpc",
     "//waterfall/proto:waterfall_go_proto",

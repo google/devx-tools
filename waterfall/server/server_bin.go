@@ -8,6 +8,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/waterfall"
 	"github.com/waterfall/net/qemu"
 	waterfall_grpc "github.com/waterfall/proto/waterfall_go_grpc"
 	"github.com/waterfall/server"
@@ -62,7 +63,7 @@ func main() {
 		log.Fatalf("Unsupported kind %s", kind)
 	}
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(grpc.WriteBufferSize(waterfall.WriteBufferSize))
 	waterfall_grpc.RegisterWaterfallServer(grpcServer, new(server.WaterfallServer))
 
 	log.Println("Serving ...")

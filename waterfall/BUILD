@@ -11,6 +11,7 @@ package(default_visibility = ["//visibility:public"])
 go_library(
     name = "waterfall",
     srcs = [
+        "constants.go",
         "stream.go",
         "tar.go",
     ],
