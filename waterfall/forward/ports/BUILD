@@ -47,8 +47,11 @@ go_test(
     deps = [
         "@io_bazel_rules_go//proto/wkt:empty_go_proto",
         "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//codes:go_default_library",
+        "@org_golang_google_grpc//status:go_default_library",
         "//waterfall/proto:waterfall_go_grpc",
         "//waterfall/proto:waterfall_go_proto",
+        "//waterfall/forward",
         "//waterfall/server",
         "//waterfall/testutils",
     ],
