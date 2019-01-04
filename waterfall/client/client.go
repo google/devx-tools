@@ -132,7 +132,6 @@ func Pull(ctx context.Context, client waterfall_grpc.WaterfallClient, src, dst s
 		for {
 			fgmt, err := xstream.Recv()
 			if err != nil {
-				w.Close()
 				if err == io.EOF {
 					return nil
 				}
