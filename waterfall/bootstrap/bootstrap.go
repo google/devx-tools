@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,9 +15,9 @@ import (
 	"github.com/waterfall/adb"
 	"github.com/waterfall/client"
 	"github.com/waterfall/net/qemu"
-	"google.golang.org/grpc"
-
 	waterfall_grpc "github.com/waterfall/proto/waterfall_go_grpc"
+	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
 )
 
 const (
@@ -44,83 +43,61 @@ type Result struct {
 	StartedForwarder bool
 }
 
-func retry(fn func() error, attempts int, delay time.Duration) error {
+func retry(fn func() error, attempts int) error {
 	var err error
 	for i := 0; i < attempts; i++ {
 		err = fn()
 		if err == nil {
 			return nil
 		}
-		time.Sleep(delay)
+		time.Sleep(defaultTimeout)
 	}
 	return err
 }
 
-func withTimeout(f func() error, t time.Duration) error {
-	rCh := make(chan error, 1)
-	go func() {
-		rCh <- f()
-	}()
+func pingServer(ctx context.Context, addr string, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 
-	select {
-	case err := <-rCh:
+	cc, err := grpc.DialContext(ctx, addr, grpc.WithInsecure())
+	if err != nil {
 		return err
-	case <-time.After(t):
-		return fmt.Errorf("timed out")
 	}
 
+	wc := waterfall_grpc.NewWaterfallClient(cc)
+	r, err := client.Echo(ctx, wc, []byte(helloMsg))
+	if err != nil {
+		return err
+	}
+
+	if string(r) != helloMsg {
+		return fmt.Errorf("unexpected response message: %s", string(r))
+	}
+	return nil
 }
 
-func pingServer(addr string) error {
-	return withTimeout(func() error {
-		cc, err := grpc.Dial(addr, grpc.WithInsecure())
-		if err != nil {
-			return err
-		}
-
-		wc := waterfall_grpc.NewWaterfallClient(cc)
-		resp, err := client.Echo(context.Background(), wc, []byte(helloMsg))
-		if err != nil {
-			return err
-		}
-
-		if string(resp) != helloMsg {
-			return fmt.Errorf("unexpected response message: %s", string(resp))
-		}
-		return nil
-	}, defaultTimeout)
-}
-
-func connectToPipe(socketDir, socketName string) error {
+func connectToPipe(ctx context.Context, socketDir, socketName string) error {
 	qb, err := qemu.MakeConnBuilder(socketDir, socketName)
 	if err != nil {
 		return err
 	}
 	defer qb.Close()
 
-	connCh := make(chan net.Conn, 1)
-	errCh := make(chan error, 1)
+	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
+
+	eg, _ := errgroup.WithContext(ctx)
 
 	// If the server is not running this will block waiting for a connection.
-	go func() {
+	eg.Go(func() error {
 		c, err := qb.Accept()
 		if err != nil {
-			errCh <- err
-			return
+			return nil
 		}
 		c.Close()
-		connCh <- c
-	}()
-
-	select {
-	case <-connCh:
 		return nil
-	case err := <-errCh:
-		return err
-	case <-time.After(time.Millisecond * 300):
-		return fmt.Errorf("timed out")
-	}
-
+	})
+	return eg.Wait()
 }
 
 func startWaterfall(adbConn *adb.Device, wtf, addr string) error {
@@ -182,13 +159,13 @@ func waterfallPath(adbConn *adb.Device, paths []string) (string, error) {
 }
 
 // Bootstrap installs h2o on the device and starts the host forwarder if needed.
-func Bootstrap(adbConn *adb.Device, waterfallBin []string, forwarderBin, socketDir string, socketName string) (*Result, error) {
+func Bootstrap(ctx context.Context, adbConn *adb.Device, waterfallBin []string, forwarderBin, socketDir string, socketName string, connectionTimeout int) (*Result, error) {
 	// The default bootstrap address.
 	unixName := fmt.Sprintf("h2o_%s", adbConn.DeviceName)
 	lisAddr := fmt.Sprintf("unix:@%s", unixName)
+	timeout := time.Duration(connectionTimeout) * time.Millisecond
 
-	log.Println("Pinging server ...")
-	if err := pingServer(lisAddr); err == nil {
+	if err := pingServer(ctx, lisAddr, timeout); err == nil {
 		// There is responsive forwarder server already running
 		return &Result{}, nil
 	}
@@ -205,40 +182,44 @@ func Bootstrap(adbConn *adb.Device, waterfallBin []string, forwarderBin, socketD
 		connAddr := fmt.Sprintf("qemu:%s:%s", socketDir, socketName)
 		svrAddr := fmt.Sprintf("qemu:%s", socketName)
 
-		// Start the server. If already running this wll be a no-op.
+		if _, err := os.Stat(filepath.Join(socketDir, socketName)); os.IsNotExist(err) {
+			// Forwarder is not running.
+			if err := startForwarder(forwarderBin, lisAddr, connAddr); err != nil {
+				return nil, err
+			}
+			sf = true
+		}
+
+		if err := retry(func() error {
+			return pingServer(ctx, lisAddr, timeout)
+		}, 3); err == nil {
+			// There is responsive waterfall server already running
+			return &Result{StartedServer: ss, StartedForwarder: sf}, nil
+		}
+
 		if err := startWaterfall(adbConn, svr, svrAddr); err != nil {
 			return nil, err
 		}
 		ss = true
-
-		if err := retry(func() error {
-			return pingServer(lisAddr)
-		}, 3, defaultTimeout); err == nil {
-			// There is responsive forwarder server already running
-			return &Result{StartedServer: ss, StartedForwarder: false}, nil
-		}
-		if err := startForwarder(forwarderBin, lisAddr, connAddr); err != nil {
-			return nil, err
-		}
-		sf = true
 	} else {
 		// will tunnel through adb
 		if err := adbConn.ForwardAbstract(unixName, unixName); err != nil {
 			return nil, fmt.Errorf("error forwarding through adb: %v", err)
 		}
 
-		if err := pingServer(lisAddr); err != nil {
+		if err := pingServer(ctx, lisAddr, timeout); err != nil {
 			if err := startWaterfall(adbConn, svr, lisAddr); err != nil {
 				return nil, err
 			}
 			ss = true
 			sf = false
 		}
-
 	}
 
 	// Verify everything was set up correctly before confirming to client
-	if err := retry(func() error { return pingServer(lisAddr) }, 3, defaultTimeout); err != nil {
+	if err := retry(func() error {
+		return pingServer(ctx, lisAddr, timeout)
+	}, 3); err != nil {
 		return nil, err
 	}
 	return &Result{StartedServer: ss, StartedForwarder: sf}, nil

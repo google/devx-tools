@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"path/filepath"
@@ -13,13 +14,14 @@ import (
 
 var (
 	// information requiered to bootstrap through adb.
-	socketDir     = flag.String("socket_dir", "", "The sockets directory")
-	qemuSocket    = flag.String("qemu_socket", "sockets/h2o", "The qemu pipe socket name.")
-	forwarderBin  = flag.String("forwarder_bin", "", "The path to the forwarder binary.")
-	waterfallBin  = flag.String("waterfall_bin", "", "Comma separated list arch:path server binaries.")
-	adbBin        = flag.String("adb_bin", "", "Path to the adb binary to use.")
-	adbDeviceName = flag.String("adb_device_name", "", "The adb device name.")
-	adbServerPort = flag.String("adb_server_port", "5037", "The adb port of the adb server.")
+	socketDir         = flag.String("socket_dir", "", "The sockets directory")
+	qemuSocket        = flag.String("qemu_socket", "sockets/h2o", "The qemu pipe socket name.")
+	forwarderBin      = flag.String("forwarder_bin", "", "The path to the forwarder binary.")
+	waterfallBin      = flag.String("waterfall_bin", "", "Comma separated list arch:path server binaries.")
+	adbBin            = flag.String("adb_bin", "", "Path to the adb binary to use.")
+	adbDeviceName     = flag.String("adb_device_name", "", "The adb device name.")
+	adbServerPort     = flag.String("adb_server_port", "5037", "The adb port of the adb server.")
+	connectionTimeout = flag.Int("connection_timeout", 1000, "Connection timeout in ms.")
 )
 
 func init() {
@@ -61,7 +63,7 @@ func main() {
 		sts = filepath.Dir(sts)
 	}
 
-	_, err := bootstrap.Bootstrap(adbConn, svrs, *forwarderBin, sts, *qemuSocket)
+	_, err := bootstrap.Bootstrap(context.Background(), adbConn, svrs, *forwarderBin, sts, *qemuSocket, *connectionTimeout)
 	if err != nil {
 		log.Fatalf("failed to bootstrap h2o: %v", err)
 	}

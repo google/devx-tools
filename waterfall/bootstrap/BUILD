@@ -33,6 +33,7 @@ go_library(
         "//waterfall/proto:waterfall_go_grpc",
         "//waterfall/proto:waterfall_go_proto",
         "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_x_sync//errgroup:go_default_library",
     ],
     importpath = "github.com/waterfall/bootstrap",
 )
@@ -67,6 +68,7 @@ go_test(
         "//waterfall/proto:waterfall_go_grpc",
         "//waterfall/proto:waterfall_go_proto",
         "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_x_sync//errgroup:go_default_library",
     ],
     importpath = "github.com/waterfall/bootstrap",
 )

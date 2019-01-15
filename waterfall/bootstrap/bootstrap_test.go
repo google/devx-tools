@@ -32,6 +32,8 @@ var (
 	fwdr   string
 	svrBin string
 	svr    []string
+
+	timeoutMS = 1000
 )
 
 const (
@@ -99,7 +101,7 @@ func TestQemuNeedsBootstrap(t *testing.T) {
 
 	adbConn := initAdb(a, adbPort, adbServerPort)
 
-	r, err := Bootstrap(adbConn, svr, fwdr, filepath.Join(emuDir, "images/session"), socketName)
+	r, err := Bootstrap(context.Background(), adbConn, svr, fwdr, filepath.Join(emuDir, "images/session"), socketName, timeoutMS)
 	if err != nil {
 		t.Fatalf("Error during bootstrap %v", err)
 	}
@@ -139,13 +141,13 @@ func TestQemuNoBootsrapNeeded(t *testing.T) {
 		t.Fatalf("Unable to start waterfall server: %v", err)
 	}
 
-	r, err := Bootstrap(adbConn, svr, fwdr, filepath.Join(emuDir, "images/session"), socketName)
+	r, err := Bootstrap(context.Background(), adbConn, svr, fwdr, filepath.Join(emuDir, "images/session"), socketName, timeoutMS)
 	if err != nil {
 		t.Fatalf("Error during bootstrap %v", err)
 	}
 
 	// Second bootstrap should be a no-op
-	r, err = Bootstrap(adbConn, svr, fwdr, filepath.Join(emuDir, "images/session"), socketName)
+	r, err = Bootstrap(context.Background(), adbConn, svr, fwdr, filepath.Join(emuDir, "images/session"), socketName, timeoutMS)
 	if err != nil {
 		t.Fatalf("Error during bootstrap %v", err)
 	}
@@ -187,7 +189,7 @@ func TestAdbNeedsBootstrap(t *testing.T) {
 	adbConn := initAdb(a, adbPort, adbServerPort)
 
 	// Don't set qemu prop so this gets treated as a physical device
-	r, err := Bootstrap(adbConn, svr, fwdr, "", socketName)
+	r, err := Bootstrap(context.Background(), adbConn, svr, fwdr, "", socketName, timeoutMS)
 	if err != nil {
 		t.Fatalf("Error during bootstrap %v", err)
 	}
@@ -231,9 +233,9 @@ func TestAdbServerIsRunning(t *testing.T) {
 		t.Fatalf("Unable to start waterfall server: %v", err)
 	}
 	// wait for the server to come up
-	time.Sleep(time.Millisecond * 300)
+	time.Sleep(time.Duration(timeoutMS) * time.Millisecond)
 
-	r, err := Bootstrap(adbConn, svr, fwdr, "", socketName)
+	r, err := Bootstrap(context.Background(), adbConn, svr, fwdr, "", socketName, timeoutMS)
 	if err != nil {
 		t.Fatalf("Error during bootstrap %v", err)
 	}
