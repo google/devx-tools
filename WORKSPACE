@@ -29,7 +29,7 @@ go_repository(
 
 android_sdk_repository(name = "androidsdk")
 
-ATS_COMMIT = "ad2fbb27a14d989858ae2b759bc10ef2ef4f9257"
+ATS_COMMIT = "1daba70e7b5952fc3fb46b9bd99dd2f80c2bdaa3"
 http_archive(
     name = "android_test_support",
     strip_prefix = "android-test-%s" % ATS_COMMIT,
