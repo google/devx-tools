@@ -54,9 +54,14 @@ func runServer(ctx context.Context, adbTurbo, adbPort, server string, n, bs int)
 		return nil, nil, err
 	}
 
-	_, err = testutils.ExecOnDevice(
-		ctx, adbTurbo, s, "shell", []string{"chmod", "+x", "/data/local/tmp/server"})
-	if err != nil {
+	if _, err = testutils.ExecOnDevice(
+		ctx, adbTurbo, s, "shell", []string{"chmod", "+x", "/data/local/tmp/server"}); err != nil {
+		return nil, nil, err
+	}
+
+	// stop waterfall service as it will interfere with this test
+	if _, err = testutils.ExecOnDevice(
+		ctx, adbTurbo, s, "shell", []string{"stop", "waterfall"}); err != nil {
 		return nil, nil, err
 	}
 
@@ -120,7 +125,7 @@ func TestSingleConn(t *testing.T) {
 
 	eg, ctx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
-		defer c.Close()
+		defer c.(*Conn).CloseWrite()
 		wr, err := io.Copy(c, bytes.NewBuffer(tb))
 		if err != nil {
 			return err
@@ -202,7 +207,7 @@ func TestMultipleConn(t *testing.T) {
 			}
 
 			eg.Go(func() error {
-				defer c.Close()
+				defer c.(*Conn).CloseWrite()
 				wr, err := io.Copy(c, bytes.NewBuffer(tb))
 				if err != nil {
 					return err
@@ -220,7 +225,7 @@ func TestMultipleConn(t *testing.T) {
 					return err
 				}
 				if rr != int64(len(tb)) {
-					return fmt.Errorf("read %d but only sent %d", rr, len(tb))
+					return fmt.Errorf("read %d but sent %d", rr, len(tb))
 				}
 				if bytes.Compare(tb, bb.Bytes()) != 0 {
 					return fmt.Errorf("sent bytes not the same as received")
