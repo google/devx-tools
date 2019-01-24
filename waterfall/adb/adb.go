@@ -71,15 +71,10 @@ func (a *Device) Shell(args []string) (string, error) {
 	return o, nil
 }
 
-// Connect tries to connect the device to ADB.
-func (a *Device) Connect() error {
-	// Ignore error, verify the device is connected.
-	exec.Command(a.AdbPath, append(a.deviceArgs(), "connect", a.DeviceName)...).CombinedOutput()
-
-	// adb connect is actually verified by the follwowing code
+func (a *Device) connected() (bool, error) {
 	ob, err := exec.Command(a.AdbPath, append(a.deviceArgs(), "devices")...).CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("got error running adb devices: %s %v", string(ob), err)
+		return false, fmt.Errorf("got error running adb devices: %s %v", string(ob), err)
 	}
 
 	// adb devices sample output:
@@ -90,10 +85,37 @@ func (a *Device) Connect() error {
 	ls := strings.Split(out, "\n")
 	for _, l := range ls {
 		if strings.Contains(l, a.DeviceName) && strings.Contains(l, "device") {
-			return nil
+			return true, nil
 		}
 	}
-	return fmt.Errorf("%s not connected. devices output:\n %s", a.DeviceName, out)
+	return false, nil
+
+}
+
+// Connect tries to connect the device to ADB.
+func (a *Device) Connect() error {
+
+	// Check if the device is already connected
+	c, err := a.connected()
+	if err != nil {
+		return err
+	}
+	if c {
+		return nil
+	}
+
+	if out, err := exec.Command(a.AdbPath, append(a.deviceArgs(), "connect", a.DeviceName)...).CombinedOutput(); err != nil {
+		return fmt.Errorf("error connecting to device: %s %v", out, err)
+	}
+
+	c, err = a.connected()
+	if err != nil {
+		return err
+	}
+	if !c {
+		return fmt.Errorf("%s not connected.\n", a.DeviceName)
+	}
+	return nil
 }
 
 // Push pushes a file from the host to the device.
