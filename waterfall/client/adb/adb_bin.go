@@ -27,7 +27,6 @@ import (
 	"strings"
 	"syscall"
 	"time"
-	"unicode"
 
 	empty_pb "github.com/golang/protobuf/ptypes/empty"
 	"github.com/waterfall/client"
@@ -63,44 +62,7 @@ var (
 		"install":   installFn,
 		"uninstall": uninstallFn,
 	}
-
-	safePunct = map[rune]bool{
-		'@': true,
-		'%': true,
-		'-': true,
-		'_': true,
-		'+': true,
-		':': true,
-		',': true,
-		'.': true,
-		'/': true,
-	}
 )
-
-// escape quotes a string so that it can be safely used as an argument in a shell command.
-func escape(w string) string {
-	if w == "" {
-		// Special case the empty string. We want to make sure
-		// it gets treated as a separate argument.
-		return "''"
-	}
-
-	for _, c := range w {
-		// If there is any unsafe character quote the string.
-		if !unicode.IsLetter(c) && !unicode.IsDigit(c) && !safePunct[c] {
-			return fmt.Sprintf("'%s'", strings.Replace(w, "'", "\\'", -1))
-		}
-	}
-	return w
-}
-
-func escapeAll(ws []string) []string {
-	var escaped []string
-	for _, w := range ws {
-		escaped = append(escaped, escape(w))
-	}
-	return escaped
-}
 
 func platformADB() (string, error) {
 	p := os.Getenv("ANDROID_ADB")
@@ -152,7 +114,7 @@ func exe(ctx context.Context, c waterfall_grpc.WaterfallClient, cmd string, args
 
 func shell(ctx context.Context, c waterfall_grpc.WaterfallClient, cmd string, args ...string) error {
 	// Ignore return code here. This is intended as a drop in replacement for adb, so we need to copy the behavior.
-	_, err := exe(ctx, c, "/system/bin/sh", "-c", fmt.Sprintf("%s %s", cmd, strings.Join(escapeAll(args), " ")))
+	_, err := exe(ctx, c, "/system/bin/sh", "-c", fmt.Sprintf("%s %s", cmd, strings.Join(args, " ")))
 	return err
 }
 
