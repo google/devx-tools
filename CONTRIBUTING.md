@@ -36,6 +36,12 @@ bazel build //waterfall/server:server_bin_386
 bazel test <target path> --test_output=streamed
 ```
 
+For example, to run the tar test:
+
+```
+bazel test //waterfall:tar_test --test_output=streamed
+```
+
 ## Code reviews
 
 All submissions, including submissions by project members, require review. We
@@ -47,4 +53,3 @@ information on using pull requests.
 
 This project follows
 [Google's Open Source Community Guidelines](https://opensource.google.com/conduct/)
-
