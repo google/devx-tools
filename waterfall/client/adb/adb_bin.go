@@ -295,8 +295,6 @@ func runCommand(ctx context.Context, args []string) error {
 			fallthrough
 		case "persist":
 			fallthrough
-		case "wait-for-device":
-			fallthrough
 		case "-p":
 			fallthrough
 		case "-a":
@@ -313,6 +311,7 @@ func runCommand(ctx context.Context, args []string) error {
 			}
 			deviceName = args[i+1]
 			i++
+		case "wait-for-device": // ignore
 		// H, P and L have no meaning for H2O.
 		case "-H":
 			i++
