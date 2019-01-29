@@ -15,6 +15,27 @@ You generally only need to submit a CLA once, so if you've already submitted one
 (even if it was for a different project), you probably don't need to do it
 again.
 
+## Building and Testing
+
+H2O uses the [bazel](https://bazel.build) build system.
+
+### Building
+
+```
+bazel build <target path>
+```
+
+For example, to build the H2O server:
+```
+bazel build //waterfall/server:server_bin_386
+```
+
+### Testing
+
+```
+bazel test <target path> --test_output=streamed
+```
+
 ## Code reviews
 
 All submissions, including submissions by project members, require review. We
@@ -26,3 +47,4 @@ information on using pull requests.
 
 This project follows
 [Google's Open Source Community Guidelines](https://opensource.google.com/conduct/)
+
