@@ -113,7 +113,7 @@ func (a *Device) Connect() error {
 		return err
 	}
 	if !c {
-		return fmt.Errorf("%s not connected.\n", a.DeviceName)
+		return fmt.Errorf("%s not connected", a.DeviceName)
 	}
 	return nil
 }
