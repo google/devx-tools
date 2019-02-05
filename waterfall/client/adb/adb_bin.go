@@ -286,7 +286,7 @@ func runCommand(ctx context.Context, args []string) error {
 	i := 0
 	done := false
 
-	for !done {
+	for !done && i < len(args) {
 		arg := args[i]
 		switch arg {
 		case "server":
@@ -314,9 +314,9 @@ func runCommand(ctx context.Context, args []string) error {
 		case "wait-for-device": // ignore
 		// H, P and L have no meaning for H2O.
 		case "-H":
-			i++
+			fallthrough
 		case "-P":
-			i++
+			fallthrough
 		case "-L":
 			i++
 		default:
