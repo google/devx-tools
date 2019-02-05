@@ -12,6 +12,8 @@ go_binary(
     srcs = [
         "adb_bin.go",
     ],
+    static = "on",
+    pure = "on",
     deps = [
         "@io_bazel_rules_go//proto/wkt:empty_go_proto",
         "//waterfall/client",
