@@ -182,7 +182,21 @@ func installFn(ctx context.Context, cfn clientFn, args []string) error {
 	return shell(ctx, c, "/system/bin/pm", append(args[:len(args)-1], filepath.Join(tmp, filepath.Base(path)))...)
 }
 
-func parseFwd(addr string) (string, error) {
+func parseFwd(addr string, reverse bool) (string, error) {
+	if reverse {
+		if strings.HasPrefix(addr, "tcp:") {
+			pts := strings.SplitN(addr, ":", 3)
+			return "tcp:" + pts[2], nil
+		}
+		if strings.HasPrefix(addr, "unix:@") {
+			return "localabstract:" + addr[6:], nil
+		}
+		if strings.HasPrefix(addr, "unix:") {
+			return "localreserved:" + addr[5:], nil
+		}
+		return "", parseError{}
+	}
+
 	pts := strings.Split(addr, ":")
 	if len(pts) != 2 {
 		return "", parseError{}
@@ -216,15 +230,34 @@ func forwardFn(ctx context.Context, cfn clientFn, args []string) error {
 
 	var src, dst string
 	switch args[1] {
+	case "--list":
+		ss, err := c.List(ctx, &empty_pb.Empty{})
+		if err != nil {
+			return err
+		}
+		for _, s := range ss.Sessions {
+			src, err := parseFwd(s.Src, true)
+			if err != nil {
+				return err
+			}
+
+			dst, err := parseFwd(s.Dst, true)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("localhost:foo %s %s\n", src, dst)
+		}
+		return nil
 	case "--remove":
 		if len(args) != 3 {
 			return parseError{}
 		}
-		fwd, err := parseFwd(args[2])
+		fwd, err := parseFwd(args[2], false)
 		if err != nil {
 			return err
 		}
-		_, err = c.Stop(ctx, &waterfall_grpc.PortForwardRequest{Src: fwd})
+		_, err = c.Stop(ctx, &waterfall_grpc.PortForwardRequest{
+			Session:  &waterfall_grpc.ForwardSession{Src: fwd}})
 		return err
 	case "--remove-all":
 		if len(args) != 2 {
@@ -233,22 +266,24 @@ func forwardFn(ctx context.Context, cfn clientFn, args []string) error {
 		_, err = c.StopAll(ctx, &empty_pb.Empty{})
 		return err
 	case "--no-rebind":
-		if src, err = parseFwd(args[2]); err != nil {
+		if src, err = parseFwd(args[2], false); err != nil {
 			return err
 		}
-		if dst, err = parseFwd(args[3]); err != nil {
+		if dst, err = parseFwd(args[3], false); err != nil {
 			return err
 		}
-		_, err = c.ForwardPort(ctx, &waterfall_grpc.PortForwardRequest{Src: src, Dst: dst, Rebind: false})
+		_, err = c.ForwardPort(ctx, &waterfall_grpc.PortForwardRequest{
+			Session:  &waterfall_grpc.ForwardSession{Src: src, Dst: dst}, Rebind: false})
 		return err
 	default:
-		if src, err = parseFwd(args[1]); err != nil {
+		if src, err = parseFwd(args[1], false); err != nil {
 			return err
 		}
-		if dst, err = parseFwd(args[2]); err != nil {
+		if dst, err = parseFwd(args[2], false); err != nil {
 			return err
 		}
-		_, err = c.ForwardPort(ctx, &waterfall_grpc.PortForwardRequest{Src: src, Dst: dst, Rebind: true})
+		_, err = c.ForwardPort(ctx, &waterfall_grpc.PortForwardRequest{
+			Session:  &waterfall_grpc.ForwardSession{Src: src, Dst: dst}, Rebind: true})
 		return err
 	}
 }

@@ -126,11 +126,21 @@ service Waterfall {
   rpc Version(google.protobuf.Empty) returns (VersionMessage);
 }
 
-message PortForwardRequest {
+message ForwardSession {
   string src = 1;
   string dst = 2;
-  bool rebind = 3;
 }
+
+message PortForwardRequest {
+  bool rebind = 3;
+  ForwardSession session = 4;
+}
+
+message ForwardedSessions {
+  repeated ForwardSession sessions = 1;
+}
+
+
 
 // PortForwarder service runs a port forwarding session via waterfall.
 // It allows start and stop forwarding connections when the waterfall client
@@ -139,6 +149,7 @@ service PortForwarder {
   rpc ForwardPort(PortForwardRequest) returns (google.protobuf.Empty);
   rpc Stop(PortForwardRequest) returns (google.protobuf.Empty);
   rpc StopAll(google.protobuf.Empty) returns (google.protobuf.Empty);
+  rpc List(google.protobuf.Empty) returns (ForwardedSessions);
 }
 
 message Entry {
