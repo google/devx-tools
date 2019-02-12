@@ -46,9 +46,25 @@ go_repository(
 
 # Java toolchains
 
+# gRPC Java
+http_archive(
+    name = "io_grpc_grpc_java",
+    sha256 = "48425cd631afb117fd355fd961deb313b3ac8e43f2b95c1598f35fbfcf684fbc",
+    strip_prefix = "grpc-java-1.16.1",
+    urls = ["https://github.com/grpc/grpc-java/archive/v1.16.1.tar.gz"],
+)
+
+load("@io_grpc_grpc_java//:repositories.bzl", "grpc_java_repositories")
+
+grpc_java_repositories(
+    omit_com_google_protobuf = True,
+)
+
 maven_install(
     artifacts = [
         "org.junit.jupiter:junit-jupiter-engine:5.3.2",
+        "io.grpc:grpc-testing:1.16.1",
+        "io.grpc:grpc-all:1.16.1",
         "org.apache.commons:commons-compress:1.10",
     ],
     repositories = [

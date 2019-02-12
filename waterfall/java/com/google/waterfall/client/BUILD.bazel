@@ -1,0 +1,24 @@
+# Description:
+#   Waterfall client provides an in-process connection to an ADB compliant server.
+#   Uses Go Waterfall client as reference.
+
+licenses(["notice"])  # Apache License 2.0
+
+package(default_visibility = ["//visibility:public"])
+
+java_library(
+    name = "client",
+    srcs = [
+        "WaterfallClient.java",
+    ],
+    deps = [
+        "//waterfall/java/com/google/waterfall/tar",
+        "//waterfall/proto:waterfall_java_grpc",
+        "//waterfall/proto:waterfall_java_proto",
+        "@com_google_guava_guava//jar",
+        "@com_google_protobuf//:protobuf_java",
+        "@com_google_protobuf//:protobuf_lite",
+        "@io_grpc_grpc_java//core",
+        "@io_grpc_grpc_java//stub",
+    ],
+)
