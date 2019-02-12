@@ -14,6 +14,8 @@ go_binary(
     srcs = [
         "ports_bin.go",
     ],
+    pure = "on",
+    static = "on",
     deps = [
         "//waterfall/forward/ports",
         "//waterfall/proto:waterfall_go_grpc",

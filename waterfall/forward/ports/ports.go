@@ -36,6 +36,7 @@ import (
 
 type forwardSession struct {
 	src    string
+	dst    string
 	lis    net.Listener
 	cancel context.CancelFunc
 }
@@ -97,24 +98,24 @@ func (pf *PortForwarder) ForwardPort(ctx context.Context, req *waterfall_grpc.Po
 	pf.sessionsMutex.Lock()
 	defer pf.sessionsMutex.Unlock()
 
-	log.Printf("Forwarding %s -> %s ...\n", req.Src, req.Dst)
+	log.Printf("Forwarding %s -> %s ...\n", req.Session.Src, req.Session.Dst)
 
-	kind, addr, err := parseAddr(req.Src)
+	kind, addr, err := parseAddr(req.Session.Src)
 	if err != nil {
 		return nil, err
 	}
 
 	// Parse dst even if we don't use it. No point in sending it the server if its malformed.
-	if _, _, err := parseAddr(req.Dst); err != nil {
+	if _, _, err := parseAddr(req.Session.Dst); err != nil {
 		return nil, err
 	}
 
-	if s, ok := pf.sessions[req.Src]; ok {
+	if s, ok := pf.sessions[req.Session.Src]; ok {
 		if !req.Rebind {
-			return nil, status.Errorf(codes.AlreadyExists, "no-rebind specified, can't forward address: %s", req.Src)
+			return nil, status.Errorf(codes.AlreadyExists, "no-rebind specified, can't forward address: %s", req.Session.Src)
 		}
 
-		delete(pf.sessions, req.Src)
+		delete(pf.sessions, req.Session.Src)
 
 		if err := s.lis.Close(); err != nil {
 			return nil, err
@@ -131,7 +132,7 @@ func (pf *PortForwarder) ForwardPort(ctx context.Context, req *waterfall_grpc.Po
 	// context and are forced to create a new one.
 	fCtx, cancel := context.WithCancel(context.Background())
 
-	pf.sessions[req.Src] = &forwardSession{src: req.Src, lis: lis, cancel: cancel}
+	pf.sessions[req.Session.Src] = &forwardSession{src: req.Session.Src, dst: req.Session.Dst, lis: lis, cancel: cancel}
 	go func() {
 		defer cancel()
 		defer lis.Close()
@@ -142,7 +143,7 @@ func (pf *PortForwarder) ForwardPort(ctx context.Context, req *waterfall_grpc.Po
 				log.Printf("Error accepting connection: %v\n", err)
 				break
 			}
-			fwdr, err := makeForwarder(fCtx, pf.client, req.Dst, conn)
+			fwdr, err := makeForwarder(fCtx, pf.client, req.Session.Dst, conn)
 			if err != nil {
 				log.Printf("Error creating forwarder: %v\n", err)
 				conn.Close()
@@ -160,15 +161,15 @@ func (pf *PortForwarder) Stop(ctx context.Context, req *waterfall_grpc.PortForwa
 	pf.sessionsMutex.Lock()
 	defer pf.sessionsMutex.Unlock()
 
-	log.Printf("Stopping forwarding %s ...\n", req.Src)
+	log.Printf("Stopping forwarding %s ...\n", req.Session.Src)
 
-	s, ok := pf.sessions[req.Src]
+	s, ok := pf.sessions[req.Session.Src]
 	if !ok {
 		return &empty_pb.Empty{}, nil
 	}
 	s.cancel()
 
-	delete(pf.sessions, req.Src)
+	delete(pf.sessions, req.Session.Src)
 	return &empty_pb.Empty{}, s.lis.Close()
 }
 
@@ -186,4 +187,13 @@ func (pf *PortForwarder) StopAll(ctx context.Context, req *empty_pb.Empty) (*emp
 	pf.sessions = make(map[string]*forwardSession)
 
 	return &empty_pb.Empty{}, nil
+}
+
+// List returns a list of all the currently forwarded connections.
+func (pf *PortForwarder) List(ctx context.Context, req *empty_pb.Empty) (*waterfall_grpc.ForwardedSessions, error) {
+	ss := []*waterfall_grpc.ForwardSession{}
+	for _, s := range pf.sessions {
+		ss = append(ss, &waterfall_grpc.ForwardSession{Src: s.src, Dst: s.dst})
+	}
+	return &waterfall_grpc.ForwardedSessions{Sessions: ss}, nil
 }
