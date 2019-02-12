@@ -1,0 +1,10 @@
+licenses(["notice"])  # Apache License 2.0
+
+package(default_visibility = ["//waterfall/javatests:__subpackages__"])
+
+java_library(
+    name = "helpers",
+    srcs = [
+        "FileTestHelper.java",
+    ],
+)

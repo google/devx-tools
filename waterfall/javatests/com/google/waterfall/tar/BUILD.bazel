@@ -1,0 +1,16 @@
+licenses(["notice"])  # Apache License 2.0
+
+java_test(
+    name = "tar",
+    size = "small",
+    srcs = [
+        "TarTest.java",
+    ],
+    test_class = "com.google.waterfall.tar.TarTest",
+    deps = [
+        "//waterfall/java/com/google/waterfall/tar",
+        "//waterfall/javatests/com/google/waterfall/helpers",
+        "@maven//:org_junit_jupiter_junit_jupiter_api_5_3_2",
+        "@maven//:org_junit_jupiter_junit_jupiter_engine",
+    ],
+)

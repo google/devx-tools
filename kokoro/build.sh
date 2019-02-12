@@ -42,6 +42,7 @@ bazel test //waterfall:tar_test --test_output=streamed # --test_output=errors if
 bazel test //waterfall:stream_test --test_output=streamed # --test_output=errors if this gets out of hand
 bazel test //waterfall/forward:stream_test --test_output=streamed # --test_output=errors if this gets out of hand
 bazel test //waterfall/forward:forward_test --test_output=streamed # --test_output=errors if this gets out of hand
+bazel test //waterfall/javatests/com/google/waterfall/tar --test_output=streamed # --test_output=errors if this gets out of hand
 
 # TODO(mauriciogg): enable CI for this test. For now this needs to be ran
 # manually since we need to dowload the ANDROID sdk to make it work
