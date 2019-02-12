@@ -140,8 +140,6 @@ message ForwardedSessions {
   repeated ForwardSession sessions = 1;
 }
 
-
-
 // PortForwarder service runs a port forwarding session via waterfall.
 // It allows start and stop forwarding connections when the waterfall client
 // is unable to mantains any state (e.g. the waterfall adb binary).
