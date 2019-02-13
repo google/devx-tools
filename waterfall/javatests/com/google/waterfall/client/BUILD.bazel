@@ -1,0 +1,26 @@
+licenses(["notice"])  # Apache License 2.0
+
+java_test(
+    name = "client",
+    size = "small",
+    srcs = [
+        "TestServiceBuilders.java",
+        "WaterfallClientTest.java",
+    ],
+    test_class = "com.google.waterfall.client.WaterfallClientTest",
+    deps = [
+        "//waterfall/java/com/google/waterfall/client",
+        "//waterfall/java/com/google/waterfall/tar",
+        "//waterfall/javatests/com/google/waterfall/helpers",
+        "//waterfall/proto:waterfall_java_grpc",
+        "//waterfall/proto:waterfall_java_proto",
+        "@com_google_guava_guava//jar",
+        "@com_google_protobuf//:protobuf_java",
+        "@com_google_protobuf//:protobuf_lite",
+        "@maven//:io_grpc_grpc_core_1_16_1",
+        "@maven//:io_grpc_grpc_stub_1_16_1",
+        "@maven//:io_grpc_grpc_testing",
+        "@maven//:org_junit_jupiter_junit_jupiter_api_5_3_2",
+        "@maven//:org_junit_jupiter_junit_jupiter_engine",
+    ],
+)
