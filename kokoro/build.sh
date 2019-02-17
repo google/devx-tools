@@ -38,10 +38,10 @@ export PATH="${PATH}:${HOME}/bin"
 cd "${ROOT_DIR}"
 
 # Test non emulator tests for now. Eventually will need to run on KVM instaces.
-bazel test //waterfall:tar_test --test_output=streamed # --test_output=errors if this gets out of hand
-bazel test //waterfall:stream_test --test_output=streamed # --test_output=errors if this gets out of hand
-bazel test //waterfall/forward:stream_test --test_output=streamed # --test_output=errors if this gets out of hand
-bazel test //waterfall/forward:forward_test --test_output=streamed # --test_output=errors if this gets out of hand
+bazel test //waterfall/golang/stream:tar_test --test_output=streamed # --test_output=errors if this gets out of hand
+bazel test //waterfall/golang/stream:stream_test --test_output=streamed # --test_output=errors if this gets out of hand
+bazel test //waterfall/golang/forward:stream_test --test_output=streamed # --test_output=errors if this gets out of hand
+bazel test //waterfall/golang/forward:forward_test --test_output=streamed # --test_output=errors if this gets out of hand
 bazel test //waterfall/javatests/com/google/waterfall/tar --test_output=streamed # --test_output=errors if this gets out of hand
 bazel test //waterfall/javatests/com/google/waterfall/client --test_output=streamed # --test_output=errors if this gets out of hand
 
