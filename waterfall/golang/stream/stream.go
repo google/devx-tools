@@ -31,37 +31,37 @@ type Stream interface {
 // Given that embedding is not an option, we need to duplicate method names in the
 // interface declarations. See https://github.com/golang/go/issues/6977).
 
-// StreamMessageReadWriteCloser defines a generic interface to build messages with byte contents.
-type StreamMessageReadWriteCloser interface {
+// MessageReadWriteCloser defines a generic interface to build messages with byte contents.
+type MessageReadWriteCloser interface {
 	BuildMsg() interface{}
 	GetBytes(interface{}) ([]byte, error)
 	SetBytes(interface{}, []byte)
 	CloseMsg() interface{}
 }
 
-// StreamMessageReader defines a generic interface to read bytes from a message.
-type StreamMessageReader interface {
+// MessageReader defines a generic interface to read bytes from a message.
+type MessageReader interface {
 	BuildMsg() interface{}
 	GetBytes(interface{}) ([]byte, error)
 }
 
-// StreamMessageWriter defines a generic interface to set bytes in a message.
-type StreamMessageWriter interface {
+// MessageWriter defines a generic interface to set bytes in a message.
+type MessageWriter interface {
 	BuildMsg() interface{}
 	SetBytes(interface{}, []byte)
 }
 
-// StreamMessageCloser defines a generic interface create a message that closes a stream.
-type StreamMessageCloser interface {
+// MessageCloser defines a generic interface create a message that closes a stream.
+type MessageCloser interface {
 	BuildMsg() interface{}
 	CloseMsg() interface{}
 }
 
-// NewReader creates and initializes a new StreamReader.
-func NewReader(stream Stream, sm StreamMessageReader) *StreamReader {
-	sr := &StreamReader{
+// NewReader creates and initializes a new Reader.
+func NewReader(stream Stream, sm MessageReader) *Reader {
+	sr := &Reader{
 		Stream:              stream,
-		StreamMessageReader: sm,
+		MessageReader: sm,
 		// Avoid blocking when Read is never called
 		msgChan: make(chan []byte, 256),
 		errChan: make(chan error, 1),
@@ -71,7 +71,7 @@ func NewReader(stream Stream, sm StreamMessageReader) *StreamReader {
 }
 
 // startReads reads from the stream in an out of band goroutine in order to handle overflow reads.
-func (s *StreamReader) startReads() {
+func (s *Reader) startReads() {
 	for {
 		msg := s.BuildMsg()
 		err := s.Stream.RecvMsg(msg)
@@ -90,17 +90,17 @@ func (s *StreamReader) startReads() {
 	}
 }
 
-// StreamReader wraps arbitrary grpc streams around a Reader implementation.
-type StreamReader struct {
+// Reader wraps arbitrary grpc streams around a Reader implementation.
+type Reader struct {
 	Stream
-	StreamMessageReader
+	MessageReader
 	lastRead []byte
 	msgChan  chan []byte
 	errChan  chan error
 }
 
 // Read reads from the underlying stream handling cases where the amount read > len(b).
-func (s *StreamReader) Read(b []byte) (int, error) {
+func (s *Reader) Read(b []byte) (int, error) {
 	if len(s.lastRead) > 0 {
 		// we have leftover bytes from last read
 		n := copy(b, s.lastRead)
@@ -133,19 +133,19 @@ func (s *StreamReader) Read(b []byte) (int, error) {
 	}
 }
 
-// NewWriter creates a new StreamWriter.
-func NewWriter(stream Stream, sm StreamMessageWriter) *StreamWriter {
-	return &StreamWriter{Stream: stream, StreamMessageWriter: sm}
+// NewWriter creates a new Writer.
+func NewWriter(stream Stream, sm MessageWriter) *Writer {
+	return &Writer{Stream: stream, MessageWriter: sm}
 }
 
-// StreamWriter implements a Writer backed by a stream.
-type StreamWriter struct {
+// Writer implements a Writer backed by a stream.
+type Writer struct {
 	Stream
-	StreamMessageWriter
+	MessageWriter
 }
 
-// StreamWriter writes b to the message in the underlying stream.
-func (s *StreamWriter) Write(b []byte) (int, error) {
+// Writer writes b to the message in the underlying stream.
+func (s *Writer) Write(b []byte) (int, error) {
 	msg := s.BuildMsg()
 	s.SetBytes(msg, b)
 	if err := s.Stream.SendMsg(msg); err != nil {
@@ -154,34 +154,34 @@ func (s *StreamWriter) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
-// StreamReadWriteCloser wraps arbitrary grpc streams around a ReadWriteCloser implementation.
-// Users create a new StreamReadWriteCloser by calling NewReadWriteCloser passing a base stream.
+// ReadWriteCloser wraps arbitrary grpc streams around a ReadWriteCloser implementation.
+// Users create a new ReadWriteCloser by calling NewReadWriteCloser passing a base stream.
 // The stream needs to implement RecvMsg and SendMsg (i.e. ClientStream and ServerStream types),
 // And a function to set bytes in the stream message type, get bytes from the message and close the stream.
 // NOTE: The reader follows the same semantics as <Server|Client>Stream. It is ok to have concurrent writes
 // and reads, but it's not ok to have multiple concurrent reads or multiple concurrent writes.
-type StreamReadWriteCloser struct {
+type ReadWriteCloser struct {
 	Stream
-	StreamMessageReadWriteCloser
-	r  *StreamReader
-	w  *StreamWriter
+	MessageReadWriteCloser
+	r  *Reader
+	w  *Writer
 	cr bool
 	cw bool
 }
 
-// NewReadWriteCloser returns an initialized StreamReadWriteCloser.
-func NewReadWriteCloser(stream Stream, sm StreamMessageReadWriteCloser) *StreamReadWriteCloser {
-	rwc := &StreamReadWriteCloser{
+// NewReadWriteCloser returns an initialized ReadWriteCloser.
+func NewReadWriteCloser(stream Stream, sm MessageReadWriteCloser) *ReadWriteCloser {
+	rwc := &ReadWriteCloser{
 		Stream: stream,
-		StreamMessageReadWriteCloser: sm,
+		MessageReadWriteCloser: sm,
 		r: NewReader(stream, sm),
 		w: NewWriter(stream, sm),
 	}
 	return rwc
 }
 
-// Read calls the Read method of the underlying StreamReader if the stream is not closed.
-func (s *StreamReadWriteCloser) Read(b []byte) (int, error) {
+// Read calls the Read method of the underlying Reader if the stream is not closed.
+func (s *ReadWriteCloser) Read(b []byte) (int, error) {
 	if s.cr {
 		return 0, errClosedRead
 	}
@@ -189,7 +189,7 @@ func (s *StreamReadWriteCloser) Read(b []byte) (int, error) {
 }
 
 // Write writes b to the underlying stream.
-func (s *StreamReadWriteCloser) Write(b []byte) (int, error) {
+func (s *ReadWriteCloser) Write(b []byte) (int, error) {
 	if s.cw {
 		return 0, errClosedWrite
 	}
@@ -197,7 +197,7 @@ func (s *StreamReadWriteCloser) Write(b []byte) (int, error) {
 }
 
 // Close closes the stream.
-func (s *StreamReadWriteCloser) Close() error {
+func (s *ReadWriteCloser) Close() error {
 	s.cr = true
 	s.cw = true
 	s.CloseRead()
@@ -205,13 +205,13 @@ func (s *StreamReadWriteCloser) Close() error {
 }
 
 // CloseRead closes the read side of the stream.
-func (s *StreamReadWriteCloser) CloseRead() error {
+func (s *ReadWriteCloser) CloseRead() error {
 	s.cr = true
 	return nil
 }
 
 // CloseWrite closes the write side of the stream and signals the other side.
-func (s *StreamReadWriteCloser) CloseWrite() error {
+func (s *ReadWriteCloser) CloseWrite() error {
 	s.cw = true
 	return s.Stream.SendMsg(s.CloseMsg())
 }

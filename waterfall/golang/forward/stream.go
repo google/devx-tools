@@ -23,7 +23,7 @@ import (
 
 // StreamForwarder provides a mechanism to forward bytes between a stream and a connection.
 type StreamForwarder struct {
-	stream *stream.StreamReadWriteCloser
+	stream *stream.ReadWriteCloser
 	conn   HalfReadWriteCloser
 }
 
