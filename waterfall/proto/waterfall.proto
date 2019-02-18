@@ -152,25 +152,3 @@ service PortForwarder {
   rpc StopAll(google.protobuf.Empty) returns (google.protobuf.Empty);
   rpc List(google.protobuf.Empty) returns (ForwardedSessions);
 }
-
-message Entry {
-  string key = 1;
-  string val = 2;
-}
-
-message OpResult {
-  enum Status {
-    UNSET = 0;
-    SUCCESS = 1;
-    KEY_NOT_FOUND = 2;
-  }
-  Status status = 1;
-  Entry entry = 2;
-}
-
-// service Registry is a simple Key - Value Store
-service Registry {
-  rpc Add(Entry) returns (OpResult);
-  rpc Remove(Entry) returns (OpResult);
-  rpc Get(Entry) returns (OpResult);
-}
