@@ -196,7 +196,7 @@ func (s *StreamReadWriteCloser) Write(b []byte) (int, error) {
 	return s.w.Write(b)
 }
 
-// Close closes the the stream.
+// Close closes the stream.
 func (s *StreamReadWriteCloser) Close() error {
 	s.cr = true
 	s.cw = true
