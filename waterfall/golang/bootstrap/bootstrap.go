@@ -51,7 +51,7 @@ su -c nohup "${waterfall_bin}" --addr "${addr}" || nohup "${waterfall_bin}" --ad
 
 var defaultTimeout = 300 * time.Millisecond
 
-// Result has information about a successful bootstrap session.
+// Result has information about a succesful bootstrap session.
 type Result struct {
 	StartedServer    bool
 	StartedForwarder bool
