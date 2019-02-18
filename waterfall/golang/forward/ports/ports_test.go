@@ -255,7 +255,7 @@ func TestForwardPortNoRebind(t *testing.T) {
 
 	s.Dst = "tcp:foo"
 	if _, err = c.ForwardPort(ctx, &waterfall_grpc.PortForwardRequest{Session: s, Rebind: false}); err == nil {
-		t.Errorf("Was expecting error trying to rebind, but was succesful.")
+		t.Errorf("Was expecting error trying to rebind, but was successful.")
 		return
 	}
 
