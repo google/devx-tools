@@ -17,7 +17,7 @@ again.
 
 ## Building and Testing
 
-H2O uses the [bazel](https://bazel.build) build system.
+We use the [bazel](https://bazel.build) build system.
 
 ### Building
 
@@ -25,9 +25,9 @@ H2O uses the [bazel](https://bazel.build) build system.
 bazel build <target path>
 ```
 
-For example, to build the H2O server:
+For example, to build the Waterfall server:
 ```
-bazel build //waterfall/server:server_bin_386
+bazel build //waterfall/golang/server:server_bin_386
 ```
 
 ### Testing
@@ -36,10 +36,10 @@ bazel build //waterfall/server:server_bin_386
 bazel test <target path> --test_output=streamed
 ```
 
-For example, to run the tar test:
+For example:
 
 ```
-bazel test //waterfall:tar_test --test_output=streamed
+bazel test //waterfall/golang/stream:tar_test --test_output=streamed
 ```
 
 ## Code reviews
