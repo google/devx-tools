@@ -45,7 +45,7 @@ func main() {
 
 	pts := strings.SplitN(*addr, ":", 2)
 	if len(pts) != 2 {
-		log.Fatalf("failed to parse address %s", addr)
+		log.Fatalf("failed to parse address %s", *addr)
 	}
 
 	lis, err := net.Listen(pts[0], pts[1])
