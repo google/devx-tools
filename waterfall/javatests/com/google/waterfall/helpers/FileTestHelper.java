@@ -1,14 +1,15 @@
 package com.google.waterfall.helpers;
 
-import java.util.Scanner;
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import java.io.File;
 import java.io.IOException;
+import java.util.Scanner;
 
 public class FileTestHelper {
 
   public static boolean fileContentEquals(String filePath, String expected) throws IOException {
-    String actual = new Scanner(new File(filePath))
-        .useDelimiter("\\A").next();
+    String actual = new Scanner(new File(filePath), UTF_8.name()).useDelimiter("\\A").next();
     return actual.equals(expected);
   }
 

@@ -1,31 +1,22 @@
 package com.google.waterfall.tar;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.Assert.assertTrue;
 
-import com.google.waterfall.tar.Tar;
-import java.io.BufferedWriter;
-import java.io.ByteArrayOutputStream;
+import com.google.waterfall.helpers.FileTestHelper;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.Writer;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.util.Scanner;
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import com.google.waterfall.helpers.FileTestHelper;
 
 @RunWith(JUnit4.class)
 public class TarTest {
@@ -47,7 +38,7 @@ public class TarTest {
     sampleFile = new File(subDir, "sample.txt");
     sampleFile.createNewFile();
 
-    try(Writer writer = new BufferedWriter(new FileWriter(sampleFile))) {
+    try(Writer writer = Files.newBufferedWriter(sampleFile.toPath(), UTF_8)) {
       writer.write(FileTestHelper.SAMPLE_FILE_CONTENT);
     }
   }
@@ -71,7 +62,7 @@ public class TarTest {
   }
 
   @Test
-  public void testTarDirectory() throws FileNotFoundException, IOException {
+  public void testTarDirectory() throws IOException {
     String dirName = subDir.getName();
     String src = subDir.getPath();
     String tarDst = rootFolder.getRoot().getPath() + "/" + dirName+ ".tar";
@@ -90,7 +81,7 @@ public class TarTest {
   }
 
   @Test
-  public void testTarRecursiveDiretory() throws FileNotFoundException, IOException {
+  public void testTarRecursiveDiretory() throws IOException {
     String src = parentDir.getPath();
     String dstRoot = rootFolder.getRoot().getPath();
     String untarDst = dstRoot + "/" + parentDir.getName();
