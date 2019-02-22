@@ -1,3 +1,5 @@
+[![Build status](https://badge.buildkite.com/844c886c1dd57e1ccddc1c52a97ada67741934db9321174efb.svg)](https://buildkite.com/bazel/mobile-devx-tools)
+
 ![devx-tools](images/devx.png)
 
 # Mobile DevX Tools
