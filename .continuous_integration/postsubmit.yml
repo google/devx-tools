@@ -2,5 +2,5 @@ platforms:
   ubuntu1404:
     build_targets:
     - "//waterfall/golang/stream/..."
-    # test_targets:
-    # - "//..."
+    test_targets:
+    - "//waterfall/golang/stream/..."
