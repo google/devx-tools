@@ -50,13 +50,13 @@ go_test(
         "--waterfall_bin=$(location //waterfall/golang/server:server_bin_386)",
         "--forwarder_bin=$(location //waterfall/golang/forward:forward_bin)",
         "--adb_bin=$(location @androidsdk//:adb)",
-        "--launcher_bin=$(location @android_test_support//tools/android/emulated_devices/generic_phone:android_24_x86)",
+        "--launcher_bin=$(location @android_test_support//tools/android/emulated_devices/generic_phone:android_21_x86)",
     ],
     data = [
         "//waterfall/golang/server:server_bin_386",
         "//waterfall/golang/forward:forward_bin",
         "@androidsdk//:adb",
-        "@android_test_support//tools/android/emulated_devices/generic_phone:android_24_x86",
+        "@android_test_support//tools/android/emulated_devices/generic_phone:android_21_x86",
     ],
     deps = [
         "//waterfall/golang/adb",

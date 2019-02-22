@@ -35,12 +35,12 @@ go_test(
     ],
     args = [
         "--server=$(location :test_server)",
-        "--launcher=$(location @android_test_support//tools/android/emulated_devices/generic_phone:android_24_x86)",
+        "--launcher=$(location @android_test_support//tools/android/emulated_devices/generic_phone:android_21_x86)",
         "--adb_turbo=$(location @android_test_support//tools/android/emulator:support/adb.turbo)",
     ],
     data = [
         ":test_server",
-        "@android_test_support//tools/android/emulated_devices/generic_phone:android_24_x86",
+        "@android_test_support//tools/android/emulated_devices/generic_phone:android_21_x86",
         "@android_test_support//tools/android/emulator:support/adb.turbo",
     ],
     deps = [
