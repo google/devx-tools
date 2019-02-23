@@ -12,12 +12,12 @@ go_test(
     ],
     args = [
         "--server=$(location //waterfall/golang/server:server_bin_386)",
-        "--launcher=$(location @android_test_support//tools/android/emulated_devices/generic_phone:android_24_x86)",
+        "--launcher=$(location @android_test_support//tools/android/emulated_devices/generic_phone:android_23_x86)",
         "--adb_turbo=$(location @android_test_support//tools/android/emulator:support/adb.turbo)",
     ],
     data = [
         "//waterfall/golang/server:server_bin_386",
-        "@android_test_support//tools/android/emulated_devices/generic_phone:android_21_x86",
+        "@android_test_support//tools/android/emulated_devices/generic_phone:android_23_x86",
         "@android_test_support//tools/android/emulator:support/adb.turbo",
     ],
     importpath = "github.com/google/waterfall/golang/server/testing",

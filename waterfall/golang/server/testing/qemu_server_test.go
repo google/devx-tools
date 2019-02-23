@@ -157,7 +157,7 @@ func runServer(ctx context.Context, adbTurbo, adbPort, server string) error {
 	}
 
 	_, err = testutils.ExecOnDevice(
-		ctx, adbTurbo, s, "shell", []string{"chmod", "+x", "/data/local/tmp/server"})
+		ctx, adbTurbo, s, "shell", []string{"chmod", "755", "/data/local/tmp/server"})
 	if err != nil {
 		return err
 	}
