@@ -2,6 +2,5 @@ platforms:
   ubuntu1804:
     build_targets:
     - "//waterfall/golang/stream/..."
-    - "//waterfall/golang/net/qemu/..."
     test_targets:
     - "//waterfall/golang/stream/..."
