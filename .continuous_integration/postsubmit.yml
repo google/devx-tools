@@ -1,6 +1,14 @@
 platforms:
   ubuntu1804:
     build_targets:
+    - "//waterfall/golang/bootstrap/..."
+    - "//waterfall/golang/forward/..."
+    - "//waterfall/golang/net/qemu/..."
     - "//waterfall/golang/stream/..."
+    - "//waterfall/golang/server/..."
     test_targets:
+    - "//waterfall/golang/bootstrap/..."
+    - "//waterfall/golang/forward/..."
+    - "//waterfall/golang/net/qemu/..."
     - "//waterfall/golang/stream/..."
+    - "//waterfall/golang/server/..."
