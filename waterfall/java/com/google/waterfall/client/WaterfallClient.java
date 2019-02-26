@@ -45,7 +45,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Client for the waterfall service using gRPC. Executes asynchronously.
  * */
-public final class WaterfallClient {
+public class WaterfallClient {
   private static final int PIPE_BUFFER_SIZE = 256 * 1024;
   private static final int LISTENER_CONCURRENCY = 2;
   private static final int SHUTDOWN_TIMEOUT_SECONDS = 1;
