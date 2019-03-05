@@ -204,6 +204,10 @@ func Exec(ctx context.Context, client waterfall_grpc.WaterfallClient, stdout, st
 			}
 			return err
 		})
+	} else {
+		if err = xstream.CloseSend(); err != nil {
+			return 0, err
+		}
 	}
 
 	var last *waterfall_grpc.CmdProgress
