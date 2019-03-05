@@ -10,7 +10,7 @@ This tools are part of Google mobile testing and development infrastructure.
 
 ## Tools
 
-[`waterfall`](waterfall/README.md) is a tool to control and transfer artifacts to Android devices .
+[`waterfall`](waterfall) is a tool to control and transfer artifacts to Android devices .
 
 More coming soon ...
 
