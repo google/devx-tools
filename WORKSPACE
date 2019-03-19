@@ -49,9 +49,9 @@ go_repository(
 # gRPC Java
 http_archive(
     name = "io_grpc_grpc_java",
-    sha256 = "48425cd631afb117fd355fd961deb313b3ac8e43f2b95c1598f35fbfcf684fbc",
-    strip_prefix = "grpc-java-1.16.1",
-    urls = ["https://github.com/grpc/grpc-java/archive/v1.16.1.tar.gz"],
+    sha256 = "0b86e44f9530fd61eb044b3c64c7579f21857ba96bcd9434046fd22891483a6d",
+    strip_prefix = "grpc-java-1.18.0",
+    urls = ["https://github.com/grpc/grpc-java/archive/v1.18.0.tar.gz"],
 )
 
 load("@io_grpc_grpc_java//:repositories.bzl", "grpc_java_repositories")
