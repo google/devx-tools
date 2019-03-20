@@ -16,6 +16,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"flag"
 	"log"
 	"net"
@@ -27,12 +28,27 @@ import (
 	"github.com/google/waterfall/golang/server"
 	waterfall_grpc "github.com/google/waterfall/proto/waterfall_go_grpc"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	_ "google.golang.org/grpc/encoding/gzip"
 )
 
-var addr = flag.String(
-	"addr", "qemu:sockets/h2o", "Where to start listening. <qemu|tcp|unix>:addr."+
-		" If qemu is specified, addr is the name of the pipe socket")
+var (
+	addr = flag.String(
+		"addr", "qemu:sockets/h2o", "Where to start listening. <qemu|tcp|unix>:addr."+
+			" If qemu is specified, addr is the name of the pipe socket")
+
+	cert       = flag.String("cert", "", "The path to the server certificate")
+	privateKey = flag.String("private_key", "", "Path to the server private key")
+)
+
+func makeCredentials(cert, privateKey string) (credentials.TransportCredentials, error) {
+	crt, err := tls.LoadX509KeyPair(cert, privateKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return credentials.NewTLS(&tls.Config{Certificates: []tls.Certificate{crt}}), nil
+}
 
 func main() {
 	flag.Parse()
@@ -77,7 +93,25 @@ func main() {
 		log.Fatalf("Unsupported kind %s", kind)
 	}
 
-	grpcServer := grpc.NewServer(grpc.WriteBufferSize(constants.WriteBufferSize))
+	var grpcServer *grpc.Server
+	if *cert != "" || *privateKey != "" {
+		if *cert == "" || *privateKey == "" {
+			log.Fatal("Need to specify -cert and -private_key")
+		}
+
+		creds, err := makeCredentials(*cert, *privateKey)
+		if err != nil {
+			log.Fatalf("failed to create tls credentials")
+		}
+
+		grpcServer = grpc.NewServer(
+			grpc.WriteBufferSize(constants.WriteBufferSize),
+			grpc.Creds(creds))
+	} else {
+		log.Println("Warning! running unsecure server ...")
+		grpcServer = grpc.NewServer(grpc.WriteBufferSize(constants.WriteBufferSize))
+	}
+
 	waterfall_grpc.RegisterWaterfallServer(grpcServer, new(server.WaterfallServer))
 
 	log.Println("Serving ...")
