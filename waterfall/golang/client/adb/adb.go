@@ -37,6 +37,7 @@ const (
 	androidSDKEnv = "ANDROID_SDK_HOME"
 )
 
+// ParseError represents an command line parsing error.
 type ParseError struct{}
 
 // Error returns the empty string. We use this to fallback to regular ADB.
@@ -48,7 +49,7 @@ func (e ParseError) Error() string {
 // ClientFn allows the user to custumize the way the client connection is established.
 type ClientFn func() (*grpc.ClientConn, error)
 
-// Parsed args represents a parsed command line.
+// ParsedArgs args represents a parsed command line.
 type ParsedArgs struct {
 	Device  string
 	Command string
@@ -58,6 +59,7 @@ type ParsedArgs struct {
 type cmdFn func(context.Context, ClientFn, []string) error
 
 var (
+	// Commands maps from a command name to the function to execute the command.
 	Commands = map[string]cmdFn{
 		"shell":     shellFn,
 		"push":      pushFn,
