@@ -21,11 +21,22 @@ import (
 	"log"
 	"net"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/google/waterfall/golang/client/adb"
 	"google.golang.org/grpc"
 )
+
+func parseAddr(addr string) (string, string) {
+	if strings.HasPrefix(addr, "unix:") || strings.HasPrefix(addr, "tcp:") {
+		pts := strings.SplitN(addr, ":", 2)
+		return pts[0], pts[1]
+	}
+
+	// User didn't specified protocol. By default waterfall listens on unix:@h20_$addr.
+	return "unix", "@h2o_" + addr
+}
 
 func runCommand(ctx context.Context, args []string) error {
 	parsedArgs, err := adb.ParseCommand(args)
@@ -40,7 +51,8 @@ func runCommand(ctx context.Context, args []string) error {
 		}
 
 		// We dial outside gRPC domain in order to fallback to regular adb without grpc intervention
-		cc, err := net.Dial("unix", "@h2o_"+parsedArgs.Device)
+		p, a := parseAddr(parsedArgs.Device)
+		cc, err := net.Dial(p, a)
 		if err != nil {
 			adb.Fallback(args)
 		}
