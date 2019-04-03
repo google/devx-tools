@@ -3,8 +3,6 @@
 
 licenses(["notice"])  # Apache License 2.0
 
-load("@rules_maven//:defs.bzl", "artifact")
-
 package(default_visibility = ["//visibility:public"])
 
 java_library(

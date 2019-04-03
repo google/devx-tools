@@ -3,15 +3,19 @@ workspace(name = "devx")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 # Maven rule for transitive dependencies
-RULES_MAVEN_TAG = "0.1.0" # or latest tag
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+RULES_JVM_EXTERNAL_TAG = "1.2"
+RULES_JVM_EXTERNAL_SHA = "e5c68b87f750309a79f59c2b69ead5c3221ffa54ff9496306937bfa1c9c8c86b"
 
 http_archive(
-    name = "rules_maven",
-    strip_prefix = "rules_maven-%s" % RULES_MAVEN_TAG,
-    url = "https://github.com/jin/rules_maven/archive/%s.zip" % RULES_MAVEN_TAG,
+    name = "rules_jvm_external",
+    strip_prefix = "rules_jvm_external-%s" % RULES_JVM_EXTERNAL_TAG,
+    sha256 = RULES_JVM_EXTERNAL_SHA,
+    url = "https://github.com/bazelbuild/rules_jvm_external/archive/%s.zip" % RULES_JVM_EXTERNAL_TAG,
 )
 
-load("@rules_maven//:defs.bzl", "maven_install")
+load("@rules_jvm_external//:defs.bzl", "maven_install")
 
 # Go toolchains
 http_archive(
