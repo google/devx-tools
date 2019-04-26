@@ -5,21 +5,28 @@ load(
     "go_binary",
     "go_library",
 )
+
 package(default_visibility = ["//visibility:public"])
 
 go_library(
     name = "server",
-    srcs = ["server.go"],
+    srcs = [
+        "provider.go",
+        "server.go",
+    ],
     importpath = "github.com/google/waterfall/golang/server",
     deps = [
-        "//waterfall/golang/stream",
         "//waterfall/golang/constants",
         "//waterfall/golang/forward",
+        "//waterfall/golang/net/qemu",
+        "//waterfall/golang/stream",
         "//waterfall/proto:waterfall_go_grpc",
         "//waterfall/proto:waterfall_go_proto",
         "@io_bazel_rules_go//proto/wkt:empty_go_proto",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_grpc//codes:go_default_library",
+        "@org_golang_google_grpc//credentials:go_default_library",
+        "@org_golang_google_grpc//encoding/gzip:go_default_library",
         "@org_golang_google_grpc//status:go_default_library",
         "@org_golang_x_sync//errgroup:go_default_library",
     ],
@@ -27,14 +34,6 @@ go_library(
 
 DEPS = [
     ":server",
-    "//waterfall/golang/constants",
-    "//waterfall/golang/stream",
-    "//waterfall/golang/net/qemu",
-    "//waterfall/proto:waterfall_go_grpc",
-    "//waterfall/proto:waterfall_go_proto",
-    "@org_golang_google_grpc//:go_default_library",
-    "@org_golang_google_grpc//credentials:go_default_library",
-    "@org_golang_google_grpc//encoding/gzip:go_default_library",
 ]
 
 go_binary(
