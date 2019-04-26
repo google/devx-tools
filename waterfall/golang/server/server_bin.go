@@ -18,6 +18,7 @@ package main
 import (
 	"flag"
 	"log"
+	"syscall"
 
 	"github.com/google/waterfall/golang/server"
 )
@@ -33,17 +34,20 @@ var (
 
 func main() {
 	flag.Parse()
+	// do not chown - owners and groups will not be valid.
+	// adb will always create files with 0644 permission
+	syscall.Umask(0)
+
 	if *addr == "" {
 		log.Fatalf("Need to specify -addr.")
 	}
 
 	log.Println("Starting waterfall server ...")
-	provider := server.NewProvider(*addr, *cert, *privateKey)
-	lis, err := provider.Listener()
+	lis, err := server.WFListener(*addr)
 	if err != nil {
 		log.Fatalf("%v", err)
 	}
-	server, err := provider.Server()
+	server, err := server.WFServer(*cert, *privateKey)
 	if err != nil {
 		log.Fatalf("%v", err)
 	}

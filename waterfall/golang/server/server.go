@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package server implements waterfall service
+// Package server implements and provides waterfall service
 package server
 
 import (

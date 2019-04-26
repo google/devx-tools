@@ -19,7 +19,6 @@ import (
 	"log"
 	"net"
 	"strings"
-	"syscall"
 
 	"github.com/google/waterfall/golang/constants"
 	"github.com/google/waterfall/golang/net/qemu"
@@ -38,27 +37,15 @@ func makeCredentials(cert, privateKey string) (credentials.TransportCredentials,
 	return credentials.NewTLS(&tls.Config{Certificates: []tls.Certificate{crt}}), nil
 }
 
-type Provider struct {
-	addr string
-	cert string
-	pKey string
-}
-
-func NewProvider(addr, cert, pKey string) *Provider {
-	return &Provider{addr: addr, cert: cert, pKey: pKey}
-}
-
-func (p *Provider) Server(options ...grpc.ServerOption) (*grpc.Server, error) {
-	// do not chown - owners and groups will not be valid.
-	// adb will always create files with 0644 permission
-	syscall.Umask(0)
-
+// WFServer provides a GRPC server registered to serve Waterfall API. Providing cert and pKey
+// configures the server for TLS, options could be added to further configure the server.
+func WFServer(cert string, pKey string, options ...grpc.ServerOption) (*grpc.Server, error) {
 	options = append(options, grpc.WriteBufferSize(constants.WriteBufferSize))
-	if p.cert != "" || p.pKey != "" {
-		if p.cert == "" || p.pKey == "" {
+	if cert != "" || pKey != "" {
+		if cert == "" || pKey == "" {
 			return nil, fmt.Errorf("need to specify cert and private key")
 		}
-		creds, err := makeCredentials(p.cert, p.pKey)
+		creds, err := makeCredentials(cert, pKey)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create tls credentials: %v", err)
 		}
@@ -72,10 +59,12 @@ func (p *Provider) Server(options ...grpc.ServerOption) (*grpc.Server, error) {
 	return grpcServer, nil
 }
 
-func (p *Provider) Listener() (net.Listener, error) {
-	pts := strings.SplitN(p.addr, ":", 2)
+// WFListener provides a default waterfall listener where the GRPC server can listen for new
+// requests.
+func WFListener(addr string) (net.Listener, error) {
+	pts := strings.SplitN(addr, ":", 2)
 	if len(pts) != 2 {
-		return nil, fmt.Errorf("failed to parse address %s", p.addr)
+		return nil, fmt.Errorf("failed to parse address %s", addr)
 	}
 
 	kind := pts[0]
