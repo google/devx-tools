@@ -36,6 +36,9 @@ var (
 	addr = flag.String(
 		"addr", "qemu:sockets/h2o", "Where to start listening. <qemu|tcp|unix>:addr."+
 			" If qemu is specified, addr is the name of the pipe socket")
+	sessionID = flag.String(
+		"session_id", "", "Only accept requests with this string in x-session-id header."+
+			" If empty, allow all requests.")
 
 	cert       = flag.String("cert", "", "The path to the server certificate")
 	privateKey = flag.String("private_key", "", "Path to the server private key")
@@ -93,7 +96,7 @@ func main() {
 		log.Fatalf("Unsupported kind %s", kind)
 	}
 
-	var grpcServer *grpc.Server
+	options := []grpc.ServerOption{grpc.WriteBufferSize(constants.WriteBufferSize)}
 	if *cert != "" || *privateKey != "" {
 		if *cert == "" || *privateKey == "" {
 			log.Fatal("Need to specify -cert and -private_key")
@@ -103,15 +106,21 @@ func main() {
 		if err != nil {
 			log.Fatalf("failed to create tls credentials")
 		}
-
-		grpcServer = grpc.NewServer(
-			grpc.WriteBufferSize(constants.WriteBufferSize),
-			grpc.Creds(creds))
+		options = append(options, grpc.Creds(creds))
 	} else {
 		log.Println("Warning! running unsecure server ...")
-		grpcServer = grpc.NewServer(grpc.WriteBufferSize(constants.WriteBufferSize))
 	}
 
+	if *sessionID != "" {
+		log.Println("Verifying session ID for all requests.")
+		ai := server.NewAuthInterceptor(*sessionID)
+		options = append(
+			options,
+			grpc.UnaryInterceptor(ai.UnaryServerInterceptor),
+			grpc.StreamInterceptor(ai.StreamServerInterceptor))
+	}
+
+	grpcServer := grpc.NewServer(options...)
 	waterfall_grpc.RegisterWaterfallServer(grpcServer, new(server.WaterfallServer))
 
 	log.Println("Serving ...")
