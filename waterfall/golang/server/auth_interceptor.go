@@ -32,7 +32,7 @@ func (a *AuthInterceptor) authorize(ctx context.Context) error {
 		if !ok || len(hdrSessionID) != 1 {
 			return status.Error(codes.Unauthenticated, "invalid x-session-id header")
 		}
-		if a.sessionID != sessionHdrVal[0] {
+		if a.sessionID != hdrSessionID[0] {
 			return status.Error(codes.Unauthenticated, "bad x-session-id value")
 		}
 	}
