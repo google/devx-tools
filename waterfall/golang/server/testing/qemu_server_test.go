@@ -72,6 +72,16 @@ type fs struct {
 	dirs  []fs
 }
 
+type sessionIDCred struct {
+	sessionID string
+}
+
+func (s *sessionIDCred) GetRequestMetadata(context.Context, ...string) (map[string]string, error) {
+	return map[string]string{"x-session-id": s.sessionID}, nil
+}
+
+func (*sessionIDCred) RequireTransportSecurity() bool { return false }
+
 const emuWorkingDir = "images/session"
 const socketName = "sockets/h2o"
 
@@ -148,7 +158,7 @@ func dirCompare(dir1, dir2, path string, info os.FileInfo, seen map[string]bool)
 	return nil
 }
 
-func runServer(ctx context.Context, adbTurbo, adbPort, server string) error {
+func runServer(ctx context.Context, adbTurbo, adbPort, server, sessionID string) error {
 	s := "localhost:" + adbPort
 	_, err := testutils.ExecOnDevice(
 		ctx, adbTurbo, s, "push", []string{server, "/data/local/tmp/server"})
@@ -163,7 +173,8 @@ func runServer(ctx context.Context, adbTurbo, adbPort, server string) error {
 	}
 	go func() {
 		testutils.ExecOnDevice(
-			ctx, adbTurbo, s, "shell", []string{"/data/local/tmp/server"})
+			ctx, adbTurbo, s, "shell",
+			[]string{"/data/local/tmp/server --session_id=" + sessionID})
 	}()
 	return nil
 }
@@ -189,7 +200,7 @@ func TestConnection(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	if err := runServer(ctx, a, adbPort, svr); err != nil {
+	if err := runServer(ctx, a, adbPort, svr, ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -242,6 +253,84 @@ func TestConnection(t *testing.T) {
 	}
 }
 
+// TestConnectionWithSessionId tests that only requests with appropriate sessionID are able to call
+// into test server.
+func TestConnectionWithSessionID(t *testing.T) {
+	adbServerPort, adbPort, emuPort, err := testutils.GetAdbPorts()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	l := filepath.Join(testutils.RunfilesRoot(), *launcher)
+	a := filepath.Join(testutils.RunfilesRoot(), *adbTurbo)
+	svr := filepath.Join(testutils.RunfilesRoot(), *server)
+
+	emuDir, err := testutils.SetupEmu(l, adbServerPort, adbPort, emuPort)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(emuDir)
+	defer testutils.KillEmu(l, adbServerPort, adbPort, emuPort)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	if err := runServer(ctx, a, adbPort, svr, "valid_session_id"); err != nil {
+		t.Fatal(err)
+	}
+
+	cb, err := qemu.MakeConnBuilder(filepath.Join(emuDir, emuWorkingDir), socketName)
+	if err != nil {
+		t.Fatalf("error opening qemu connection: %v", err)
+	}
+	defer cb.Close()
+
+	// Test Request successful with session ID provided.
+	qconn, err := cb.Accept()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer qconn.Close()
+
+	opts := []grpc.DialOption{grpc.WithInsecure()}
+	opts = append(opts, grpc.WithDialer(
+		func(addr string, d time.Duration) (net.Conn, error) {
+			return qconn, nil
+		}))
+	vOpts := append(
+		opts, grpc.WithPerRPCCredentials(&sessionIDCred{sessionID: "valid_session_id"}))
+	badOpts := append(
+		opts, grpc.WithPerRPCCredentials(&sessionIDCred{sessionID: "bad_session_id"}))
+
+	testConn := func(ops []grpc.DialOption) error {
+		conn, err := grpc.Dial("", ops...)
+		if err != nil {
+			return fmt.Errorf("GRPC Dial failed with error: %v", err)
+		}
+		defer conn.Close()
+		k := waterfall_grpc.NewWaterfallClient(conn)
+		sent := testBytes(64 * 1024 * 1024)
+		rec, err := client.Echo(ctx, k, sent)
+		if err != nil {
+			return err
+		}
+		if bytes.Compare(sent, rec) != 0 {
+			return errors.New("bytes received != bytes sent")
+		}
+		return nil
+	}
+
+	// Verify that connection with valid session ID results in valid communication.
+	if err = testConn(vOpts); err != nil {
+		t.Errorf("Waterfall communication with valid Session ID creds failed: %v", err)
+	}
+
+	// Verify that connection with bad session ID results in error.
+	if err = testConn(badOpts); err == nil {
+		t.Error("Waterfall communication with bad session ID was successful")
+	}
+}
+
 func TestPushPull(t *testing.T) {
 	adbServerPort, adbPort, emuPort, err := testutils.GetAdbPorts()
 	if err != nil {
@@ -262,7 +351,7 @@ func TestPushPull(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	if err := runServer(ctx, a, adbPort, svr); err != nil {
+	if err := runServer(ctx, a, adbPort, svr, ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -356,7 +445,7 @@ func TestExec(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	if err := runServer(ctx, a, adbPort, svr); err != nil {
+	if err := runServer(ctx, a, adbPort, svr, ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -453,7 +542,7 @@ func TestExecPipeIn(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	if err := runServer(ctx, a, adbPort, svr); err != nil {
+	if err := runServer(ctx, a, adbPort, svr, ""); err != nil {
 		t.Fatal(err)
 	}
 
