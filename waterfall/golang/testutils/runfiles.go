@@ -37,6 +37,13 @@ func RunfilesRoot() string {
 			panic("unable to get wd")
 		}
 
+		if strings.HasSuffix(wd, workspaceDir) {
+			if strings.HasSuffix(wd, workspaceDir) {
+				runfiles = wd
+				return
+			}
+		}
+
 		execRoot := fmt.Sprintf("%s.%s", filepath.Base(os.Args[0]), workspaceDir)
 
 		runfiles = wd[:strings.LastIndex(wd, execRoot)+len(execRoot)]
