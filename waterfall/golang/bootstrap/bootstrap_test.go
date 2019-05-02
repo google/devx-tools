@@ -115,13 +115,14 @@ func TestQemuNeedsBootstrap(t *testing.T) {
 
 	adbConn := initAdb(a, adbPort, adbServerPort)
 
-	r, err := Bootstrap(context.Background(), adbConn, svr, fwdr, filepath.Join(emuDir, "images/session"), socketName, timeoutMS)
-	if err != nil {
-		t.Fatalf("Error during bootstrap %v", err)
+	// Kill waterfall in case is already running
+	if _, err := adbConn.Shell([]string{"stop", "waterfall"}); err != nil {
+		t.Fatal(err)
 	}
 
-	if !r.StartedForwarder {
-		t.Errorf("Forwader daemon not started!")
+	_, err = Bootstrap(context.Background(), adbConn, svr, fwdr, filepath.Join(emuDir, "images/session"), socketName, timeoutMS)
+	if err != nil {
+		t.Fatalf("Error during bootstrap %v", err)
 	}
 
 	if out, err := adbConn.Shell([]string{"setprop", prop, propVal}); err != nil {
