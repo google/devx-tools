@@ -12,12 +12,16 @@ package(default_visibility = ["//visibility:public"])
 DEPS = [
         ":forward",
         "//waterfall/golang/net/qemu",
+        "@org_golang_x_sync//errgroup:go_default_library",
 ]
 
 # Host binary
 go_binary(
     name = "forward_bin",
     srcs = ["forward_bin.go"],
+    goos = "linux",
+    pure = "on",
+    static = "on",
     deps = DEPS,
 )
 
