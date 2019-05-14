@@ -16,6 +16,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -26,6 +27,7 @@ import (
 
 	"github.com/google/waterfall/golang/forward"
 	"github.com/google/waterfall/golang/net/qemu"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -38,7 +40,9 @@ const (
 )
 
 var (
-	listenAddr = flag.String("listen_addr", "", "Address to listen for connection on the host. <unix|tcp>:addr")
+	listenAddr = flag.String(
+		"listen_addr", "",
+		"List of address(es) separated by comma to listen for connection on the host. <unix|tcp>:addr1[,<unix|tcp>:addr2]")
 
 	// For qemu connections addr is the working dir of the emulator
 	connectAddr = flag.String(
@@ -119,9 +123,15 @@ func main() {
 		log.Fatalf("Need to specify -listen_addr and -connect_addr.")
 	}
 
-	lpa, err := parseAddr(*listenAddr)
-	if err != nil {
-		log.Fatal(err)
+	log.Printf("Listening on address %s and connecting to %s\n", *listenAddr, *connectAddr)
+
+	lisAddrs := []*parsedAddr{}
+	for _, addr := range strings.Split(*listenAddr, ",") {
+		lpa, err := parseAddr(addr)
+		if err != nil {
+			log.Fatal(err)
+		}
+		lisAddrs = append(lisAddrs, lpa)
 	}
 
 	cpa, err := parseAddr(*connectAddr)
@@ -159,38 +169,53 @@ func main() {
 		log.Fatalf("Got error getting next conn: %v\n", err)
 	}
 
-	var lis connBuilder
-	switch lpa.kind {
-	case qemuHost:
-		l, err := makeQemuBuilder(lpa)
-		if err != nil {
-			log.Fatalf("Got error creating qemu conn %v.", err)
+	listeners := []connBuilder{}
+	for _, addr := range lisAddrs {
+		switch addr.kind {
+		case qemuHost:
+			l, err := makeQemuBuilder(addr)
+			if err != nil {
+				log.Fatalf("Got error creating qemu conn %v.", err)
+			}
+			defer l.Close()
+			listeners = append(listeners, l)
+		case unixConn:
+			fallthrough
+		case tcpConn:
+			l, err := net.Listen(addr.kind, addr.addr)
+			if err != nil {
+				log.Fatalf("Failed to listen on address: %v.", err)
+			}
+			defer l.Close()
+			listeners = append(listeners, l)
 		}
-		defer l.Close()
-		lis = l
-	case unixConn:
-		fallthrough
-	case tcpConn:
-		l, err := net.Listen(lpa.kind, lpa.addr)
-		if err != nil {
-			log.Fatalf("Failed to listen on address: %v.", err)
-		}
-		defer l.Close()
-		lis = l
 	}
 
-	for {
-		cx, err := lis.Accept()
-		if err != nil {
-			log.Fatalf("Got error accepting conn: %v\n", err)
-		}
+	eg, _ := errgroup.WithContext(context.Background())
+	for i, lis := range listeners {
+		func(ll connBuilder, pAddr *parsedAddr) {
+			eg.Go(func() error {
+				for {
+					cx, err := ll.Accept()
+					if err != nil {
+						return err
+					}
 
-		log.Println("Forwarding conns ...")
-		go forward.Forward(cx.(forward.HalfReadWriteCloser), cy.(forward.HalfReadWriteCloser))
+					log.Printf("Forwarding conns for addr %v ...\n", pAddr)
+					go forward.Forward(cx.(forward.HalfReadWriteCloser), cy.(forward.HalfReadWriteCloser))
 
-		cy, err = b.Accept()
-		if err != nil {
-			log.Fatalf("Got error getting next conn: %v\n", err)
-		}
+					cy, err = b.Accept()
+					if err != nil {
+						return err
+					}
+				}
+				return nil
+			})
+		}(lis, lisAddrs[i])
+
+	}
+
+	if err := eg.Wait(); err != nil {
+		log.Fatalf("Forwarding error: %v", err)
 	}
 }
