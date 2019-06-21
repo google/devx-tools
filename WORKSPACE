@@ -3,8 +3,6 @@ workspace(name = "devx")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 # Maven rule for transitive dependencies
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
 RULES_JVM_EXTERNAL_TAG = "1.2"
 RULES_JVM_EXTERNAL_SHA = "e5c68b87f750309a79f59c2b69ead5c3221ffa54ff9496306937bfa1c9c8c86b"
 
@@ -16,6 +14,22 @@ http_archive(
 )
 
 load("@rules_jvm_external//:defs.bzl", "maven_install")
+
+# gRPC Java
+# Note that this needs to come before io_bazel_go_rules. Both depend on
+# protobuf and the version that io_bazel_rules_go depends on is broken for
+# java, so io_grpc_grpc_java needs to get the dep first.
+http_archive(
+    name = "io_grpc_grpc_java",
+    sha256 = "9bc289e861c6118623fcb931044d843183c31d0e4d53fc43c4a32b56d6bb87fa",
+    strip_prefix = "grpc-java-1.21.0",
+    urls = ["https://github.com/grpc/grpc-java/archive/v1.21.0.tar.gz"],
+)
+
+
+load("@io_grpc_grpc_java//:repositories.bzl", "grpc_java_repositories")
+
+grpc_java_repositories()
 
 # Go toolchains
 http_archive(
@@ -46,22 +60,6 @@ go_repository(
     name = "org_golang_x_sync",
     commit = "1d60e4601c6fd243af51cc01ddf169918a5407ca",
     importpath = "golang.org/x/sync",
-)
-
-# Java toolchains
-
-# gRPC Java
-http_archive(
-    name = "io_grpc_grpc_java",
-    sha256 = "0b86e44f9530fd61eb044b3c64c7579f21857ba96bcd9434046fd22891483a6d",
-    strip_prefix = "grpc-java-1.18.0",
-    urls = ["https://github.com/grpc/grpc-java/archive/v1.18.0.tar.gz"],
-)
-
-load("@io_grpc_grpc_java//:repositories.bzl", "grpc_java_repositories")
-
-grpc_java_repositories(
-    omit_com_google_protobuf = True,
 )
 
 maven_install(
