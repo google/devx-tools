@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (C) 2014 Google -->
+<resources xmlns:tools="http://schemas.android.com/tools" >
+    <string name="app_name">USB</string>
+</resources>
+

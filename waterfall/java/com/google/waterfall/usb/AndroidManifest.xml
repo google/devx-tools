@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<manifest
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.google.waterfall.usb">
+
+    <uses-sdk android:minSdkVersion="15" android:targetSdkVersion="25"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.MANAGE_USB" />
+
+    <uses-feature android:name="android.hardware.usb.accessory"/>
+
+    <application android:label="UsbService">
+
+      <!-- Actual logic is handled by the service, but this allows
+           the application to request for permistion when the accessory is attached
+           and persist the permission -->
+      <activity android:name="com.google.android.waterfall.usb.UsbActivity"
+        android:theme="@android:style/Theme.NoDisplay"
+        android:exported="true">
+
+        <intent-filter>
+          <category android:name="android.intent.category.LAUNCHER" />
+          <action android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED"/>
+        </intent-filter>
+
+        <meta-data android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED"
+          android:resource="@xml/accessory_filter" />
+    </activity>
+
+        <service
+            android:name="com.google.android.waterfall.usb.UsbService"
+            android:exported="true">
+        <intent-filter>
+          <action android:name="android.intent.action.MAIN"/>
+          <category android:name="android.intent.category.LAUNCHER" />
+          <action android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED"/>
+        </intent-filter>
+
+        <meta-data android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED"
+          android:resource="@xml/accessory_filter" />
+
+        </service>
+    </application>
+</manifest>
