@@ -64,20 +64,23 @@ go_repository(
 
 maven_install(
     artifacts = [
-        "org.junit.jupiter:junit-jupiter-engine:5.3.2",
-        "io.grpc:grpc-testing:1.16.1",
-        "io.grpc:grpc-all:1.16.1",
-        "org.apache.commons:commons-compress:1.10",
-        "javax.inject:javax.inject:1",
+        "androidx.annotation:annotation:1.1.0",
+        "androidx.core:core:1.0.2",
+        "androidx.test:monitor:1.2.0",
+        "androidx.test:rules:1.2.0",
+        "androidx.test:runner:1.2.0",
+        "com.android.support:support-annotations:28.0.0",
+        "com.android.support.test:runner:1.0.2",
         "com.google.code.findbugs:jsr305:3.0.2",
         "com.google.dagger:dagger:2.23.2",
-        "org.apache.maven.plugins:maven-compiler-plugin:3.6.1",
-        "androidx.annotation:annotation:1.1.0",
-        "com.android.support:support-annotations:28.0.0",
-        "androidx.core:core:1.0.2",
-        "com.android.support.test:runner:1.0.2",
-        "androidx.test:runner:1.2.0",
-        "androidx.test:rules:1.2.0",
+        "com.google.dagger:dagger-compiler:2.23.2",
+        "io.grpc:grpc-all:1.16.1",
+        "io.grpc:grpc-testing:1.16.1",
+        "javax.inject:javax.inject:1",
+        "junit:junit:4.12",
+        "org.apache.commons:commons-compress:1.10",
+        "org.junit.jupiter:junit-jupiter-engine:5.3.2",
+        "org.mockito:mockito-core:2.28.2",
     ],
     repositories = [
         "https://maven.google.com",
@@ -86,12 +89,6 @@ maven_install(
     ],
 )
 
-http_archive(
-    name = "com_google_dagger",
-    urls = ["https://github.com/google/dagger/archive/dagger-2.23.2.zip"],
-    strip_prefix = "dagger-dagger-2.23.2",
-    sha256 = "7c3c65bf3e76da985e546804a0eb5eacc394af4b62459f7751c4b261ec9c7770",
-)
 
 # Android libs
 android_sdk_repository(name = "androidsdk")

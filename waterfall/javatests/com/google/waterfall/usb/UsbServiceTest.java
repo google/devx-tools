@@ -1,4 +1,4 @@
-package com.google.android.waterfall.usb;
+package com.google.waterfall.usb;
 
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.any;
@@ -11,7 +11,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.LocalServerSocket;
 import android.net.LocalSocket;
-import androidx.test.InstrumentationRegistry;
+import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.rule.ServiceTestRule;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -37,7 +37,7 @@ public final class UsbServiceTest {
 
   @Rule public final ServiceTestRule usbServiceRule = new ServiceTestRule();
 
-  private final Context context = InstrumentationRegistry.getTargetContext();
+  private final Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
 
   private final ExecutorService executor = Executors.newFixedThreadPool(2);
 

@@ -1,3 +1,8 @@
+# Package USB
+#   Android USB proxy service.
+
+package(default_visibility = ["//visibility:public"])
+
 exports_files(
     ["AndroidManifest.xml"],
 )
@@ -37,8 +42,20 @@ android_library(
         "@maven//:androidx_annotation_annotation",
         "@maven//:androidx_core_core",
         "@maven//:com_android_support_support_annotations",
-        "@com_google_dagger//:dagger_with_compiler",
+        "@maven//:com_google_dagger_dagger",
     ],
+    plugins = [
+        ":dagger_compiler",
+    ],
+)
+
+java_plugin(
+    name = "dagger_compiler",
+    deps = [
+        "@maven//:com_google_dagger_dagger_compiler",
+    ],
+    generates_api = 1,
+    processor_class = "dagger.internal.codegen.ComponentProcessor",
 )
 
 android_library(

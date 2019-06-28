@@ -1,4 +1,3 @@
-load("//tools/build_defs/android:rules.bzl", "android_binary", "android_instrumentation_test", "android_library")
 
 android_instrumentation_test(
     name = "usb_service_test",
@@ -15,22 +14,21 @@ android_library(
     ),
     manifest = "AndroidManifest.xml",
     deps = [
-        "//java/com/google/waterfall/usb:mock_usb_manager",
-        "//java/com/google/waterfall/usb:usb_interfaces",
-        "//java/com/google/waterfall/usb:usb_service_lib",
-        "@maven//:androidx_test_runner",
+        "//waterfall/java/com/google/waterfall/usb:mock_usb_manager",
+        "//waterfall/java/com/google/waterfall/usb:usb_interfaces",
+        "//waterfall/java/com/google/waterfall/usb:usb_service_lib",
         "@maven//:androidx_test_rules",
-        "@maven//:com_google_dagger_dagger",
-        "@maven//:com_google_dagger_dagger_android",
+        "@maven//:androidx_test_monitor",
         "@maven//:javax_inject_javax_inject",
-        "@com_google_dagger//:dagger_with_compiler",
+        "@maven//:org_mockito_mockito_core",
+        "@maven//:junit_junit",
     ],
 )
 
 android_binary(
     name = "test_binary",
     testonly = 1,
-    instruments = "//java/com/google/waterfall/usb:usb_service",
+    instruments = "//waterfall/java/com/google/waterfall/usb:usb_service",
     manifest = "AndroidManifest.xml",
     deps = [":test_lib"],
 )
