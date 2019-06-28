@@ -30,7 +30,7 @@
     </activity>
 
         <service
-            android:name="com.google.android.waterfall.usb.UsbService"
+            android:name="com.google.waterfall.usb.UsbService"
             android:exported="true">
         <intent-filter>
           <action android:name="android.intent.action.MAIN"/>

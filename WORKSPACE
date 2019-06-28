@@ -81,6 +81,7 @@ maven_install(
         "org.apache.commons:commons-compress:1.10",
         "org.junit.jupiter:junit-jupiter-engine:5.3.2",
         "org.mockito:mockito-core:2.28.2",
+        "org.mockito:mockito-android:2.28.2",
     ],
     repositories = [
         "https://maven.google.com",
@@ -93,11 +94,11 @@ maven_install(
 # Android libs
 android_sdk_repository(name = "androidsdk")
 
-ATS_COMMIT = "1daba70e7b5952fc3fb46b9bd99dd2f80c2bdaa3"
 http_archive(
     name = "android_test_support",
-    strip_prefix = "android-test-%s" % ATS_COMMIT,
-    urls = ["https://github.com/android/android-test/archive/%s.tar.gz" % ATS_COMMIT],
+    strip_prefix = "android-test-androidx-test-1.2.0",
+    urls = ["https://github.com/android/android-test/archive/androidx-test-1.2.0.tar.gz"],
+    sha256 = "01a3a6a88588794b997b46a823157aea06be9bcdc41800b61199893121ef26a3",
 )
 
 load("@android_test_support//:repo.bzl", "android_test_repositories")
