@@ -226,7 +226,7 @@ func Exec(ctx context.Context, client waterfall_grpc.WaterfallClient, stdout, st
 			}
 		}
 		if pgrs.Stderr != nil {
-			if _, err := sterr.Write(pgrs.Stderr); err != nil {
+			if _, err := stderr.Write(pgrs.Stderr); err != nil {
 				return 0, err
 			}
 		}
