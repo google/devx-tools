@@ -220,12 +220,12 @@ func Exec(ctx context.Context, client waterfall_grpc.WaterfallClient, stdout, st
 			return 0, err
 		}
 
-		if pgrs.Stdout != nil {
+		if pgrs.Stdout != nil && stdout != nil {
 			if _, err := stdout.Write(pgrs.Stdout); err != nil {
 				return 0, err
 			}
 		}
-		if pgrs.Stderr != nil {
+		if pgrs.Stderr != nil && stderr != nil {
 			if _, err := stderr.Write(pgrs.Stderr); err != nil {
 				return 0, err
 			}
