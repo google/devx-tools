@@ -76,11 +76,6 @@ func Echo(ctx context.Context, client waterfall_grpc.WaterfallClient, r []byte) 
 
 // Push pushes a tar stream to the server running in the device.
 func Push(ctx context.Context, client waterfall_grpc.WaterfallClient, src, dst string) error {
-	rpc, err := client.Push(ctx)
-	if err != nil {
-		return err
-	}
-
 	r, w := io.Pipe()
 	defer r.Close()
 
@@ -91,6 +86,17 @@ func Push(ctx context.Context, client waterfall_grpc.WaterfallClient, src, dst s
 		return err
 	})
 
+	if err := pushTar(ctx, eg, client, r, dst); err != nil {
+		return err
+	}
+	return eg.Wait()
+}
+
+func pushTar(ctx context.Context, eg *errgroup.Group, client waterfall_grpc.WaterfallClient, r *io.PipeReader, dst string) error {
+	rpc, err := client.Push(ctx)
+	if err != nil {
+		return err
+	}
 	buff := make([]byte, 64*1024)
 	eg.Go(func() error {
 		for {
@@ -119,6 +125,24 @@ func Push(ctx context.Context, client waterfall_grpc.WaterfallClient, src, dst s
 			}
 		}
 	})
+	return nil
+}
+
+// PushBytes pushes src reader contents to a dst filepath on device.
+func PushBytes(ctx context.Context, client waterfall_grpc.WaterfallClient, srcBytes []byte, dst string) error {
+	r, w := io.Pipe()
+	defer r.Close()
+
+	eg := &errgroup.Group{}
+	eg.Go(func() error {
+		err := stream.TarBytes(w, srcBytes)
+		w.Close()
+		return err
+	})
+
+	if err := pushTar(ctx, eg, client, r, dst); err != nil {
+		return err
+	}
 	return eg.Wait()
 }
 
@@ -128,19 +152,24 @@ func Pull(ctx context.Context, client waterfall_grpc.WaterfallClient, src, dst s
 		return err
 	}
 
-	xstream, err := client.Pull(ctx, &waterfall_grpc.Transfer{Path: src})
-	if err != nil {
-		return err
-	}
-
 	r, w := io.Pipe()
 	eg := &errgroup.Group{}
+	if err := pullStream(ctx, client, eg, w, src); err != nil {
+		return err
+	}
 	eg.Go(func() error {
 		err := stream.Untar(r, dst)
 		r.Close()
 		return err
 	})
+	return eg.Wait()
+}
 
+func pullStream(ctx context.Context, client waterfall_grpc.WaterfallClient, eg *errgroup.Group, w *io.PipeWriter, src string) error {
+	xstream, err := client.Pull(ctx, &waterfall_grpc.Transfer{Path: src})
+	if err != nil {
+		return err
+	}
 	eg.Go(func() error {
 		defer w.Close()
 		for {
@@ -155,6 +184,21 @@ func Pull(ctx context.Context, client waterfall_grpc.WaterfallClient, src, dst s
 				return err
 			}
 		}
+	})
+	return nil
+}
+
+// PullBytes requests contents of a single src file from the device and provides it on dst writer.
+func PullBytes(ctx context.Context, client waterfall_grpc.WaterfallClient, dst io.Writer, src string) error {
+	r, w := io.Pipe()
+	eg := &errgroup.Group{}
+	if err := pullStream(ctx, client, eg, w, src); err != nil {
+		return err
+	}
+	eg.Go(func() error {
+		err := stream.UntarBytes(dst, r)
+		r.Close()
+		return err
 	})
 	return eg.Wait()
 }

@@ -128,6 +128,32 @@ func Untar(r io.Reader, dst string) error {
 	}
 }
 
+// UntarBytes untars a tar r to a dst writer. This assumes that the tar contains only a single
+// file.
+func UntarBytes(dst io.Writer, r io.Reader) error {
+	tr := tar.NewReader(r)
+	// Advance to the first and only file in the tar. If there are more files present in the
+	// tar, return an error.
+	hdr, err := tr.Next()
+	if err != nil {
+		return err
+	}
+	switch hdr.Typeflag {
+	case tar.TypeReg:
+		fallthrough
+	case tar.TypeRegA:
+		if _, err = io.Copy(dst, tr); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("trying to read a directory into writer")
+	}
+	if _, eof := tr.Next(); eof != io.EOF {
+		return fmt.Errorf("too many files received when trying to untar file")
+	}
+	return nil
+}
+
 // Tar archive tars the contents of src into a writer stream
 func Tar(writer io.Writer, src string) error {
 	if _, err := os.Stat(src); err != nil {
@@ -215,4 +241,24 @@ func Tar(writer io.Writer, src string) error {
 
 		return nil
 	})
+}
+
+// TarBytes tars bytes as a single logical file into a tar file writer.
+func TarBytes(writer io.Writer, bytes []byte) error {
+	tw := tar.NewWriter(writer)
+	defer tw.Close()
+
+	hdr := &tar.Header{
+		Typeflag: tar.TypeReg,
+		Name:     "bytefile",
+		Size:     int64(len(bytes)),
+	}
+	if err := tw.WriteHeader(hdr); err != nil {
+		return err
+	}
+
+	if _, err := tw.Write(bytes); err != nil {
+		return err
+	}
+	return nil
 }

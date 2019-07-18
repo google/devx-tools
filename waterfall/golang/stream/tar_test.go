@@ -594,5 +594,19 @@ func TestUntar(t *testing.T) {
 			}
 		}
 	}
+}
 
+func TestTarUntarBytes(t *testing.T) {
+	var tar bytes.Buffer
+	content := []byte("filecontents")
+	if err := TarBytes(&tar, content); err != nil {
+		t.Errorf("error taring bytes: %v", err)
+	}
+	var dst bytes.Buffer
+	if err := UntarBytes(&dst, &tar); err != nil {
+		t.Errorf("error untaring tar to bytes: %v", err)
+	}
+	if dst.String() != "filecontents" {
+		t.Errorf("unexpected untaring contents: [%s], expected: [filecontents]")
+	}
 }
