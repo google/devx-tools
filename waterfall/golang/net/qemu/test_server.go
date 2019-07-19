@@ -51,10 +51,11 @@ func main() {
 		log.SetOutput(f)
 	}
 
-	lis, err := qemu.MakePipe("sockets/h2o")
+	pip, err := qemu.MakePipe("sockets/h2o")
 	if err != nil {
 		log.Fatalf("error opening pipe: %v", err)
 	}
+    lis := qemu.MakePipeConnBuilder(pip)
 	defer lis.Close()
 
 	eg, _ := errgroup.WithContext(context.Background())
