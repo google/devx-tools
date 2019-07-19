@@ -6,8 +6,15 @@ package(default_visibility = ["//visibility:public"])
 
 go_library(
     name = "qemu",
-    srcs = ["qemu.go"],
+    srcs = [
+        "control.go",
+        "qemu.go",
+    ],
     importpath = "github.com/google/waterfall/golang/net/qemu",
+    deps = [
+        "//waterfall/proto:control_socket_go_proto",
+        "@com_github_golang_protobuf//proto:go_default_library",
+    ],
 )
 
 go_binary(
@@ -17,13 +24,12 @@ go_binary(
     # Build for emulator
     goarch = "386",
     goos = "linux",
-    static = "on",
     pure = "on",
-
+    static = "on",
     deps = [
         ":qemu",
-        "@org_golang_x_sync//errgroup:go_default_library",
         "@org_golang_x_net//context:go_default_library",
+        "@org_golang_x_sync//errgroup:go_default_library",
     ],
 )
 
@@ -43,10 +49,10 @@ go_test(
         "@android_test_support//tools/android/emulated_devices/generic_phone:android_23_x86",
         "@android_test_support//tools/android/emulator:support/adb.turbo",
     ],
+    importpath = "github.com/google/waterfall/golang/net/qemu",
     deps = [
         "//waterfall/golang/testutils:testutils",
         "@org_golang_x_net//context:go_default_library",
         "@org_golang_x_sync//errgroup:go_default_library",
     ],
-    importpath = "github.com/google/waterfall/golang/net/qemu",
 )

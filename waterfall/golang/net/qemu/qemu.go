@@ -338,6 +338,80 @@ func MakeConnBuilder(emuDir, socket string) (*ConnBuilder, error) {
 	return &ConnBuilder{Listener: lis}, nil
 }
 
+// ConnBuilder implements a qemu connection builder. It wraps around listener
+// listening on a qemu pipe. It accepts connectsion and sync with the client
+// before returning
+type PipeConnBuilder struct {
+	net.Listener
+}
+
+// Accept will connect to the guest and return the connection.
+func (b *PipeConnBuilder) Accept() (net.Conn, error) {
+	for {
+		conn, err := b.Listener.Accept()
+		if err != nil {
+			return nil, err
+		}
+
+		// sync with the server
+		rdy := []byte(rdyMsg)
+		if _, err := io.ReadFull(conn, rdy); err != nil {
+			conn.Close()
+			continue
+		}
+		if !bytes.Equal([]byte(rdyMsg), rdy) {
+			conn.Close()
+			continue
+		}
+		if _, err := conn.Write(rdy); err != nil {
+			conn.Close()
+			continue
+		}
+
+		q := makeConn(conn)
+
+		go q.closeConn()
+		return q, nil
+	}
+}
+
+func MakePipeConnBuilder(pipe *Pipe) *PipeConnBuilder {
+	return &PipeConnBuilder{Listener: pipe}
+}
+
+type QemuConn struct {
+	io.ReadWriteCloser
+}
+
+func MakeQemuConn(file *os.File) *QemuConn {
+	return &QemuConn{ReadWriteCloser: file}
+}
+
+// LocalAddr returns the qemu address
+func (q *QemuConn) LocalAddr() net.Addr {
+	return &net.UnixAddr{Name: "qemu-pipe"}
+}
+
+// RemoteAddr returns the qemu address
+func (q *QemuConn) RemoteAddr() net.Addr {
+	return &net.UnixAddr{Name: "qemu-pipe"}
+}
+
+// SetDeadline sets the connection deadline
+func (q *QemuConn) SetDeadline(t time.Time) error {
+	return errNotImplemented
+}
+
+// SetReadDeadline sets the read deadline
+func (q *QemuConn) SetReadDeadline(t time.Time) error {
+	return errNotImplemented
+}
+
+// SetWriteDeadline sets the write deadline
+func (q *QemuConn) SetWriteDeadline(t time.Time) error {
+	return errNotImplemented
+}
+
 func openQemuDevBlocking() (*os.File, error) {
 	// Open device manually in blocking mode. Qemu pipes don't support polling io.
 	r, err := syscall.Open(qemuDriver, os.O_RDWR|syscall.O_CLOEXEC, 0600)
@@ -405,29 +479,7 @@ func (q *Pipe) Accept() (net.Conn, error) {
 		}
 
 		if br {
-			// Wait for the client to open a socket on the host
-			waitBuff := make([]byte, len(rdyMsg))
-			log.Println("Reading rdy")
-			if _, err := io.ReadFull(conn, waitBuff); err != nil {
-				br = false
-				continue
-			}
-			if !bytes.Equal([]byte(rdyMsg), waitBuff) {
-				br = false
-				continue
-			}
-			log.Println("Writing rdy")
-			if _, err := conn.Write(waitBuff); err != nil {
-				br = false
-				continue
-			}
-
-			log.Println("Done")
-			q := makeConn(conn)
-
-			go q.closeConn()
-			return q, nil
-
+			return MakeQemuConn(conn), nil
 		}
 	}
 
