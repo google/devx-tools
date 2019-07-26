@@ -4,7 +4,7 @@ import android.hardware.usb.UsbAccessory;
 
 final class AoaUsbAccessory implements UsbAccessoryIntf {
 
-  private UsbAccessory realAccessory;
+  private final UsbAccessory realAccessory;
 
   public AoaUsbAccessory(UsbAccessory accessory) {
     realAccessory = accessory;

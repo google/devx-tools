@@ -32,8 +32,6 @@ android_library(
     resource_files = [":resource_files"],
     deps = [
         ":annotations",
-        ":mock_usb_accessory",
-        ":mock_usb_manager",
         ":real_usb_accessory",
         ":real_usb_manager",
         ":usb_interfaces",

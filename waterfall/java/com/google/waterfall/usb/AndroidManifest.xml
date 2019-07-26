@@ -14,8 +14,8 @@
     <application android:label="UsbService">
 
       <!-- Actual logic is handled by the service, but this allows
-           the application to request for permistion when the accessory is attached
-           and persist the permission -->
+           the application to request for permissions when the accessory is attached
+           and persist the permissions-->
       <activity android:name="com.google.android.waterfall.usb.UsbActivity"
         android:theme="@android:style/Theme.NoDisplay"
         android:exported="true">
