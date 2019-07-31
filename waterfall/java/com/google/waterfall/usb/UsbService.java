@@ -54,7 +54,8 @@ public final class UsbService extends Service {
 
   private final Object accessoryAttachedLock = new Object();
 
-  private static final String ACTION_CONNECT = "connect";
+  private static final String ACTION_PROXY = "proxy";
+  private static final String ACTION_ECHO = "echo";
   private static final String WATERFALL_PORT_KEY = "waterfallPort";
   private static final short DEFAULT_WATERFALL_PORT = 8088;
 
@@ -164,8 +165,9 @@ public final class UsbService extends Service {
     Log.i(TAG, "onStart with intent " + intent.getAction());
 
     startService();
-    if (intent.getAction() != null && intent.getAction().equals(ACTION_CONNECT)) {
+    if (intent.getAction() != null) {
       connectService(
+          intent.getAction(),
           intent.getShortExtra(WATERFALL_PORT_KEY, DEFAULT_WATERFALL_PORT),
           KB(intent.getIntExtra(BUFFER_SIZE_KEY, DEFAULT_BUFFER_SIZE)));
     }
@@ -248,9 +250,13 @@ public final class UsbService extends Service {
     serviceStarted = true;
   }
 
-  private void connectService(short waterfallPort, int bufferSize) {
+  private void connectService(String action, short waterfallPort, int bufferSize) {
     if (connectionStarted) {
       return;
+    }
+
+    if (!action.equals(ACTION_PROXY) && !action.equals(ACTION_ECHO)) {
+      throw new IllegalArgumentException("Not a vailid action: " + action);
     }
 
     Future<?> r =
@@ -265,7 +271,11 @@ public final class UsbService extends Service {
 
                   // We now have permission to open the USB device. Go ahead and connect.
                   accessoryFd = connectToUsbAccessory(getAccessory());
-                  proxy(waterfallPort, bufferSize, accessoryFd);
+                  if (action.equals("proxy")) {
+                    proxy(waterfallPort, bufferSize, accessoryFd);
+                  } else {
+                    echo(bufferSize, accessoryFd);
+                  }
                 } catch (InterruptedException e) {
                   throw new RuntimeException(e);
                 }
@@ -347,6 +357,20 @@ public final class UsbService extends Service {
 
       r.get();
       w.get();
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private void echo(int bufferSize, ParcelFileDescriptor accessoryFd) {
+    try {
+      OutputStream outUsb = new FileOutputStream(accessoryFd.getFileDescriptor());
+      InputStream inUsb = new FileInputStream(accessoryFd.getFileDescriptor());
+
+      // usb -> waterfall: thread
+      Future<?> r = IO_EXECUTOR.submit(new CopyRunnable(inUsb, outUsb, bufferSize));
+
+      r.get();
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
