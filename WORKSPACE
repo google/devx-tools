@@ -3,8 +3,6 @@ workspace(name = "devx")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 # Maven rule for transitive dependencies
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
 RULES_JVM_EXTERNAL_TAG = "1.2"
 RULES_JVM_EXTERNAL_SHA = "e5c68b87f750309a79f59c2b69ead5c3221ffa54ff9496306937bfa1c9c8c86b"
 
@@ -16,6 +14,22 @@ http_archive(
 )
 
 load("@rules_jvm_external//:defs.bzl", "maven_install")
+
+# gRPC Java
+# Note that this needs to come before io_bazel_go_rules. Both depend on
+# protobuf and the version that io_bazel_rules_go depends on is broken for
+# java, so io_grpc_grpc_java needs to get the dep first.
+http_archive(
+    name = "io_grpc_grpc_java",
+    sha256 = "9bc289e861c6118623fcb931044d843183c31d0e4d53fc43c4a32b56d6bb87fa",
+    strip_prefix = "grpc-java-1.21.0",
+    urls = ["https://github.com/grpc/grpc-java/archive/v1.21.0.tar.gz"],
+)
+
+
+load("@io_grpc_grpc_java//:repositories.bzl", "grpc_java_repositories")
+
+grpc_java_repositories()
 
 # Go toolchains
 http_archive(
@@ -48,28 +62,26 @@ go_repository(
     importpath = "golang.org/x/sync",
 )
 
-# Java toolchains
-
-# gRPC Java
-http_archive(
-    name = "io_grpc_grpc_java",
-    sha256 = "0b86e44f9530fd61eb044b3c64c7579f21857ba96bcd9434046fd22891483a6d",
-    strip_prefix = "grpc-java-1.18.0",
-    urls = ["https://github.com/grpc/grpc-java/archive/v1.18.0.tar.gz"],
-)
-
-load("@io_grpc_grpc_java//:repositories.bzl", "grpc_java_repositories")
-
-grpc_java_repositories(
-    omit_com_google_protobuf = True,
-)
-
 maven_install(
     artifacts = [
-        "org.junit.jupiter:junit-jupiter-engine:5.3.2",
-        "io.grpc:grpc-testing:1.16.1",
+        "androidx.annotation:annotation:1.1.0",
+        "androidx.core:core:1.0.2",
+        "androidx.test:monitor:1.2.0",
+        "androidx.test:rules:1.2.0",
+        "androidx.test:runner:1.2.0",
+        "com.android.support:support-annotations:28.0.0",
+        "com.android.support.test:runner:1.0.2",
+        "com.google.code.findbugs:jsr305:3.0.2",
+        "com.google.dagger:dagger:2.23.2",
+        "com.google.dagger:dagger-compiler:2.23.2",
         "io.grpc:grpc-all:1.16.1",
+        "io.grpc:grpc-testing:1.16.1",
+        "javax.inject:javax.inject:1",
+        "junit:junit:4.12",
         "org.apache.commons:commons-compress:1.10",
+        "org.junit.jupiter:junit-jupiter-engine:5.3.2",
+        "org.mockito:mockito-core:2.28.2",
+        "org.mockito:mockito-android:2.28.2",
     ],
     repositories = [
         "https://maven.google.com",
@@ -78,14 +90,15 @@ maven_install(
     ],
 )
 
+
 # Android libs
 android_sdk_repository(name = "androidsdk")
 
-ATS_COMMIT = "1daba70e7b5952fc3fb46b9bd99dd2f80c2bdaa3"
 http_archive(
     name = "android_test_support",
-    strip_prefix = "android-test-%s" % ATS_COMMIT,
-    urls = ["https://github.com/android/android-test/archive/%s.tar.gz" % ATS_COMMIT],
+    strip_prefix = "android-test-androidx-test-1.2.0",
+    urls = ["https://github.com/android/android-test/archive/androidx-test-1.2.0.tar.gz"],
+    sha256 = "01a3a6a88588794b997b46a823157aea06be9bcdc41800b61199893121ef26a3",
 )
 
 load("@android_test_support//:repo.bzl", "android_test_repositories")
