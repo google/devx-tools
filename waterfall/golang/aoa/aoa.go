@@ -113,7 +113,7 @@ func switchToAccessory(dev *gousb.Device) error {
 	return nil
 }
 
-func makeReadWriteCloser(dev *gousb.Device, config *gousb.Config, i *gousb.Interface) (*ReadWriteCloser, error) {
+func newReadWriteCloser(dev *gousb.Device, config *gousb.Config, i *gousb.Interface) (*ReadWriteCloser, error) {
 	rw := &ReadWriteCloser{
 		dev:    dev,
 		config: config,
@@ -138,7 +138,7 @@ func makeReadWriteCloser(dev *gousb.Device, config *gousb.Config, i *gousb.Inter
 	return rw, nil
 }
 
-func getActiveConfig(dev *gousb.Device) (*gousb.Config, error) {
+func activeConfig(dev *gousb.Device) (*gousb.Config, error) {
 	c, err := dev.ActiveConfigNum()
 	if err != nil {
 		return nil, err
@@ -253,7 +253,7 @@ func Connect(serial string) (*ReadWriteCloser, error) {
 		return nil, err
 	}
 
-	config, err := getActiveConfig(dev)
+	config, err := activeConfig(dev)
 	if err != nil {
 		return nil, err
 	}
@@ -263,7 +263,7 @@ func Connect(serial string) (*ReadWriteCloser, error) {
 		dev.Close()
 		return nil, err
 	}
-	return makeReadWriteCloser(dev, config, intf)
+	return newReadWriteCloser(dev, config, intf)
 }
 
 // Reset resets a USB endpoint to its default configuration.
