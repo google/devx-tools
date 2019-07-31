@@ -1,8 +1,8 @@
 
 android_instrumentation_test(
     name = "usb_service_test",
-    size = "small",
-    target_device = "@android_test_support//tools/android/emulated_devices/generic_phone:google_21_x86",
+    size = "medium",
+    target_device = "@android_test_support//tools/android/emulated_devices/generic_phone:android_23_x86",
     test_app = ":test_binary",
 )
 

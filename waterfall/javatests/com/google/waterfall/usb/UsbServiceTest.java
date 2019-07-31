@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 
 import android.content.Context;
 import android.content.Intent;
+import android.hardware.usb.UsbManager;
 import android.net.LocalServerSocket;
 import android.net.LocalSocket;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -41,6 +42,18 @@ public final class UsbServiceTest {
 
   private final ExecutorService executor = Executors.newFixedThreadPool(2);
 
+  private Intent makeAttachedIntent() {
+    Intent i = new Intent(context, UsbService.class);
+    i.putExtra(UsbManager.EXTRA_ACCESSORY, "DUMMY");
+    return i;
+  }
+
+  private Intent makeConnectIntent() {
+    Intent i = new Intent(context, UsbService.class);
+    i.setAction("connect");
+    return i;
+  }
+
   @Before
   public void setUp() throws Exception {}
 
@@ -55,24 +68,12 @@ public final class UsbServiceTest {
     usbManager.setGrantPermission(true);
     UsbManagerIntf usbSpy = Mockito.spy(usbManager);
     AndroidUsbModule.usbManager = usbSpy;
-    usbServiceRule.startService(new Intent(context, UsbService.class));
+    usbServiceRule.startService(makeAttachedIntent());
+    usbServiceRule.startService(makeConnectIntent());
 
     // TODO(mauriciogg): use a better synchronization mechanism
     Thread.sleep(1000);
     verify(usbSpy, times(1)).requestPermission(eq(usbManager.getAccessoryList()[0]), any());
-    verify(usbSpy, times(1)).openAccessory(usbManager.getAccessoryList()[0]);
-  }
-
-  @Test
-  public void testOpenAccessoryPermissionAlreadyGranted() throws Exception {
-    MockUsbManager usbManager = new MockUsbManager(context);
-    usbManager.setHasPermission(true);
-    UsbManagerIntf usbSpy = Mockito.spy(usbManager);
-    AndroidUsbModule.usbManager = usbSpy;
-    usbServiceRule.startService(new Intent(context, UsbService.class));
-
-    Thread.sleep(1000);
-    verify(usbSpy, never()).requestPermission(eq(usbManager.getAccessoryList()[0]), any());
     verify(usbSpy, times(1)).openAccessory(usbManager.getAccessoryList()[0]);
   }
 
@@ -82,7 +83,8 @@ public final class UsbServiceTest {
     usbManager.setGrantPermission(false);
     UsbManagerIntf usbSpy = Mockito.spy(usbManager);
     AndroidUsbModule.usbManager = usbSpy;
-    usbServiceRule.startService(new Intent(context, UsbService.class));
+    usbServiceRule.startService(makeAttachedIntent());
+    usbServiceRule.startService(makeConnectIntent());
 
     Thread.sleep(1000);
     verify(usbSpy, times(1)).requestPermission(eq(usbManager.getAccessoryList()[0]), any());
@@ -121,7 +123,8 @@ public final class UsbServiceTest {
       usbManager.setGrantPermission(true);
       UsbManagerIntf usbSpy = Mockito.spy(usbManager);
       AndroidUsbModule.usbManager = usbSpy;
-      usbServiceRule.startService(new Intent(context, UsbService.class));
+      usbServiceRule.startService(makeAttachedIntent());
+      usbServiceRule.startService(makeConnectIntent());
 
       ls = unixSocketFuture.get();
       s = tcpSocketFuture.get();

@@ -19,7 +19,15 @@ android_binary(
     resource_files = [":resource_files"],
     deps = [
         ":usb_service_lib",
+        "usb_activity",
     ],
+)
+
+android_library(
+    name = "usb_activity",
+    srcs = ["UsbActivity.java"],
+    manifest = "AndroidManifest.xml",
+    deps = [":usb_service_lib"],
 )
 
 android_library(

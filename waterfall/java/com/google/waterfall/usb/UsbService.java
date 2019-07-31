@@ -12,9 +12,9 @@ import android.os.Binder;
 import android.os.IBinder;
 import android.os.ParcelFileDescriptor;
 import android.support.annotation.NonNull;
-import androidx.core.app.NotificationCompat;
 import android.util.Log;
 import androidx.annotation.VisibleForTesting;
+import androidx.core.app.NotificationCompat;
 import dagger.Component;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -46,27 +47,35 @@ public final class UsbService extends Service {
 
   // Read/Writer threads + driver thread
   private static final int NUM_THREADS = 3;
-  private static ExecutorService IO_EXECUTOR = Executors.newFixedThreadPool(NUM_THREADS);
 
+  private static final ExecutorService IO_EXECUTOR = Executors.newFixedThreadPool(NUM_THREADS);
+
+  private static final ConcurrentLinkedQueue<Future> TASK_QUEUE = new ConcurrentLinkedQueue();
+
+  private final Object accessoryAttachedLock = new Object();
+
+  private static final String ACTION_CONNECT = "connect";
   private static final String WATERFALL_PORT_KEY = "waterfallPort";
   private static final short DEFAULT_WATERFALL_PORT = 8088;
 
   private static final int DEFAULT_BUFFER_SIZE = 1024;
   private static final String BUFFER_SIZE_KEY = "bufferSize";
 
+  private static boolean serviceStarted = false;
+  private static boolean connectionStarted = false;
+
   private ServiceComponent component;
 
   @VisibleForTesting @Inject UsbManagerIntf usbManager;
 
   private UsbAccessoryIntf accessory;
-  private CountDownLatch accessoryAttachedBarrier = new CountDownLatch(1);
+
   private CountDownLatch permissionBarrier = new CountDownLatch(1);
   private ParcelFileDescriptor accessoryFd;
 
   private boolean usbReceiverRegistered = false;
   private boolean usbDisconnectRegistered = false;
 
-  // This can also be a callable which simplifies exception handling
   private static class CopyRunnable implements Runnable {
     private InputStream is;
     private OutputStream os;
@@ -100,25 +109,25 @@ public final class UsbService extends Service {
   }
 
   private BroadcastReceiver usbDisconnectReceiver =
-      usbDisconnectReceiver =
-          new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-              String action = intent.getAction();
-              if (action.equals(UsbManager.ACTION_USB_ACCESSORY_DETACHED)) {
-                if (accessory != null) {
-                  tearDown();
-                }
-              }
+      new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+          String action = intent.getAction();
+          if (action.equals(UsbManager.ACTION_USB_ACCESSORY_DETACHED)) {
+            Log.i(TAG, "Received accessory detached");
+            if (accessory != null) {
+              stopSelf();
             }
-          };
+          }
+        }
+      };
 
   private final BroadcastReceiver usbReceiver =
       new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
           if (ACTION_USB_PERMISSION.equals(intent.getAction())) {
-            Log.i(TAG, "Permission granted");
+            Log.i(TAG, "Received permission");
             permissionBarrier.countDown();
           }
         }
@@ -144,27 +153,35 @@ public final class UsbService extends Service {
   }
 
   @Override
-  public void onStart(Intent intent, int id) {
-    if (UsbManager.ACTION_USB_ACCESSORY_ATTACHED.equals(intent.getAction())) {
-      // Unfortunately we cant process this event. We need extra information
-      Log.i(TAG, "Received ACTION_USB_ACCESSORY_ATTACHED intent.");
-      return;
-    }
-    Log.i(TAG, "onStart");
-
-    registerReceiver(usbReceiver, new IntentFilter(ACTION_USB_PERMISSION));
-    usbReceiverRegistered = true;
-
-    startService(
-        intent.getShortExtra(WATERFALL_PORT_KEY, DEFAULT_WATERFALL_PORT),
-        KB(intent.getIntExtra(BUFFER_SIZE_KEY, DEFAULT_BUFFER_SIZE)));
-  }
-
-  @Override
   public int onStartCommand(Intent intent, int flags, int startId) {
     Log.i(TAG, "onStartCommand");
     onStart(intent, startId);
     return START_NOT_STICKY;
+  }
+
+  @Override
+  public void onStart(Intent intent, int id) {
+    Log.i(TAG, "onStart with intent " + intent.getAction());
+
+    startService();
+    if (intent.getAction() != null && intent.getAction().equals(ACTION_CONNECT)) {
+      connectService(
+          intent.getShortExtra(WATERFALL_PORT_KEY, DEFAULT_WATERFALL_PORT),
+          KB(intent.getIntExtra(BUFFER_SIZE_KEY, DEFAULT_BUFFER_SIZE)));
+    }
+
+    if (intent.hasExtra(UsbManager.EXTRA_ACCESSORY)) {
+      notifyAccessoryAttached();
+    }
+    Log.i(TAG, "Done onStart with intent " + intent.getAction());
+  }
+
+  private void notifyAccessoryAttached() {
+    Log.d(TAG, "Notifying accessory was attached.");
+    synchronized (accessoryAttachedLock) {
+      accessoryAttachedLock.notify();
+    }
+    Log.d(TAG, "Notified accessory was attached.");
   }
 
   @Override
@@ -174,40 +191,70 @@ public final class UsbService extends Service {
     return localBinder;
   }
 
-  private void startService(short waterfallPort, int bufferSize) {
+  private Notification makeForegroundNotification() {
     Intent launcher = new Intent(this, UsbService.class);
     launcher.setAction(Intent.ACTION_MAIN);
     launcher.addCategory(Intent.CATEGORY_LAUNCHER);
     launcher.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-    Notification notif =
-        new NotificationCompat.Builder(this)
-            .setSmallIcon(R.drawable.ic_shortcut_axt_logo)
-            .setContentTitle("Waterfall")
-            .setContentText("Waterfall USB service")
-            .setContentIntent(
-                PendingIntent.getActivity(
-                    getApplicationContext(), 0, launcher, PendingIntent.FLAG_UPDATE_CURRENT))
-            .build();
-    startForeground(R.id.service_foreground_notification, notif);
+    return new NotificationCompat.Builder(this)
+        .setSmallIcon(R.drawable.ic_shortcut_axt_logo)
+        .setContentTitle(getString(R.string.foreground_notification_content_title))
+        .setContentText(getString(R.string.foreground_notification_content_text))
+        .setContentIntent(
+            PendingIntent.getActivity(
+                getApplicationContext(), 0, launcher, PendingIntent.FLAG_UPDATE_CURRENT))
+        .build();
+  }
 
-    // Dispatch two threads to do the actual work.
-    // Thread 1 waits for an accessory to be attached and sets it up.
-    // Thread 2 waits for USB configuration to be done and proxies data to waterfall.
+  private void startService() {
+    if (serviceStarted) {
+      return;
+    }
+
+    startForeground(R.id.service_foreground_notification, makeForegroundNotification());
+    registerReceiver(usbReceiver, new IntentFilter(ACTION_USB_PERMISSION));
+    usbReceiverRegistered = true;
+
+    Context context = this;
     Future<?> c =
-        IO_EXECUTOR.submit(
+        submitToQueue(
             new Runnable() {
               @Override
               public void run() {
-                try {
-                  configureUsbAccessory();
-                } catch (InterruptedException e) {
-                  throw new RuntimeException(e);
+                synchronized (accessoryAttachedLock) {
+                  try {
+                    while (true) {
+                      UsbAccessoryIntf[] accessories = usbManager.getAccessoryList();
+                      if (accessories == null || accessories.length == 0) {
+                        Log.i(TAG, "Waiting for accessory to be attached ...");
+                        accessoryAttachedLock.wait();
+                        Log.i(TAG, "Accessory attached ...");
+                        continue;
+                      }
+                      accessory = accessories[0];
+                      usbManager.requestPermission(
+                          accessory,
+                          PendingIntent.getBroadcast(
+                              context, 0, new Intent(ACTION_USB_PERMISSION), 0));
+                      break;
+                    }
+                  } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                  }
                 }
               }
             });
 
+    serviceStarted = true;
+  }
+
+  private void connectService(short waterfallPort, int bufferSize) {
+    if (connectionStarted) {
+      return;
+    }
+
     Future<?> r =
-        IO_EXECUTOR.submit(
+        submitToQueue(
             new Runnable() {
               @Override
               public void run() {
@@ -224,6 +271,40 @@ public final class UsbService extends Service {
                 }
               }
             });
+
+    connectionStarted = true;
+  }
+
+  private UsbAccessoryIntf getAccessory() {
+    if (accessory == null) {
+      throw new RuntimeException("Null accessory.");
+    }
+    return accessory;
+  }
+
+  private void tearDown() {
+    Log.i(TAG, "tearDown()");
+    if (accessoryFd != null) {
+      try {
+        accessoryFd.close();
+      } catch (IOException e) {
+        // ignore
+      }
+      accessoryFd = null;
+    }
+
+    if (usbDisconnectRegistered) {
+      usbDisconnectRegistered = false;
+      unregisterReceiver(usbDisconnectReceiver);
+    }
+    if (usbReceiverRegistered) {
+      usbReceiverRegistered = false;
+      unregisterReceiver(usbReceiver);
+    }
+
+    cancelTasks();
+    serviceStarted = false;
+    connectionStarted = false;
   }
 
   private ParcelFileDescriptor connectToUsbAccessory(@NonNull UsbAccessoryIntf accessory) {
@@ -259,10 +340,10 @@ public final class UsbService extends Service {
       InputStream inUsb = new FileInputStream(accessoryFd.getFileDescriptor());
 
       // usb -> waterfall: thread
-      Future<?> r = IO_EXECUTOR.submit(new CopyRunnable(inUsb, outWtf, bufferSize));
+      Future<?> r = submitToQueue(new CopyRunnable(inUsb, outWtf, bufferSize));
 
       // waterfall -> usb : thread
-      Future<?> w = IO_EXECUTOR.submit(new CopyRunnable(inWtf, outUsb, bufferSize));
+      Future<?> w = submitToQueue(new CopyRunnable(inWtf, outUsb, bufferSize));
 
       r.get();
       w.get();
@@ -271,55 +352,16 @@ public final class UsbService extends Service {
     }
   }
 
-  private void configureUsbAccessory() throws InterruptedException {
-    Log.i(TAG, "configureUsbAccessory");
-    UsbAccessoryIntf[] accessories = usbManager.getAccessoryList();
-
-    if (accessories == null) {
-      Log.i(TAG, "Waiting for accessory to attach");
-      accessoryAttachedBarrier.await();
-    }
-
-    if (accessories == null || accessories.length != 1) {
-      throw new RuntimeException("Unexpected number of USB accessories.");
-    }
-
-    accessory = accessories[0];
-    if (usbManager.hasPermission(accessory)) {
-      permissionBarrier.countDown();
-      return;
-    }
-    usbManager.requestPermission(
-        accessory, PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION), 0));
+  private static Future<?> submitToQueue(Runnable r) {
+    Future<?> f = IO_EXECUTOR.submit(r);
+    TASK_QUEUE.add(f);
+    return f;
   }
 
-  private UsbAccessoryIntf getAccessory() {
-    if (accessory == null) {
-      throw new RuntimeException("Null accessory.");
+  private static void cancelTasks() {
+    for (Future task : TASK_QUEUE) {
+      task.cancel(true);
     }
-    return accessory;
-  }
-
-  private void tearDown() {
-    Log.i(TAG, "tearDown()");
-    if (accessoryFd != null) {
-      try {
-        accessoryFd.close();
-      } catch (IOException e) {
-        // ignore
-      }
-      accessoryFd = null;
-    }
-    if (usbDisconnectRegistered) {
-      usbDisconnectRegistered = false;
-      unregisterReceiver(usbDisconnectReceiver);
-    }
-    if (usbReceiverRegistered) {
-      usbReceiverRegistered = false;
-      unregisterReceiver(usbReceiver);
-    }
-
-    IO_EXECUTOR.shutdown();
   }
 
   private static int KB(int sizeInBytes) {

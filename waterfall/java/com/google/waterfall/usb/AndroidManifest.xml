@@ -15,8 +15,8 @@
 
       <!-- Actual logic is handled by the service, but this allows
            the application to request for permissions when the accessory is attached
-           and persist the permissions-->
-      <activity android:name="com.google.android.waterfall.usb.UsbActivity"
+           and persist the permissions -->
+      <activity android:name="com.google.waterfall.usb.UsbActivity"
         android:theme="@android:style/Theme.NoDisplay"
         android:exported="true">
 
@@ -28,14 +28,16 @@
         <meta-data android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED"
           android:resource="@xml/accessory_filter" />
     </activity>
-
         <service
             android:name="com.google.waterfall.usb.UsbService"
             android:exported="true">
         <intent-filter>
-          <action android:name="android.intent.action.MAIN"/>
-          <category android:name="android.intent.category.LAUNCHER" />
           <action android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED"/>
+          <category android:name="android.intent.category.DEFAULT" />
+        </intent-filter>
+        <intent-filter>
+          <action android:name="com.google.waterfall.usb.USB_SERVICE"/>
+          <category android:name="android.intent.category.DEFAULT" />
         </intent-filter>
 
         <meta-data android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED"
