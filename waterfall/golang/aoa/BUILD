@@ -29,7 +29,7 @@ go_binary(
 go_test(
     name = "aoa_test",
     srcs = [
-        "aoa_test.go",  # TODO(mauriciogg): make this a a library dep
+        "aoa_test.go",
     ],
     deps = [
         "@org_golang_x_sync//errgroup:go_default_library",
