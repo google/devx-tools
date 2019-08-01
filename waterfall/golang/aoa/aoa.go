@@ -273,7 +273,6 @@ func Reset(serial string) error {
 		return err
 	}
 
-	err = dev.Reset()
-	time.Sleep(time.Millisecond * 500)
-	return err
+	defer time.Sleep(time.Millisecond * 500)
+	return dev.Reset()
 }
