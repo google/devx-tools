@@ -1,6 +1,7 @@
 workspace(name = "devx")
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
 
 # Maven rule for transitive dependencies
 RULES_JVM_EXTERNAL_TAG = "1.2"
@@ -60,6 +61,14 @@ go_repository(
     name = "org_golang_x_sync",
     commit = "1d60e4601c6fd243af51cc01ddf169918a5407ca",
     importpath = "golang.org/x/sync",
+)
+
+new_git_repository(
+    name = "com_github_google_gousb",
+    remote = "https://github.com/google/gousb.git",
+    commit = "64d82086770b8b671e1e7f162372dd37f1f5efba",
+    # Use custom BUILD file since we need to specify how to link agains libusb.
+    build_file = "@//:BUILD.gousb",
 )
 
 maven_install(

@@ -1,0 +1,32 @@
+# BUILD file for the gousb repo.
+# We can't use gazelle for this, since this repo has CGO deps.
+# In order to be able to build you'll need libusb:
+# sudo apt-get install libusb-1.0-0-dev
+
+load(
+    "@io_bazel_rules_go//go:def.bzl",
+    "go_library",
+)
+
+package(default_visibility = ["//visibility:public"])
+
+
+cc_library(
+    name = "cgousb",
+    srcs = glob(["*.c"]),
+    copts = ["-I/usr/include/libusb-1.0"],
+)
+
+
+go_library(
+    name = "gousb",
+    srcs = glob(
+        include = ["*.go"],
+        exclude = ["*_test.go"]),
+    cgo = True,
+    importpath = "github.com/google/gousb",
+    cdeps = [":cgousb"],
+    copts = ["-I/usr/include/libusb-1.0"],
+    clinkopts = ["-lusb-1.0"],
+)
+
