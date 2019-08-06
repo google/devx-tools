@@ -53,7 +53,7 @@ func main() {
 		log.Fatalf("Failed to listen %v", err)
 	}
 
-	conn, err := grpc.Dial(*waterfallAddr, grpc.WithInsecure())
+	conn, err := grpc.Dial(*waterfallAddr, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		log.Fatalf("Failed to establish connection to waterfall server: %v", err)
 	}
