@@ -152,3 +152,21 @@ service PortForwarder {
   rpc StopAll(google.protobuf.Empty) returns (google.protobuf.Empty);
   rpc List(google.protobuf.Empty) returns (ForwardedSessions);
 }
+
+// Multiplexer allows multiplexing multiple virtual connections through a single
+// connection. This allows us to multiplex over single stream channels (e.g USB connections)
+// without implementing most of the multiplexing logic.
+// This relies on gRPC over HTTP2 implementation, which maps a
+// method invocation to a HTTP2 stream. This is intended to be used by the
+// server and forwarder only (not actual clients).
+// Note that the gRPC lib migth decide to establish multiple HTTP2 connections, if for
+// example its reaching the current window limit in one of its HTTP2
+// connection. Given this, it is important that whatever Dialer/Listenr
+// implementation is provided to gRPC only creates a single connection.
+// See https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md.
+// The main idea is to call NewStream from the forwarder on each client
+// connection.
+service Multiplexer {
+  // NewStream returns a bidirectional byte stream.
+  rpc NewStream(stream Message) returns (stream Message);
+}
