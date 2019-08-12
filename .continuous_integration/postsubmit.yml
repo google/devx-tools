@@ -6,7 +6,6 @@ platforms:
     - "//waterfall/golang/net/qemu/..."
     - "//waterfall/golang/stream/..."
     - "//waterfall/golang/server/..."
-    - "//waterfall/golang/aoa/..."
     test_targets:
     # - "//waterfall/golang/bootstrap/..."
     - "//waterfall/golang/forward/..."
