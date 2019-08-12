@@ -30,19 +30,15 @@ func (mc *rwcConn) Close() error {
 
 func (mc *rwcConn) CloseRead() error {
 	if c, ok := mc.ReadWriteCloser.(halfCloser); ok {
-		fmt.Println("Half Closing: reads ...")
 		return c.CloseRead()
 	}
-	fmt.Println("Closing all ...")
 	return mc.ReadWriteCloser.Close()
 }
 
 func (mc *rwcConn) CloseWrite() error {
 	if c, ok := mc.ReadWriteCloser.(halfCloser); ok {
-		fmt.Println("Half Closing: writes ...")
 		return c.CloseWrite()
 	}
-	fmt.Println("Closing all ...")
 	return mc.ReadWriteCloser.Close()
 }
 
