@@ -61,6 +61,7 @@ func (sl *singletonListener) Accept() (net.Conn, error) {
 	return sl.conn, nil
 }
 
+// Close closes the listener.
 func (sl *singletonListener) Close() error {
 	sl.mutex.Lock()
 	defer sl.mutex.Unlock()
@@ -81,7 +82,7 @@ func (sl *singletonListener) Addr() net.Addr {
 	return maddr("singleton")
 }
 
-// NewStream sends the stream through the stream channel.
+// NewStream only purpose is to get a handle to the gRPC stream and send it over the stream channel.
 func (svr *server) NewStream(s waterfall_grpc.Multiplexer_NewStreamServer) error {
 	svr.streamCh <- s
 
@@ -98,6 +99,7 @@ type Listener struct {
 	svr     *grpc.Server
 }
 
+// Close closes the Listener and stops the underlying gRPC server.
 func (l *Listener) Close() error {
 	if err := l.control.Close(); err != nil {
 		return err
@@ -107,10 +109,12 @@ func (l *Listener) Close() error {
 	return nil
 }
 
+// Addr returns the listener address.
 func (l *Listener) Addr() net.Addr {
 	return maddr("mux")
 }
 
+// Accept returns the next available gRPC stream.
 func (l *Listener) Accept() (net.Conn, error) {
 	strm, ok := <-l.strms
 	if !ok {
@@ -120,7 +124,7 @@ func (l *Listener) Accept() (net.Conn, error) {
 	return NewConn(stream.NewReadWriteCloser(strm, &Message{})), nil
 }
 
-// NewListener returns a Listener backed multiplexed via a gRPC service built on top of the file descriptor.
+// NewListener returns a Listener backed by gRPC service.
 func NewListener(f io.ReadWriteCloser) *Listener {
 	sl := &singletonListener{
 		conn:   NewConn(f),
@@ -167,7 +171,7 @@ func NewConnBuilder(ctx context.Context, rwc io.ReadWriteCloser) (*ConnBuilder, 
 	}, err
 }
 
-// MakeStream returns a ReadWriteCloser backed by a grpc stream.
+// Accept returns a new Conn.
 func (sb *ConnBuilder) Accept() (net.Conn, error) {
 	s, err := sb.client.NewStream(sb.ctx)
 	if err != nil {
@@ -177,6 +181,7 @@ func (sb *ConnBuilder) Accept() (net.Conn, error) {
 	return NewConn(stream.NewReadWriteCloser(s, Message{})), nil
 }
 
+// Close closes ConnBuilder.
 func (sb *ConnBuilder) Close() error {
 	return sb.conn.Close()
 }
