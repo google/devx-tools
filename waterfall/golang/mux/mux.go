@@ -28,7 +28,7 @@ type singletonListener struct {
 	used   bool
 	closed bool
 
-	// connCh only ever holds on connecti on.
+	// connCh only ever holds one connection.
 	// Only first call to Accept succeed, any call after that will block on the channel.
 	// Goroutines bloked on accept are only released after closed is called.
 	connCh chan net.Conn
@@ -51,6 +51,7 @@ func (sl *singletonListener) Close() error {
 	}
 
 	sl.closed = true
+	close(sl.connCh)
 	return sl.conn.Close()
 }
 
