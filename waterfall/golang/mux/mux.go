@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"sync"
 	"time"
 
 	"github.com/google/waterfall/golang/stream"
@@ -28,50 +27,27 @@ type singletonListener struct {
 	conn   net.Conn
 	used   bool
 	closed bool
-	mutex  *sync.Mutex
-	active *sync.Mutex
+
+	// connCh only ever holds on connecti on.
+	// Only first call to Accept succeed, any call after that will block on the channel.
+	// Goroutines bloked on accept are only released after closed is called.
+	connCh chan net.Conn
 }
 
 // Accept accepts a new connection if it has not accepted any connections yet.
 func (sl *singletonListener) Accept() (net.Conn, error) {
-	sl.mutex.Lock()
-	defer sl.mutex.Unlock()
-
-	// TODO(mauriciogg): replace sync logic with a channel that only holds a value
-	if sl.closed {
-		return nil, fmt.Errorf("can't accept - listener closed")
+	c, ok := <-sl.connCh
+	if ok {
+		return c, nil
 	}
 
-	if sl.used {
-		// Wait until the connection is closed.
-		// The pattern:
-		// for {
-		//   c, _ := lis.Accept()
-		//   go handleConn(c)
-		// }
-		// Is very common in Go, if we return immediatly those cases will fail.
-		// Insted block in order to simulate no more incoming requests.
-		sl.active.Lock()
-		return nil, fmt.Errorf("can't accept - listener used")
-	}
-
-	// Grab the lock and wait until closed is called. Only one active connection is allowed.
-	sl.active.Lock()
-	sl.used = true
-	return sl.conn, nil
+	return nil, fmt.Errorf("can't accept - listener closed")
 }
 
 // Close closes the listener.
 func (sl *singletonListener) Close() error {
-	sl.mutex.Lock()
-	defer sl.mutex.Unlock()
-
 	if sl.closed {
-		return nil
-	}
-
-	if sl.used {
-		sl.active.Unlock()
+		return fmt.Errorf("alredy closed")
 	}
 
 	sl.closed = true
@@ -126,11 +102,12 @@ func (l *Listener) Accept() (net.Conn, error) {
 
 // NewListener returns a Listener backed by gRPC service.
 func NewListener(f io.ReadWriteCloser) *Listener {
+	c := NewConn(f)
 	sl := &singletonListener{
 		conn:   NewConn(f),
-		mutex:  &sync.Mutex{},
-		active: &sync.Mutex{},
+		connCh: make(chan net.Conn, 1),
 	}
+	sl.connCh <- c
 
 	ss := make(chan waterfall_grpc.Multiplexer_NewStreamServer)
 	gsvr := grpc.NewServer()
