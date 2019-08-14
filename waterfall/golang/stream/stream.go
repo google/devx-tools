@@ -60,7 +60,7 @@ type MessageCloser interface {
 // NewReader creates and initializes a new Reader.
 func NewReader(stream Stream, sm MessageReader) *Reader {
 	sr := &Reader{
-		Stream:              stream,
+		Stream:        stream,
 		MessageReader: sm,
 		// Avoid blocking when Read is never called
 		msgChan: make(chan []byte, 256),
@@ -172,10 +172,10 @@ type ReadWriteCloser struct {
 // NewReadWriteCloser returns an initialized ReadWriteCloser.
 func NewReadWriteCloser(stream Stream, sm MessageReadWriteCloser) *ReadWriteCloser {
 	rwc := &ReadWriteCloser{
-		Stream: stream,
+		Stream:                 stream,
 		MessageReadWriteCloser: sm,
-		r: NewReader(stream, sm),
-		w: NewWriter(stream, sm),
+		r:                      NewReader(stream, sm),
+		w:                      NewWriter(stream, sm),
 	}
 	return rwc
 }
