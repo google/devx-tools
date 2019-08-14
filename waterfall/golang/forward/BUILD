@@ -11,6 +11,7 @@ package(default_visibility = ["//visibility:public"])
 
 DEPS = [
         ":forward",
+        "//waterfall/golang/mux",
         "//waterfall/golang/net/qemu",
         "@org_golang_x_sync//errgroup:go_default_library",
 ]

@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"sync/atomic"
+	"sync"
 	"time"
 
 	"github.com/google/waterfall/golang/stream"
@@ -25,16 +25,60 @@ type server struct {
 
 // singletonListener implements a net.Listener that guarantees Accept is only ever called once.
 type singletonListener struct {
-	net.Listener
-	used *int32
+	conn   net.Conn
+	used   bool
+	closed bool
+	mutex  *sync.Mutex
+	active *sync.Mutex
 }
 
 // Accept accepts a new connection if it has not accepted any connections yet.
 func (sl *singletonListener) Accept() (net.Conn, error) {
-	if !atomic.CompareAndSwapInt32(sl.used, 0, 1) {
-		return nil, fmt.Errorf("can't accept - channel in use")
+	sl.mutex.Lock()
+	defer sl.mutex.Unlock()
+
+	// TODO(mauriciogg): replace sync logic with a channel that only holds a value
+	if sl.closed {
+		return nil, fmt.Errorf("can't accept - listener closed")
 	}
-	return sl.Listener.Accept()
+
+	if sl.used {
+		// Wait until the connection is closed.
+		// The pattern:
+		// for {
+		//   c, _ := lis.Accept()
+		//   go handleConn(c)
+		// }
+		// Is very common in Go, if we return immediatly those cases will fail.
+		// Insted block in order to simulate no more incoming requests.
+		sl.active.Lock()
+		return nil, fmt.Errorf("can't accept - listener used")
+	}
+
+	// Grab the lock and wait until closed is called. Only one active connection is allowed.
+	sl.active.Lock()
+	sl.used = true
+	return sl.conn, nil
+}
+
+func (sl *singletonListener) Close() error {
+	sl.mutex.Lock()
+	defer sl.mutex.Unlock()
+
+	if sl.closed {
+		return nil
+	}
+
+	if sl.used {
+		sl.active.Unlock()
+	}
+
+	sl.closed = true
+	return sl.conn.Close()
+}
+
+func (sl *singletonListener) Addr() net.Addr {
+	return maddr("singleton")
 }
 
 // NewStream sends the stream through the stream channel.
@@ -72,16 +116,16 @@ func (l *Listener) Accept() (net.Conn, error) {
 	if !ok {
 		return nil, fmt.Errorf("error receiving next stream: grpc server stopped")
 	}
-	rw := stream.NewReadWriteCloser(strm, &Message{})
-	conn := &rwcConn{ReadWriteCloser: rw}
-	return conn, nil
+
+	return NewConn(stream.NewReadWriteCloser(strm, &Message{})), nil
 }
 
-// NewServer takes a base net.Listener that to start and create the multiplex server.
-func NewMultiplexedListener(base net.Listener) *Listener {
+// NewListener returns a Listener backed multiplexed via a gRPC service built on top of the file descriptor.
+func NewListener(f io.ReadWriteCloser) *Listener {
 	sl := &singletonListener{
-		Listener: base,
-		used:     new(int32),
+		conn:   NewConn(f),
+		mutex:  &sync.Mutex{},
+		active: &sync.Mutex{},
 	}
 
 	ss := make(chan waterfall_grpc.Multiplexer_NewStreamServer)
@@ -109,10 +153,7 @@ type ConnBuilder struct {
 
 // NewConnBuilder creates a ConnBuilder using a base ReadWriteCloser
 func NewConnBuilder(ctx context.Context, rwc io.ReadWriteCloser) (*ConnBuilder, error) {
-	r := &rwcConn{
-		ReadWriteCloser: rwc,
-	}
-
+	r := NewConn(rwc)
 	d := func(string, time.Duration) (net.Conn, error) {
 		// TODO(mauriciogg): fail if a more than one dial happens.
 		return r, nil
@@ -133,7 +174,7 @@ func (sb *ConnBuilder) Accept() (net.Conn, error) {
 		return nil, err
 	}
 
-	return &rwcConn{ReadWriteCloser: stream.NewReadWriteCloser(s, Message{})}, nil
+	return NewConn(stream.NewReadWriteCloser(s, Message{})), nil
 }
 
 func (sb *ConnBuilder) Close() error {

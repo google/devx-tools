@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/google/waterfall/golang/forward"
+	"github.com/google/waterfall/golang/mux"
 	"github.com/google/waterfall/golang/net/qemu"
 	"golang.org/x/sync/errgroup"
 )
@@ -35,6 +36,7 @@ const (
 	qemuGuest = "qemu-guest"
 	unixConn  = "unix"
 	tcpConn   = "tcp"
+	muxConn   = "mux"
 
 	sleepTime = time.Millisecond * 2500
 )
@@ -47,8 +49,9 @@ var (
 	// For qemu connections addr is the working dir of the emulator
 	connectAddr = flag.String(
 		"connect_addr", "",
-		"Connect and forward to this address <qemu|tcp>:addr. For qemu connections addr is qemu:emu_dir:socket"+
-			"where emu_dir is the working directory of the emulator and socket is the socket file relative to emu_dir.")
+		"Connect and forward to this address <qemu|tcp|mux>:addr. For qemu connections addr is qemu:emu_dir:socket"+
+			"where emu_dir is the working directory of the emulator and socket is the socket file relative to emu_dir."+
+			" For mux connections addr is the initial connection to dial in order to create the mux connection builder.")
 )
 
 func init() {
@@ -59,12 +62,23 @@ type parsedAddr struct {
 	kind       string
 	addr       string
 	socketName string
+
+	// The address to use for multiplexed connections.
+	muxAddr *parsedAddr
 }
 
 func parseAddr(addr string) (*parsedAddr, error) {
 	pts := strings.SplitN(addr, ":", 2)
 	if len(pts) < 2 {
 		return nil, fmt.Errorf("failed to parse address %s", addr)
+	}
+
+	if pts[0] == muxConn {
+		mAddr, err := parseAddr(pts[1])
+		if err != nil {
+			return nil, err
+		}
+		return &parsedAddr{kind: pts[0], muxAddr: mAddr}, nil
 	}
 
 	host := pts[1]
@@ -139,6 +153,8 @@ func main() {
 		log.Fatal(err)
 	}
 
+	ctx := context.Background()
+
 	var b connBuilder
 	switch cpa.kind {
 	case qemuHost:
@@ -159,6 +175,15 @@ func main() {
 		fallthrough
 	case tcpConn:
 		b = &dialBuilder{netType: cpa.kind, addr: cpa.addr}
+	case muxConn:
+		mc, err := net.Dial(cpa.muxAddr.kind, cpa.muxAddr.addr)
+		if err != nil {
+			log.Fatal(err)
+		}
+		b, err = mux.NewConnBuilder(ctx, mc)
+		if err != nil {
+			log.Fatal(err)
+		}
 	default:
 		log.Fatalf("Unsupported network type: %s", cpa.kind)
 	}
@@ -191,7 +216,7 @@ func main() {
 		}
 	}
 
-	eg, _ := errgroup.WithContext(context.Background())
+	eg, _ := errgroup.WithContext(ctx)
 	for i, lis := range listeners {
 		func(ll connBuilder, pAddr *parsedAddr) {
 			eg.Go(func() error {
