@@ -22,12 +22,25 @@ func TestConnect(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ml := NewMultiplexedListener(l)
+	cchan := make(chan net.Conn, 1)
+	echan := make(chan error, 1)
+
+	go func() {
+		conn, err := l.Accept()
+		cchan <- conn
+		echan <- err
+	}()
 
 	conn, err := net.Dial("unix", s)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	if err := <-echan; err != nil {
+		t.Fatal(err)
+	}
+
+	ml := NewListener(<-cchan)
 
 	cb, err := NewConnBuilder(context.Background(), conn)
 	if err != nil {

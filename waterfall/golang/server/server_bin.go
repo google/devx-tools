@@ -20,10 +20,13 @@ import (
 	"flag"
 	"log"
 	"net"
+	"os"
+	"strconv"
 	"strings"
 	"syscall"
 
 	"github.com/google/waterfall/golang/constants"
+	"github.com/google/waterfall/golang/mux"
 	"github.com/google/waterfall/golang/net/qemu"
 	"github.com/google/waterfall/golang/server"
 	waterfall_grpc "github.com/google/waterfall/proto/waterfall_go_grpc"
@@ -34,8 +37,9 @@ import (
 
 var (
 	addr = flag.String(
-		"addr", "qemu:sockets/h2o", "Where to start listening. <qemu|tcp|unix>:addr."+
-			" If qemu is specified, addr is the name of the pipe socket")
+		"addr", "qemu:sockets/h2o", "Where to start listening. <qemu|tcp|unix|mux>:addr."+
+			" If qemu is specified, addr is the name of the pipe socket."+
+			" If mux addr is a file descriptor which is used to create mulitplexed connections.")
 	sessionID = flag.String(
 		"session_id", "", "Only accept requests with this string in x-session-id header."+
 			" If empty, allow all requests.")
@@ -91,10 +95,16 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to listen %v", err)
 		}
-
+	case "mux":
+		s, err := strconv.ParseUint(loc, 10, 64)
+		if err != nil {
+			log.Fatal(err)
+		}
+		lis = mux.NewListener(os.NewFile(uintptr(s), ""))
 	default:
 		log.Fatalf("Unsupported kind %s", kind)
 	}
+	defer lis.Close()
 
 	options := []grpc.ServerOption{grpc.WriteBufferSize(constants.WriteBufferSize)}
 	if *cert != "" || *privateKey != "" {

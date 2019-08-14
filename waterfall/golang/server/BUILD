@@ -34,6 +34,7 @@ DEPS = [
     ":server",
     "//waterfall/golang/constants",
     "//waterfall/golang/stream",
+    "//waterfall/golang/mux",
     "//waterfall/golang/net/qemu",
     "//waterfall/proto:waterfall_go_grpc",
     "//waterfall/proto:waterfall_go_proto",

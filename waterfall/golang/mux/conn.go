@@ -12,52 +12,70 @@ type halfCloser interface {
 	CloseWrite() error
 }
 
-type rwcConn struct {
+// Conn implements net.Conn interface on a ReadWriteCloser.
+type Conn struct {
 	io.ReadWriteCloser
 }
 
-func (mc *rwcConn) Read(b []byte) (int, error) {
+// Read reads from the underlying reader.
+func (mc *Conn) Read(b []byte) (int, error) {
 	return mc.ReadWriteCloser.Read(b)
 }
 
-func (mc *rwcConn) Write(b []byte) (int, error) {
+// Write writes to the underlying writer.
+func (mc *Conn) Write(b []byte) (int, error) {
 	return mc.ReadWriteCloser.Write(b)
 }
 
-func (mc *rwcConn) Close() error {
+// Close closes the underlying closer.
+func (mc *Conn) Close() error {
 	return mc.ReadWriteCloser.Close()
 }
 
-func (mc *rwcConn) CloseRead() error {
+// CloseRead closes the read side of the ReadWriteCloser if it implements CloseRead,
+// otherwise it closes the closer.
+func (mc *Conn) CloseRead() error {
 	if c, ok := mc.ReadWriteCloser.(halfCloser); ok {
 		return c.CloseRead()
 	}
 	return mc.ReadWriteCloser.Close()
 }
 
-func (mc *rwcConn) CloseWrite() error {
+// CloseRead closes the write side of the ReadWriteCloser if it implements CloseWrite,
+// otherwise it closes the closer.
+func (mc *Conn) CloseWrite() error {
 	if c, ok := mc.ReadWriteCloser.(halfCloser); ok {
 		return c.CloseWrite()
 	}
 	return mc.ReadWriteCloser.Close()
 }
 
-func (mc *rwcConn) LocalAddr() net.Addr {
+// LocalAddr returns the conn addr.
+func (mc *Conn) LocalAddr() net.Addr {
 	return maddr("muxconn")
 }
 
-func (mc *rwcConn) RemoteAddr() net.Addr {
+// RemoteAddr returns the conn add.
+func (mc *Conn) RemoteAddr() net.Addr {
 	return maddr("muxconn")
 }
 
-func (mc *rwcConn) SetDeadline(t time.Time) error {
+// SetDeadline -> unimplemented, calling it returns an error.
+func (mc *Conn) SetDeadline(t time.Time) error {
 	return fmt.Errorf("unimplemented SetDeadline")
 }
 
-func (mc *rwcConn) SetReadDeadline(t time.Time) error {
+// SetReadDeadline -> unimplemented, calling it returns an error.
+func (mc *Conn) SetReadDeadline(t time.Time) error {
 	return fmt.Errorf("unimplemented SetReadDeadline")
 }
 
-func (mc *rwcConn) SetWriteDeadline(t time.Time) error {
+// SetWriteDeadline -> unimplemented, calling it returns an error.
+func (mc *Conn) SetWriteDeadline(t time.Time) error {
 	return fmt.Errorf("unimplemented SetWriteDeadline")
+}
+
+// NewConn returns a new Conn wrapping the ReadWriteCloser.
+func NewConn(rwc io.ReadWriteCloser) net.Conn {
+	return &Conn{rwc}
 }
