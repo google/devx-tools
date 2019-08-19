@@ -126,14 +126,14 @@ func NewListener(f io.ReadWriteCloser) *Listener {
 	}
 }
 
-// ConBuilder create new connections multiplexed throug gRPC
+// ConnBuilder create new connections multiplexed throug gRPC.
 type ConnBuilder struct {
 	ctx    context.Context
 	client waterfall_grpc.MultiplexerClient
 	conn   *grpc.ClientConn
 }
 
-// NewConnBuilder creates a ConnBuilder using a base ReadWriteCloser
+// NewConnBuilder creates a ConnBuilder using a base ReadWriteCloser.
 func NewConnBuilder(ctx context.Context, rwc io.ReadWriteCloser) (*ConnBuilder, error) {
 	r := NewConn(rwc)
 	d := func(string, time.Duration) (net.Conn, error) {

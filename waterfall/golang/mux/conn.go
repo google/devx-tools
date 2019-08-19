@@ -41,7 +41,7 @@ func (mc *Conn) CloseRead() error {
 	return mc.ReadWriteCloser.Close()
 }
 
-// CloseRead closes the write side of the ReadWriteCloser if it implements CloseWrite,
+// CloseWrite closes the write side of the ReadWriteCloser if it implements CloseWrite,
 // otherwise it closes the closer.
 func (mc *Conn) CloseWrite() error {
 	if c, ok := mc.ReadWriteCloser.(halfCloser); ok {

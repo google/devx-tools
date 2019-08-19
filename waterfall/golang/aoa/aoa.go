@@ -29,7 +29,7 @@ const (
 
 var (
 	// Product ID to use when in accessory mode + ADB
-	usbAccessoryADBProductID int = 0x2D01
+	usbAccessoryADBProductID = 0x2D01
 
 	// Product ids with accessory mode enabled.
 	usbAccessoryIds = map[int]bool{
@@ -48,7 +48,7 @@ var (
 	sendStringRequest     uint8 = 52
 	startAccessoryRequest uint8 = 53
 
-	manufacturerIDX uint16 = 0
+	manufacturerIDX uint16
 	modelIDX        uint16 = 1
 	descriptionIDX  uint16 = 2
 	versionIDX      uint16 = 3
@@ -56,6 +56,7 @@ var (
 	serialIDX       uint16 = 5
 )
 
+// ReadWriteCloser implements io.ReadWriteCloser backed by an AoA USB connection.
 type ReadWriteCloser struct {
 	dev    *gousb.Device
 	config *gousb.Config
@@ -64,6 +65,7 @@ type ReadWriteCloser struct {
 	out    *gousb.OutEndpoint
 }
 
+// Close closes the USB interface.
 func (u *ReadWriteCloser) Close() error {
 	u.intf.Close() // intf.Close does not return an error
 
@@ -73,10 +75,12 @@ func (u *ReadWriteCloser) Close() error {
 	return u.dev.Close()
 }
 
+// Read reads from the USB device.
 func (u *ReadWriteCloser) Read(in []byte) (int, error) {
 	return u.in.Read(in)
 }
 
+// Write write to the USB device.
 func (u *ReadWriteCloser) Write(out []byte) (int, error) {
 	return u.out.Write(out)
 }

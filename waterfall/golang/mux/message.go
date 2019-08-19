@@ -39,7 +39,7 @@ func (sm Message) SetBytes(m interface{}, b []byte) {
 	msg.Payload = b
 }
 
-// CloseMessage returns a new message to notify the other side that the stream is closed.
+// CloseMsg returns a new message to notify the other side that the stream is closed.
 func (sm Message) CloseMsg() interface{} {
 	return &waterfall_grpc.Message{}
 }
