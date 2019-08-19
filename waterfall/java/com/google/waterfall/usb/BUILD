@@ -1,6 +1,8 @@
 # Package USB
 #   Android USB proxy service.
 
+licenses(["notice"])  # Apache License 2.0
+
 package(default_visibility = ["//visibility:public"])
 
 exports_files(
@@ -18,8 +20,8 @@ android_binary(
     manifest = "AndroidManifest.xml",
     resource_files = [":resource_files"],
     deps = [
-        ":usb_service_lib",
         "usb_activity",
+        ":usb_service_lib",
     ],
 )
 
@@ -37,31 +39,31 @@ android_library(
         "UsbService.java",
     ],
     manifest = "AndroidManifest.xml",
+    plugins = [
+        ":dagger_compiler",
+    ],
     resource_files = [":resource_files"],
     deps = [
         ":annotations",
         ":real_usb_accessory",
         ":real_usb_manager",
         ":usb_interfaces",
-        "@maven//:javax_inject_javax_inject",
-        "@maven//:com_google_code_findbugs_jsr305",
         "@maven//:androidx_annotation_annotation",
         "@maven//:androidx_core_core",
         "@maven//:com_android_support_support_annotations",
+        "@maven//:com_google_code_findbugs_jsr305",
         "@maven//:com_google_dagger_dagger",
-    ],
-    plugins = [
-        ":dagger_compiler",
+        "@maven//:javax_inject_javax_inject",
     ],
 )
 
 java_plugin(
     name = "dagger_compiler",
+    generates_api = 1,
+    processor_class = "dagger.internal.codegen.ComponentProcessor",
     deps = [
         "@maven//:com_google_dagger_dagger_compiler",
     ],
-    generates_api = 1,
-    processor_class = "dagger.internal.codegen.ComponentProcessor",
 )
 
 android_library(

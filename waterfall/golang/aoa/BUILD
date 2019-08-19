@@ -1,3 +1,5 @@
+licenses(["notice"])  # Apache License 2.0
+
 load(
     "@io_bazel_rules_go//go:def.bzl",
     "go_library",
@@ -11,19 +13,19 @@ package(default_visibility = ["//visibility:public"])
 go_library(
     name = "aoa",
     srcs = ["aoa.go"],
-    deps = ["@com_github_google_gousb//:gousb"],
-    importpath = "github.com/google/waterfall/golang/aoa",
     cgo = True,
+    importpath = "github.com/google/waterfall/golang/aoa",
+    deps = ["@com_github_google_gousb//:gousb"],
 )
 
 # simple utility binary to manually test usb connection.
 go_binary(
     name = "aoa_utils_bin",
     srcs = ["aoa_utils_bin.go"],
+    cgo = True,
     deps = [
         ":aoa",
     ],
-    cgo = True,
 )
 
 go_test(
@@ -31,15 +33,14 @@ go_test(
     srcs = [
         "aoa_test.go",
     ],
-    deps = [
-        "@org_golang_x_sync//errgroup:go_default_library",
+    data = [
+        "//waterfall/java/com/google/waterfall/usb:usb_service",
     ],
     embed = [
         ":aoa",
     ],
-    data = [
-        "//waterfall/java/com/google/waterfall/usb:usb_service",
-    ],
     importpath = "github.com/google/waterfall/golang/aoa",
+    deps = [
+        "@org_golang_x_sync//errgroup:go_default_library",
+    ],
 )
-
