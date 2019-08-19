@@ -1,3 +1,4 @@
+licenses(["notice"])  # Apache License 2.0
 
 android_instrumentation_test(
     name = "usb_service_test",
@@ -17,13 +18,13 @@ android_library(
         "//waterfall/java/com/google/waterfall/usb:mock_usb_manager",
         "//waterfall/java/com/google/waterfall/usb:usb_interfaces",
         "//waterfall/java/com/google/waterfall/usb:usb_service_lib",
-        "@maven//:androidx_test_rules",
         "@maven//:androidx_test_monitor",
+        "@maven//:androidx_test_rules",
         "@maven//:androidx_test_runner",
         "@maven//:javax_inject_javax_inject",
-        "@maven//:org_mockito_mockito_core",
-        "@maven//:org_mockito_mockito_android",
         "@maven//:junit_junit",
+        "@maven//:org_mockito_mockito_android",
+        "@maven//:org_mockito_mockito_core",
     ],
 )
 
