@@ -33,6 +33,7 @@ import javax.inject.Singleton;
 /** Android service to get a handle to the USB device */
 public final class UsbService extends Service {
 
+  /** Dagger component */
   @Singleton
   @Component(modules = AndroidUsbModule.class)
   public interface ServiceComponent {

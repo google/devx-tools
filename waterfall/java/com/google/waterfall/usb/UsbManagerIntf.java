@@ -6,6 +6,7 @@ import android.hardware.usb.UsbDeviceConnection;
 import android.os.ParcelFileDescriptor;
 import java.util.HashMap;
 
+/** Interface exposing UsbManager methods in order to enable mocking */
 public interface UsbManagerIntf {
 
   public UsbAccessoryIntf[] getAccessoryList();
