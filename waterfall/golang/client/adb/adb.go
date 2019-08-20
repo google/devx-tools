@@ -16,13 +16,16 @@
 package adb
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -115,15 +118,29 @@ func Fallback(args []string) {
 	os.Exit(0)
 }
 
-func exe(ctx context.Context, c waterfall_grpc.WaterfallClient, cmd string, args ...string) (int, error) {
-	// Pipe from stdin only if we pipes are being used
-	return client.Exec(ctx, c, os.Stdout, os.Stderr, nil, cmd, args...)
+func exeStdout(ctx context.Context, c waterfall_grpc.WaterfallClient, cmd string, args ...string) (int, error) {
+	return client.Exec(ctx, c, os.Stdout, os.Stdout, nil, cmd, args...)
 }
 
-func shell(ctx context.Context, c waterfall_grpc.WaterfallClient, cmd string, args ...string) error {
-	// Ignore return code here. This is intended as a drop in replacement for adb, so we need to copy the behavior.
-	_, err := exe(ctx, c, "/system/bin/sh", "-c", fmt.Sprintf("%s %s", cmd, strings.Join(args, " ")))
+func exeString(ctx context.Context, c waterfall_grpc.WaterfallClient, in io.Reader, cmd string, args ...string) (int, string, error) {
+	b := bytes.NewBuffer([]byte{})
+	s, err := client.Exec(ctx, c, b, b, in, cmd, args...)
+	return s, b.String(), err
+}
+
+func shellStdout(ctx context.Context, c waterfall_grpc.WaterfallClient, cmd string, args ...string) error {
+	_, err := shellIO(ctx, c, os.Stdout, os.Stdout, nil, cmd, args...)
 	return err
+}
+
+func shellString(ctx context.Context, c waterfall_grpc.WaterfallClient, in io.Reader, cmd string, args ...string) (int, string, error) {
+	b := bytes.NewBuffer([]byte{})
+	s, err := shellIO(ctx, c, b, b, in, cmd, args...)
+	return s, b.String(), err
+}
+
+func shellIO(ctx context.Context, c waterfall_grpc.WaterfallClient, stdout io.Writer, stderr io.Writer, stdin io.Reader, cmd string, args ...string) (int, error) {
+	return client.Exec(ctx, c, stdout, stderr, stdin, "/system/bin/sh", "-c", fmt.Sprintf("%s %s", cmd, strings.Join(args, " ")))
 }
 
 func shellFn(ctx context.Context, cfn ClientFn, args []string) error {
@@ -137,7 +154,7 @@ func shellFn(ctx context.Context, cfn ClientFn, args []string) error {
 		return err
 	}
 	defer conn.Close()
-	return shell(ctx, waterfall_grpc.NewWaterfallClient(conn), args[1], args[2:]...)
+	return shellStdout(ctx, waterfall_grpc.NewWaterfallClient(conn), args[1], args[2:]...)
 }
 
 func pushFn(ctx context.Context, cfn ClientFn, args []string) error {
@@ -180,14 +197,49 @@ func installFn(ctx context.Context, cfn ClientFn, args []string) error {
 	defer conn.Close()
 
 	c := waterfall_grpc.NewWaterfallClient(conn)
+
+	// If possible prefer streamed installs over normal installs.
+	// Normal installs require twice the amount of disk space given that apk is pushed to a temp location.
+	streamed := false
+	s, out, err := exeString(ctx, c, nil, "/system/bin/getprop", "ro.build.version.sdk")
+	if err == nil && s == 0 {
+		a, err := strconv.Atoi(strings.Trim(out, "\r\n"))
+		streamed = err == nil && a >= 21
+	}
+
 	path := args[len(args)-1]
+	if streamed {
+		fmt.Println("Doing streamed install ...")
+		fi, err := os.Stat(path)
+		if err != nil {
+			return err
+		}
+		_, out, err = shellString(ctx, c, nil, "pm", append([]string{"install-create"}, args[1:len(args)-1]...)...)
+		if err != nil {
+			return err
+		}
+
+		f, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+
+		session := out[strings.Index(out, "[")+1 : strings.Index(out, "]")]
+		_, _, err = shellString(ctx, c, f, "pm", "install-write", "-S", fmt.Sprintf("%d", fi.Size()), session, "-")
+		if err != nil {
+			return err
+		}
+
+		return shellStdout(ctx, c, "pm", "install-commit", session)
+	}
+
 	tmp := filepath.Join("/data/local/tmp")
 	if err := client.Push(ctx, c, path, tmp); err != nil {
 		return err
 	}
-	defer exe(ctx, c, "rm", "-f", filepath.Join(tmp, filepath.Base(path)))
+	defer exeStdout(ctx, c, "rm", "-f", filepath.Join(tmp, filepath.Base(path)))
 
-	return shell(ctx, c, "/system/bin/pm", append(args[:len(args)-1], filepath.Join(tmp, filepath.Base(path)))...)
+	return shellStdout(ctx, c, "/system/bin/pm", append(args[:len(args)-1], filepath.Join(tmp, filepath.Base(path)))...)
 }
 
 func parseFwd(addr string, reverse bool) (string, error) {
@@ -303,7 +355,7 @@ func passthroughFn(ctx context.Context, cfn ClientFn, args []string) error {
 	}
 	defer conn.Close()
 
-	_, err = exe(ctx, waterfall_grpc.NewWaterfallClient(conn), args[0], args[1:]...)
+	_, err = exeStdout(ctx, waterfall_grpc.NewWaterfallClient(conn), args[0], args[1:]...)
 	return err
 }
 
@@ -318,7 +370,7 @@ func uninstallFn(ctx context.Context, cfn ClientFn, args []string) error {
 	}
 	defer conn.Close()
 
-	return shell(ctx, waterfall_grpc.NewWaterfallClient(conn), "/system/bin/pm", args...)
+	return shellStdout(ctx, waterfall_grpc.NewWaterfallClient(conn), "/system/bin/pm", args...)
 }
 
 // ParseCommand parses the comand line args
