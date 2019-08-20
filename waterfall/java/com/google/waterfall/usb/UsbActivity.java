@@ -7,8 +7,10 @@ import android.hardware.usb.UsbManager;
 import android.os.Bundle;
 import android.util.Log;
 
-/* UsbActivity serves as an entry point to the UsbService.
- * Android instantiates this activity when an USB accessory
+/**
+ * UsbActivity serves as an entry point to the UsbService.
+ *
+ * <p>Android instantiates this activity when an USB accessory
  * is attached. This actity in turn instantiates the UBS service.
  */
 public class UsbActivity extends Activity {

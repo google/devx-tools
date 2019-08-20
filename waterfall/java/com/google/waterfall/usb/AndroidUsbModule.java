@@ -9,6 +9,7 @@ import dagger.Module;
 import dagger.Provides;
 import javax.inject.Singleton;
 
+/** Dagger module to inject USB manager */
 @Module
 public class AndroidUsbModule {
 

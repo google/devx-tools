@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
 
+/** Mock implementation of UsbManager class */
 public class MockUsbManager implements UsbManagerIntf {
 
   private static final String ACTION_USB_PERMISSION =
@@ -22,14 +23,14 @@ public class MockUsbManager implements UsbManagerIntf {
 
   public static final String SOCKET_NAME = "waterfall_mock_usb";
 
-  private final MockUsbAccessory ACCESSORY = new MockUsbAccessory();
+  private final MockUsbAccessory accessory = new MockUsbAccessory();
 
   private Context context;
   private ParcelFileDescriptor pfd;
   private boolean hasPermission;
   private boolean grantPermission;
 
-  public UsbAccessoryIntf[] accessories = new UsbAccessoryIntf[] {ACCESSORY};
+  public UsbAccessoryIntf[] accessories = new UsbAccessoryIntf[] {accessory};
 
   public MockUsbManager(Context context) {
     Log.i(TAG, "new MockUsbManager");

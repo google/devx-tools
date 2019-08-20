@@ -2,6 +2,7 @@ package com.google.waterfall.usb;
 
 import android.hardware.usb.UsbAccessory;
 
+/** Mock implmementation of UsbAccessory class */
 final class MockUsbAccessory implements UsbAccessoryIntf {
 
   @Override

@@ -2,6 +2,7 @@ package com.google.waterfall.usb;
 
 import android.hardware.usb.UsbAccessory;
 
+/** Mock implementation of UsbAccessory */
 final class AoaUsbAccessory implements UsbAccessoryIntf {
 
   private final UsbAccessory realAccessory;

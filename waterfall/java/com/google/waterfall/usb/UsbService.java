@@ -30,6 +30,7 @@ import java.util.concurrent.Future;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
+/** Android service to get a handle to the USB device */
 public final class UsbService extends Service {
 
   @Singleton
@@ -169,7 +170,7 @@ public final class UsbService extends Service {
       connectService(
           intent.getAction(),
           intent.getShortExtra(WATERFALL_PORT_KEY, DEFAULT_WATERFALL_PORT),
-          KB(intent.getIntExtra(BUFFER_SIZE_KEY, DEFAULT_BUFFER_SIZE)));
+          kb(intent.getIntExtra(BUFFER_SIZE_KEY, DEFAULT_BUFFER_SIZE)));
     }
 
     if (intent.hasExtra(UsbManager.EXTRA_ACCESSORY)) {
@@ -388,7 +389,7 @@ public final class UsbService extends Service {
     }
   }
 
-  private static int KB(int sizeInBytes) {
+  private static int kb(int sizeInBytes) {
     return sizeInBytes * 1024;
   }
 
