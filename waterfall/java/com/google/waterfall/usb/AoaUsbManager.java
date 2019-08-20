@@ -9,6 +9,7 @@ import android.os.ParcelFileDescriptor;
 import android.util.Log;
 import java.util.HashMap;
 
+/** Real UsbManager implementation */
 public class AoaUsbManager implements UsbManagerIntf {
 
   private static final String TAG = "waterfall.UsbService.AoaUsbManager";
