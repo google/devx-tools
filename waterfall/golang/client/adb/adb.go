@@ -381,7 +381,7 @@ func ParseCommand(args []string) (ParsedArgs, error) {
 	i := 0
 	done := false
 
-	for !done && i < len(args) {
+	for !done && i < len(args)-1 {
 		arg := args[i]
 		switch arg {
 		case "server":
@@ -401,9 +401,6 @@ func ParseCommand(args []string) (ParsedArgs, error) {
 		case "-t":
 			return ParsedArgs{}, ParseError{}
 		case "-s":
-			if len(args) == i+1 {
-				return ParsedArgs{}, ParseError{}
-			}
 			dev = args[i+1]
 			i++
 		case "wait-for-device": // ignore
