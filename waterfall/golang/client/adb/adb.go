@@ -198,8 +198,8 @@ func installFn(ctx context.Context, cfn ClientFn, args []string) error {
 
 	c := waterfall_grpc.NewWaterfallClient(conn)
 
-	// If possible prefere streamed installs over normal installs.
-	// Normal installs requires twice the amount of disk space given that apk is pushed to a temp location.
+	// If possible prefer streamed installs over normal installs.
+	// Normal installs require twice the amount of disk space given that apk is pushed to a temp location.
 	streamed := false
 	s, out, err := exeString(ctx, c, nil, "/system/bin/getprop", "ro.build.version.sdk")
 	if err == nil && s == 0 {
@@ -209,7 +209,7 @@ func installFn(ctx context.Context, cfn ClientFn, args []string) error {
 
 	path := args[len(args)-1]
 	if streamed {
-		fmt.Printf("Doing streamed install ...\n")
+		fmt.Println("Doing streamed install ...")
 		fi, err := os.Stat(path)
 		if err != nil {
 			return err
