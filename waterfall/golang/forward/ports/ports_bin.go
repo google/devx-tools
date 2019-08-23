@@ -27,7 +27,6 @@ import (
 )
 
 var (
-	// For qemu connections addr is the working dir of the emulator
 	addr          = flag.String("addr", "", "Address to listen for port forwarding requests. <unix|tcp>:addr")
 	waterfallAddr = flag.String("waterfall_addr", "", "Address of the waterfall server. <unix|tcp>:addr")
 )
