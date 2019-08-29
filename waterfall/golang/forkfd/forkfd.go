@@ -56,12 +56,14 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
+	defer lis.Close()
 
 	for {
 		conn, err := lis.Accept()
 		if err != nil {
 			log.Fatalf("Failed to accept: %v", err)
 		}
+		defer conn.Close()
 
 		rawConn, err := conn.(*net.TCPConn).SyscallConn()
 		if err != nil {
