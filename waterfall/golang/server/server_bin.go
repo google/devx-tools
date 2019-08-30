@@ -21,14 +21,13 @@ import (
 	"log"
 	"net"
 	"os"
-	"strconv"
-	"strings"
 	"syscall"
 
 	"github.com/google/waterfall/golang/constants"
 	"github.com/google/waterfall/golang/mux"
 	"github.com/google/waterfall/golang/net/qemu"
 	"github.com/google/waterfall/golang/server"
+	"github.com/google/waterfall/golang/utils"
 	waterfall_grpc "github.com/google/waterfall/proto/waterfall_go_grpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -37,7 +36,7 @@ import (
 
 var (
 	addr = flag.String(
-		"addr", "qemu:sockets/h2o", "Where to start listening. <qemu|tcp|unix|mux>:addr."+
+		"addr", "qemu-guest:sockets/h2o", "Where to start listening. <qemu|tcp|unix|mux>:addr."+
 			" If qemu is specified, addr is the name of the pipe socket."+
 			" If mux addr is a file descriptor which is used to create mulitplexed connections.")
 	sessionID = flag.String(
@@ -70,39 +69,33 @@ func main() {
 		log.Fatalf("Need to specify -addr.")
 	}
 
-	pts := strings.SplitN(*addr, ":", 2)
-	if len(pts) != 2 {
-		log.Fatalf("Failed to parse addres %s", *addr)
-	}
-
-	kind := pts[0]
-	loc := pts[1]
-
-	log.Printf("Starting %s:%s\n", kind, loc)
-
 	var lis net.Listener
 	var err error
-	switch kind {
-	case "qemu":
-		lis, err = qemu.MakePipe(loc)
+
+	pa, err := utils.ParseAddr(*addr)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Printf("Starting %s:%s\n", pa.Kind, pa.Addr)
+
+	switch pa.Kind {
+	case utils.QemuGuest:
+		lis, err = qemu.MakePipe(pa.SocketName)
 		if err != nil {
 			log.Fatalf("failed to open qemu_pipe %v", err)
 		}
-	case "unix":
+	case utils.Unix:
 		fallthrough
-	case "tcp":
-		lis, err = net.Listen(kind, loc)
+	case utils.TCP:
+		lis, err = net.Listen(pa.Kind, pa.Addr)
 		if err != nil {
 			log.Fatalf("Failed to listen %v", err)
 		}
-	case "mux":
-		s, err := strconv.ParseUint(loc, 10, 64)
-		if err != nil {
-			log.Fatal(err)
-		}
-		lis = mux.NewListener(os.NewFile(uintptr(s), ""))
+	case utils.Mux:
+		lis = mux.NewListener(os.NewFile(uintptr(pa.MuxAddr.FD), ""))
 	default:
-		log.Fatalf("Unsupported kind %s", kind)
+		log.Fatalf("Unsupported kind %s", pa.Kind)
 	}
 	defer lis.Close()
 

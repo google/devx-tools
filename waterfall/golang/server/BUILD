@@ -36,6 +36,7 @@ DEPS = [
     "//waterfall/golang/stream",
     "//waterfall/golang/mux",
     "//waterfall/golang/net/qemu",
+    "//waterfall/golang/utils",
     "//waterfall/proto:waterfall_go_grpc",
     "//waterfall/proto:waterfall_go_proto",
     "@org_golang_google_grpc//:go_default_library",
