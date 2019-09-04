@@ -1,0 +1,25 @@
+licenses(["notice"])  # Apache 2.0
+
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+package(default_visibility = ["//visibility:public"])
+
+go_library(
+    name = "utils",
+    srcs = [
+        "addr.go",
+    ],
+    importpath = "github.com/google/waterfall/golang/utils",
+)
+
+go_test(
+    name = "addr_test",
+    srcs = [
+        "addr_test.go",
+    ],
+    embed = [
+        ":utils",
+    ],
+    importpath = "github.com/google/waterfall/golang/utils",
+)
+

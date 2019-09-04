@@ -18,7 +18,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"log"
 	"net"
 	"os"
@@ -28,16 +27,11 @@ import (
 	"github.com/google/waterfall/golang/forward"
 	"github.com/google/waterfall/golang/mux"
 	"github.com/google/waterfall/golang/net/qemu"
+	"github.com/google/waterfall/golang/utils"
 	"golang.org/x/sync/errgroup"
 )
 
 const (
-	qemuHost  = "qemu"
-	qemuGuest = "qemu-guest"
-	unixConn  = "unix"
-	tcpConn   = "tcp"
-	muxConn   = "mux"
-
 	sleepTime = time.Millisecond * 2500
 )
 
@@ -58,42 +52,6 @@ func init() {
 	flag.Parse()
 }
 
-type parsedAddr struct {
-	kind       string
-	addr       string
-	socketName string
-
-	// The address to use for multiplexed connections.
-	muxAddr *parsedAddr
-}
-
-func parseAddr(addr string) (*parsedAddr, error) {
-	pts := strings.SplitN(addr, ":", 2)
-	if len(pts) < 2 {
-		return nil, fmt.Errorf("failed to parse address %s", addr)
-	}
-
-	if pts[0] == muxConn {
-		mAddr, err := parseAddr(pts[1])
-		if err != nil {
-			return nil, err
-		}
-		return &parsedAddr{kind: pts[0], muxAddr: mAddr}, nil
-	}
-
-	host := pts[1]
-	socket := ""
-	if pts[0] == qemuHost || pts[0] == qemuGuest {
-		p := strings.SplitN(pts[1], ":", 2)
-		if len(p) != 2 {
-			return nil, fmt.Errorf("failed to parse address %s", addr)
-		}
-		host = p[0]
-		socket = p[1]
-	}
-	return &parsedAddr{kind: pts[0], addr: host, socketName: socket}, nil
-}
-
 type connBuilder interface {
 	Accept() (net.Conn, error)
 	Close() error
@@ -112,8 +70,8 @@ func (d *dialBuilder) Close() error {
 	return nil
 }
 
-func makeQemuBuilder(pa *parsedAddr) (connBuilder, error) {
-	qb, err := qemu.MakeConnBuilder(pa.addr, pa.socketName)
+func makeQemuBuilder(pa *utils.ParsedAddr) (connBuilder, error) {
+	qb, err := qemu.MakeConnBuilder(pa.Addr, pa.SocketName)
 
 	// The emulator can die at any point and we need to die as well.
 	// When the emulator dies its working directory is removed.
@@ -122,7 +80,7 @@ func makeQemuBuilder(pa *parsedAddr) (connBuilder, error) {
 	go func() {
 		for {
 			time.Sleep(sleepTime)
-			if _, err := os.Stat(pa.addr); err != nil {
+			if _, err := os.Stat(pa.Addr); err != nil {
 				log.Fatal(err)
 			}
 		}
@@ -139,16 +97,16 @@ func main() {
 
 	log.Printf("Listening on address %s and connecting to %s\n", *listenAddr, *connectAddr)
 
-	lisAddrs := []*parsedAddr{}
+	lisAddrs := []*utils.ParsedAddr{}
 	for _, addr := range strings.Split(*listenAddr, ",") {
-		lpa, err := parseAddr(addr)
+		lpa, err := utils.ParseAddr(addr)
 		if err != nil {
 			log.Fatal(err)
 		}
 		lisAddrs = append(lisAddrs, lpa)
 	}
 
-	cpa, err := parseAddr(*connectAddr)
+	cpa, err := utils.ParseAddr(*connectAddr)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -156,27 +114,27 @@ func main() {
 	ctx := context.Background()
 
 	var b connBuilder
-	switch cpa.kind {
-	case qemuHost:
+	switch cpa.Kind {
+	case utils.QemuHost:
 		qb, err := makeQemuBuilder(cpa)
 		if err != nil {
 			log.Fatalf("Got error creating qemu conn %v.", err)
 		}
 		defer qb.Close()
 		b = qb
-	case qemuGuest:
-		qb, err := qemu.MakePipe(cpa.socketName)
+	case utils.QemuGuest:
+		qb, err := qemu.MakePipe(cpa.SocketName)
 		if err != nil {
 			log.Fatalf("Got error creating qemu conn %v.", err)
 		}
 		defer qb.Close()
 		b = qb
-	case unixConn:
+	case utils.Unix:
 		fallthrough
-	case tcpConn:
-		b = &dialBuilder{netType: cpa.kind, addr: cpa.addr}
-	case muxConn:
-		mc, err := net.Dial(cpa.muxAddr.kind, cpa.muxAddr.addr)
+	case utils.TCP:
+		b = &dialBuilder{netType: cpa.Kind, addr: cpa.Addr}
+	case utils.Mux:
+		mc, err := net.Dial(cpa.MuxAddr.Kind, cpa.MuxAddr.Addr)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -185,7 +143,7 @@ func main() {
 			log.Fatal(err)
 		}
 	default:
-		log.Fatalf("Unsupported network type: %s", cpa.kind)
+		log.Fatalf("Unsupported network type: %s", cpa.Kind)
 	}
 
 	// Block until the guest server process is ready.
@@ -196,18 +154,18 @@ func main() {
 
 	listeners := []connBuilder{}
 	for _, addr := range lisAddrs {
-		switch addr.kind {
-		case qemuHost:
+		switch addr.Kind {
+		case utils.QemuHost:
 			l, err := makeQemuBuilder(addr)
 			if err != nil {
 				log.Fatalf("Got error creating qemu conn %v.", err)
 			}
 			defer l.Close()
 			listeners = append(listeners, l)
-		case unixConn:
+		case utils.Unix:
 			fallthrough
-		case tcpConn:
-			l, err := net.Listen(addr.kind, addr.addr)
+		case utils.TCP:
+			l, err := net.Listen(addr.Kind, addr.Addr)
 			if err != nil {
 				log.Fatalf("Failed to listen on address: %v.", err)
 			}
@@ -218,7 +176,7 @@ func main() {
 
 	eg, _ := errgroup.WithContext(ctx)
 	for i, lis := range listeners {
-		func(ll connBuilder, pAddr *parsedAddr) {
+		func(ll connBuilder, pAddr *utils.ParsedAddr) {
 			eg.Go(func() error {
 				for {
 					cx, err := ll.Accept()

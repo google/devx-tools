@@ -194,7 +194,7 @@ func Bootstrap(ctx context.Context, adbConn *adb.Device, waterfallBin []string, 
 	if socketDir != "" {
 		// has qemu pipe support
 		connAddr := fmt.Sprintf("qemu:%s:%s", socketDir, socketName)
-		svrAddr := fmt.Sprintf("qemu:%s", socketName)
+		svrAddr := fmt.Sprintf("qemu-guest:%s", socketName)
 
 		if _, err := os.Stat(filepath.Join(socketDir, socketName)); os.IsNotExist(err) {
 			// Forwarder is not running.

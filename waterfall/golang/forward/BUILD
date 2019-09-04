@@ -13,6 +13,7 @@ DEPS = [
         ":forward",
         "//waterfall/golang/mux",
         "//waterfall/golang/net/qemu",
+        "//waterfall/golang/utils",
         "@org_golang_x_sync//errgroup:go_default_library",
 ]
 
