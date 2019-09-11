@@ -36,7 +36,7 @@ import (
 
 var (
 	addr = flag.String(
-		"addr", "qemu-guest:sockets/h2o", "Where to start listening. <qemu|tcp|unix|mux>:addr."+
+		"addr", "qemu-guest:sockets/h2o", "Where to start listening. <qemu|qemu2|tcp|unix|mux>:addr."+
 			" If qemu is specified, addr is the name of the pipe socket."+
 			" If mux addr is a file descriptor which is used to create mulitplexed connections.")
 	sessionID = flag.String(
@@ -81,10 +81,17 @@ func main() {
 
 	switch pa.Kind {
 	case utils.QemuGuest:
-		lis, err = qemu.MakePipe(pa.SocketName)
+		pip, err := qemu.MakePipe(pa.SocketName)
 		if err != nil {
 			log.Fatalf("failed to open qemu_pipe %v", err)
 		}
+		lis = qemu.MakePipeConnBuilder(pip)
+	case utils.QemuCtrl:
+		pip, err := qemu.MakePipe(pa.SocketName)
+		if err != nil {
+			log.Fatalf("failed to open qemu_pipe %v", err)
+		}
+		lis = qemu.MakeControlSocket(pip)
 	case utils.Unix:
 		fallthrough
 	case utils.TCP:

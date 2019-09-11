@@ -16,6 +16,10 @@ const (
 	// It is of the form qemu-guest:$socket_name where socket_name is the name of the socket the host is listening.
 	QemuGuest = "qemu-guest"
 
+	// QemuGuest describes an address from the guest perspective, when using the qemu2 protocol.
+	// It is of the form qemu-guest:$socket_name where socket_name is the name of the socket the host is listening.
+	QemuCtrl = "qemu2"
+
 	// Unix describes a Unix socket address.
 	// It is of the form unix:$socket_name. If socket_name contains a leading @ then this is an abstract socket.
 	Unix = "unix"
@@ -38,6 +42,7 @@ const (
 var (
 	validKinds = map[string]bool{
 		QemuHost:  true,
+		QemuCtrl:  true,
 		QemuGuest: true,
 		Unix:      true,
 		TCP:       true,
@@ -86,7 +91,7 @@ func ParseAddr(addr string) (*ParsedAddr, error) {
 
 	host := pts[1]
 	socket := ""
-	if pts[0] == QemuGuest {
+	if pts[0] == QemuGuest || pts[0] == QemuCtrl {
 		socket = pts[1]
 	}
 

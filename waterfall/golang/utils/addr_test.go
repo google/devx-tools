@@ -126,6 +126,23 @@ func TestQemuGuestAddr(t *testing.T) {
 	}
 }
 
+func TestQemuCtrlAddr(t *testing.T) {
+	addr := "qemu2:sockets/hello"
+	pa, err := ParseAddr(addr)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	if pa.Kind != QemuCtrl {
+		t.Errorf("Expected %s kind but got %s", QemuCtrl, pa.Kind)
+	}
+
+	if pa.SocketName != "sockets/hello" {
+		t.Errorf("Expected %s but got %s", "sockets/hello", pa.SocketName)
+	}
+}
+
 func TestInvalidKind(t *testing.T) {
 	addr := "foo:sockets/hello"
 	pa, err := ParseAddr(addr)
