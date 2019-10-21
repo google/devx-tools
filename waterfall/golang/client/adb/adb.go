@@ -36,8 +36,9 @@ import (
 )
 
 const (
-	androidADBEnv = "ANDROID_ADB"
-	androidSDKEnv = "ANDROID_SDK_HOME"
+	androidADBEnv          = "ANDROID_ADB"
+	androidSDKEnv          = "ANDROID_SDK_HOME"
+	propagateStatusCodeEnv = "PROPAGATE_STATUS_CODE"
 )
 
 // ParseError represents an command line parsing error.
@@ -75,13 +76,29 @@ var (
 	}
 )
 
+func propagateStatusCode(s int) {
+	p := os.Getenv(propagateStatusCodeEnv)
+	if p == "" {
+		return
+	}
+
+	b, err := strconv.ParseBool(p)
+	if err != nil {
+		return
+	}
+
+	if b && s != 0 {
+		os.Exit(s)
+	}
+}
+
 func platformADB() (string, error) {
-	p := os.Getenv("ANDROID_ADB")
+	p := os.Getenv(androidADBEnv)
 	if p != "" {
 		return p, nil
 	}
 
-	p = os.Getenv("ANDROID_SDK_HOME")
+	p = os.Getenv(androidSDKEnv)
 	if p != "" {
 		return filepath.Join(p, "platform-tools/adb"), nil
 	}
@@ -140,7 +157,9 @@ func shellString(ctx context.Context, c waterfall_grpc.WaterfallClient, in io.Re
 }
 
 func shellIO(ctx context.Context, c waterfall_grpc.WaterfallClient, stdout io.Writer, stderr io.Writer, stdin io.Reader, cmd string, args ...string) (int, error) {
-	return client.Exec(ctx, c, stdout, stderr, stdin, "/system/bin/sh", "-c", fmt.Sprintf("%s %s", cmd, strings.Join(args, " ")))
+	s, err := client.Exec(ctx, c, stdout, stderr, stdin, "/system/bin/sh", "-c", fmt.Sprintf("%s %s", cmd, strings.Join(args, " ")))
+	propagateStatusCode(s)
+	return s, err
 }
 
 func shellFn(ctx context.Context, cfn ClientFn, args []string) error {
