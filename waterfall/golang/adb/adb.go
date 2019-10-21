@@ -71,6 +71,13 @@ func (a *Device) Shell(args []string) (string, error) {
 	return o, nil
 }
 
+// Install installs an application on the device using ADB.
+func (a *Device) Install(apk string) (string, error) {
+	cmd := exec.Command(a.AdbPath, append(a.deviceArgs(), "install", "-r", "-g", apk)...)
+	out, err := cmd.CombinedOutput()
+	return string(out), err
+}
+
 func (a *Device) connected() (bool, error) {
 	ob, err := exec.Command(a.AdbPath, append(a.deviceArgs(), "devices")...).CombinedOutput()
 	if err != nil {
