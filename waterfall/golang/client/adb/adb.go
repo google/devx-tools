@@ -38,7 +38,7 @@ import (
 const (
 	androidADBEnv          = "ANDROID_ADB"
 	androidSDKEnv          = "ANDROID_SDK_HOME"
-	propagateStatusCodeEnv = "PROPAGATE_STATUS_CODE"
+	propagateStatusCodeEnv = "WATERFALL_PROPAGATE_STATUS_CODE"
 )
 
 // ParseError represents an command line parsing error.
