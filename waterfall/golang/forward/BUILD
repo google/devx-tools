@@ -48,6 +48,16 @@ go_binary(
     deps = DEPS,
 )
 
+# USB host binary
+# Keep this isolated. It links against libusb and which has a GNU lesser licence.
+go_binary(
+    name = "forward_usb_bin",
+    srcs = ["forward_usb_bin.go"],
+    goos = "linux",
+    cgo = "on",
+    deps = DEPS + ["//waterfall/golang/aoa"],
+)
+
 go_library(
     name = "forward",
     srcs = [
