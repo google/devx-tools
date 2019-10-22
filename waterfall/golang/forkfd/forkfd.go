@@ -95,7 +95,6 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to accept: %v", err)
 		}
-		defer conn.Close()
 
 		log.Println("Accepted connection. Starting process ...")
 
@@ -108,5 +107,6 @@ func main() {
 			// just wait for the next connection on error
 			log.Printf("Error running process: %v\n", err)
 		}
+		conn.Close()
 	}
 }
