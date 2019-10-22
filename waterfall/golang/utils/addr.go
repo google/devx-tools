@@ -37,6 +37,11 @@ const (
 	// It is of the form fd:$fd_num where fd_num is the file descriptor number to open.
 	// Note that this is only intended to be used in conjuction with a Mux addr.
 	FD = "fd"
+
+	// USB describes a USB endpoint.
+	// It is of the form usb:$usb_serial where usb_serial is the serial number of the usb device.
+	// Note that this is only intended to be used in conjuction with a Mux addr.
+	USB = "usb"
 )
 
 var (
@@ -48,6 +53,7 @@ var (
 		TCP:       true,
 		Mux:       true,
 		FD:        true,
+		USB:       true,
 	}
 )
 
