@@ -174,8 +174,8 @@ func NewReadWriteCloser(stream Stream, sm MessageReadWriteCloser) *ReadWriteClos
 	rwc := &ReadWriteCloser{
 		Stream:                 stream,
 		MessageReadWriteCloser: sm,
-		r:                      NewReader(stream, sm),
-		w:                      NewWriter(stream, sm),
+		r: NewReader(stream, sm),
+		w: NewWriter(stream, sm),
 	}
 	return rwc
 }

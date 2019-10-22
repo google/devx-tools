@@ -55,7 +55,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("error opening pipe: %v", err)
 	}
-    lis := qemu.MakePipeConnBuilder(pip)
+	lis := qemu.MakePipeConnBuilder(pip)
 	defer lis.Close()
 
 	eg, _ := errgroup.WithContext(context.Background())

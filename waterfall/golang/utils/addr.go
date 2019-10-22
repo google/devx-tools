@@ -1,3 +1,4 @@
+// Package utils implement utility functions used by several libs.
 package utils
 
 import (
@@ -16,7 +17,7 @@ const (
 	// It is of the form qemu-guest:$socket_name where socket_name is the name of the socket the host is listening.
 	QemuGuest = "qemu-guest"
 
-	// QemuGuest describes an address from the guest perspective, when using the qemu2 protocol.
+	// QemuCtrl describes an address from the guest perspective, when using the qemu2 protocol.
 	// It is of the form qemu-guest:$socket_name where socket_name is the name of the socket the host is listening.
 	QemuCtrl = "qemu2"
 
