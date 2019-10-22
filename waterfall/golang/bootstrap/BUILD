@@ -32,7 +32,6 @@ go_binary(
     ],
 )
 
-
 go_library(
     name = "bootstrap",
     srcs = [
