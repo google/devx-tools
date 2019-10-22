@@ -313,7 +313,7 @@ func (b *ControlSocket) controlSocketHandler() error {
 	}
 }
 
-// Accepts a new incoming connection. Requests for new connections have been communicated over the control channel.
+// Accept a new incoming connection. Requests for new connections have been communicated over the control channel.
 func (b *ControlSocket) Accept() (net.Conn, error) {
 	if b.c == nil {
 		conn, err := b.open(0)
