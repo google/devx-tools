@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package qemu provides implementations of a net.Conn and net.Listener backed by qemu_pipe
 package qemu
 
 import (
@@ -34,7 +33,7 @@ type ControlSocketConn struct {
 	rb *bufio.Reader
 	cl io.Closer
 
-	cb *controlSocket
+	cb *ControlSocket
 	fd uint32
 
 	// Dummy addr
@@ -152,7 +151,7 @@ func (q *ControlSocketConn) closeConn() {
 	q.cl.Close()
 }
 
-func makeControlSocketConn(conn io.ReadWriteCloser, fd uint32, cs *controlSocket) *ControlSocketConn {
+func makeControlSocketConn(conn io.ReadWriteCloser, fd uint32, cs *ControlSocket) *ControlSocketConn {
 	return &ControlSocketConn{
 		wb:              bufio.NewWriterSize(conn, buffSize),
 		rb:              bufio.NewReaderSize(conn, buffSize),
@@ -175,7 +174,7 @@ type availableSocket struct {
 }
 
 // ControlSocket is a socket that uses one channel to control if a socket should be opend or closed.
-type controlSocket struct {
+type ControlSocket struct {
 	pipe      *Pipe
 	m         sync.Map             // VirtualFd -> ControlSocketConn
 	available chan availableSocket // Channel with available socket/error (net.Conn, error)
@@ -183,14 +182,14 @@ type controlSocket struct {
 }
 
 // Close closes out the control socket.
-func (b *controlSocket) Close() error {
+func (b *ControlSocket) Close() error {
 	// Close out the control socket first.
 	b.c.Close()
 	return b.pipe.Close()
 }
 
 // Close down the socket by sending a close message over the control channel to the host.
-func (b *controlSocket) close(q *ControlSocketConn) error {
+func (b *ControlSocket) close(q *ControlSocketConn) error {
 	b.m.Delete(q.fd)
 	if q.fd == 0 {
 		// The control socket vanished. We close out every connection
@@ -217,7 +216,7 @@ func (b *controlSocket) close(q *ControlSocketConn) error {
 }
 
 // Open opens the socket with the given virtual fd. The connection and errors will be posted back on the available channel.
-func (b *controlSocket) Open(fd uint32) (net.Conn, error) {
+func (b *ControlSocket) Open(fd uint32) (net.Conn, error) {
 	c, err := b.open(fd)
 	socket := availableSocket{c, err}
 	b.available <- socket
@@ -225,7 +224,7 @@ func (b *controlSocket) Open(fd uint32) (net.Conn, error) {
 }
 
 // open opens a connection without blocking by calling accept and sending the identity message over the connection.
-func (b *controlSocket) open(fd uint32) (net.Conn, error) {
+func (b *ControlSocket) open(fd uint32) (net.Conn, error) {
 	cl := control_socket_pb.SocketControl_identity
 	cinfo := &control_socket_pb.SocketControl{
 		Fd:   &fd,
@@ -268,17 +267,17 @@ func (b *controlSocket) open(fd uint32) (net.Conn, error) {
 }
 
 // Blocks and waits until a new connection/error has been made available.
-func (b *controlSocket) nextConnection() (net.Conn, error) {
+func (b *ControlSocket) nextConnection() (net.Conn, error) {
 	available := <-b.available
 	return available.c, available.err
 }
 
-func (b *controlSocket) controlSocketHandler() error {
+func (b *ControlSocket) controlSocketHandler() error {
 	defer b.c.Close()
 	for {
 		// Note! It's very important that the control socket
 		// has fixed size! Don't mess with variable encoding lest you want to make this all complicated.
-		var fd uint32 = 0
+		var fd uint32
 		cl := control_socket_pb.SocketControl_identity
 		cinfo := &control_socket_pb.SocketControl{
 			Fd:   &fd,
@@ -315,7 +314,7 @@ func (b *controlSocket) controlSocketHandler() error {
 }
 
 // Accepts a new incoming connection. Requests for new connections have been communicated over the control channel.
-func (b *controlSocket) Accept() (net.Conn, error) {
+func (b *ControlSocket) Accept() (net.Conn, error) {
 	if b.c == nil {
 		conn, err := b.open(0)
 		if err != nil {
@@ -331,13 +330,13 @@ func (b *controlSocket) Accept() (net.Conn, error) {
 }
 
 // Addr returns the connection address
-func (q *controlSocket) Addr() net.Addr {
-	return qemuAddr(q.pipe.socketName)
+func (b *ControlSocket) Addr() net.Addr {
+	return qemuAddr(b.pipe.socketName)
 }
 
-// Creates a new control socket that communicates over the given pipe.
-func MakeControlSocket(pipe *Pipe) *controlSocket {
-	s := controlSocket{
+// MakeControlSocket Creates a new control socket that communicates over the given pipe.
+func MakeControlSocket(pipe *Pipe) *ControlSocket {
+	s := ControlSocket{
 		pipe:      pipe,
 		available: make(chan availableSocket),
 	}

@@ -338,7 +338,7 @@ func MakeConnBuilder(emuDir, socket string) (*ConnBuilder, error) {
 	return &ConnBuilder{Listener: lis}, nil
 }
 
-// ConnBuilder implements a qemu connection builder. It wraps around listener
+// PipeConnBuilder implements a qemu connection builder. It wraps around listener
 // listening on a qemu pipe. It accepts connectsion and sync with the client
 // before returning
 type PipeConnBuilder struct {
@@ -375,14 +375,17 @@ func (b *PipeConnBuilder) Accept() (net.Conn, error) {
 	}
 }
 
+// MakePipeConn builder returns a PipeConuilder using pipe.
 func MakePipeConnBuilder(pipe *Pipe) *PipeConnBuilder {
 	return &PipeConnBuilder{Listener: pipe}
 }
 
+// QemuConn implements a ReadWriteInterface with a qemu pipe.
 type QemuConn struct {
 	io.ReadWriteCloser
 }
 
+// MakeQemuConn create new qemu control socket backed by a qemu pipe file.
 func MakeQemuConn(file *os.File) *QemuConn {
 	return &QemuConn{ReadWriteCloser: file}
 }

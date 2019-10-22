@@ -28,7 +28,7 @@ import (
 )
 
 var (
-	listenAddr = flag.String("listen_addr", "", "Address to listen for connection on the host. <unix|tcp>:addr")
+	listenAddr  = flag.String("listen_addr", "", "Address to listen for connection on the host. <unix|tcp>:addr")
 	connectAddr = flag.String("connect_addr", "", "USB serial port to connect and multiplex. mux:usb:usb_serial.")
 )
 
