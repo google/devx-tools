@@ -20,6 +20,18 @@ go_binary(
     ],
 )
 
+# Keep this binary isolated, since it has a dependency on libusb.
+go_binary(
+    name = "bootstrap_usb_bin",
+    srcs = [
+        "bootstrap_usb_bin.go",
+    ],
+    deps = [
+        "//waterfall/golang/adb",
+        "@org_golang_google_grpc//:go_default_library",
+    ],
+)
+
 go_library(
     name = "bootstrap",
     srcs = [
