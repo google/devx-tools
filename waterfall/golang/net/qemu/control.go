@@ -283,7 +283,7 @@ func (b *ControlSocket) controlSocketHandler() error {
 			Fd:   &fd,
 			Sort: &cl,
 		}
-		cBytes := make([]byte, cinfo.XXX_Size())
+		cBytes := make([]byte, proto.Size(cinfo))
 		_, err := io.ReadFull(b.c, cBytes)
 		if err != nil {
 			return err
