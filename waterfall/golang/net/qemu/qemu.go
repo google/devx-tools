@@ -375,7 +375,7 @@ func (b *PipeConnBuilder) Accept() (net.Conn, error) {
 	}
 }
 
-// MakePipeConBBuilder returns a PipeConuilder using pipe.
+// MakePipeConBuilder returns a PipeConuilder using pipe.
 func MakePipeConnBuilder(pipe *Pipe) *PipeConnBuilder {
 	return &PipeConnBuilder{Listener: pipe}
 }
