@@ -32,7 +32,7 @@ const (
 
 var (
 	binaryToLaunch = flag.String("binary_to_launch", "", "Path to the binary to launch.")
-	fork = flag.Bool("fork", false, "Weather to listen on -addr and dup the conn fd to pass it to the forked process.")
+	fork           = flag.Bool("fork", false, "Weather to listen on -addr and dup the conn fd to pass it to the forked process.")
 	addr           = flag.String("addr", "localhost:8080", "Address to listen on for connections to pass to forked process.")
 )
 
