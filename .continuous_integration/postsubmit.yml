@@ -4,6 +4,8 @@ platforms:
     - "//waterfall/golang/bootstrap/..."
     - "//waterfall/golang/forkfd/..."
     - "//waterfall/golang/forward/..."
+    # Disable usb target. Requires libusb to be present on host.
+    - "-//waterfall/golang/forward:forward_usb_bin"
     - "//waterfall/golang/mux/..."
     - "//waterfall/golang/net/qemu/..."
     - "//waterfall/golang/stream/..."
