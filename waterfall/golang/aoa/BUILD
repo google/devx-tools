@@ -18,16 +18,6 @@ go_library(
     deps = ["@com_github_google_gousb//:gousb"],
 )
 
-# simple utility binary to manually test usb connection.
-go_binary(
-    name = "aoa_utils_bin",
-    srcs = ["aoa_utils_bin.go"],
-    cgo = True,
-    deps = [
-        ":aoa",
-    ],
-)
-
 go_test(
     name = "aoa_test",
     srcs = [
