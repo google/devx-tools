@@ -170,7 +170,7 @@ public final class UsbService extends Service {
     if (intent.getAction() != null) {
       connectService(
           intent.getAction(),
-          (short)intent.getIntExtra(WATERFALL_PORT_KEY, DEFAULT_WATERFALL_PORT),
+          (short) intent.getIntExtra(WATERFALL_PORT_KEY, DEFAULT_WATERFALL_PORT),
           kb(intent.getIntExtra(BUFFER_SIZE_KEY, DEFAULT_BUFFER_SIZE)));
     }
 
