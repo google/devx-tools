@@ -50,7 +50,7 @@ public final class UsbServiceTest {
 
   private Intent makeConnectIntent() {
     Intent i = new Intent(context, UsbService.class);
-    i.setAction("connect");
+    i.setAction("proxy");
     return i;
   }
 
