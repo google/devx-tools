@@ -89,6 +89,7 @@ func makeQemuBuilder(pa *utils.ParsedAddr) (connBuilder, error) {
 }
 
 func main() {
+	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 	log.Println("Starting forwarding server ...")
 
 	if *listenAddr == "" || *connectAddr == "" {
