@@ -402,6 +402,10 @@ func (s *WaterfallServer) Install(rpc waterfall_grpc.Waterfall_InstallServer) er
 	}
 
 	out := string(o)
+	if strings.Index(out, "[") < 0 || strings.Index(out, "]") < 0 {
+		return fmt.Errorf("bad install session: %s", out)
+	}
+
 	ss := out[strings.Index(out, "[")+1 : strings.Index(out, "]")]
 
 	action = append(insCmd, installWrite)
