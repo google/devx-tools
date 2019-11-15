@@ -283,3 +283,57 @@ func Exec(ctx context.Context, client waterfall_grpc.WaterfallClient, stdout, st
 
 	return int(last.ExitCode), nil
 }
+
+type installWriter struct{}
+
+// BuildMsg returns a reference to a new InstallRequest struct.
+func (w installWriter) BuildMsg() interface{} {
+	return new(waterfall_grpc.InstallRequest)
+}
+
+// SetBytes writes the payload b to stdin.
+func (w installWriter) SetBytes(m interface{}, b []byte) {
+	msg, ok := m.(*waterfall_grpc.InstallRequest)
+	if !ok {
+		// this never happens
+		panic("incorrect type")
+	}
+	msg.Payload = b
+}
+
+func Install(ctx context.Context, client waterfall_grpc.WaterfallClient, rdr *os.File, args ...string) (string, error) {
+
+	fi, err := rdr.Stat()
+	if err != nil {
+		return "", err
+	}
+
+	istream, err := client.Install(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	fmt.Printf("Installing apk with args %v and size %d\n", args, fi.Size())
+
+	// initializes the install session on the server
+	if err := istream.Send(
+		&waterfall_grpc.InstallRequest{
+			Args: args, ApkSize: uint32(fi.Size())}); err != nil {
+		return "", err
+	}
+
+	ss := stream.NewWriter(istream, installWriter{})
+	if _, err := io.Copy(ss, rdr); err != nil {
+		return "", err
+	}
+
+	r, err := istream.CloseAndRecv()
+	if err != nil {
+		return "", err
+	}
+
+	if r.ExitCode != 0 {
+		return r.Output, fmt.Errorf("non-zero exit code: %d", r.ExitCode)
+	}
+	return r.Output, nil
+}

@@ -77,6 +77,21 @@ message CmdProgress {
   bytes stdin = 4;
 }
 
+message InstallRequest {
+  repeated string args = 1;
+
+  // Streamed apk payload
+  bytes payload = 2;
+
+  // apk size in bytes
+  uint32 apk_size = 3;
+}
+
+message InstallResponse {
+  uint32 exit_code = 1;
+  string output = 2;
+}
+
 message ForwardMessage {
   enum Kind {
     UNSET = 0;
@@ -103,6 +118,7 @@ message ForwardMessage {
   bool rebind = 5;
 }
 
+
 message VersionMessage {
   string version = 1;
 }
@@ -121,6 +137,9 @@ service Waterfall {
   // Exec expects a single initial CmdProgress message if stdin is not
   // being redirected. Otherwise Exec will read std from the stream.
   rpc Exec(stream CmdProgress) returns (stream CmdProgress);
+
+  // Installs install the streamed application on the remote device
+  rpc Install(stream InstallRequest) returns (InstallResponse);
 
   // Forward forwards the stream payload to the requested socket
   rpc Forward(stream ForwardMessage) returns (stream ForwardMessage);
