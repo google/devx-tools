@@ -326,7 +326,7 @@ func getVersion() (int, error) {
 	return strconv.Atoi(strings.Trim(string(out), "\r\n"))
 }
 
-// Installs installs the specified package on the device.
+// Install installs the specified package on the device.
 func (s *WaterfallServer) Install(rpc waterfall_grpc.Waterfall_InstallServer) error {
 	ctx := rpc.Context()
 
