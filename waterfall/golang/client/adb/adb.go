@@ -209,6 +209,13 @@ func installFn(ctx context.Context, cfn ClientFn, args []string) error {
 		return ParseError{}
 	}
 
+	path := args[len(args)-1]
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
 	conn, err := cfn()
 	if err != nil {
 		return err
@@ -216,49 +223,11 @@ func installFn(ctx context.Context, cfn ClientFn, args []string) error {
 	defer conn.Close()
 
 	c := waterfall_grpc.NewWaterfallClient(conn)
+	r, err := client.Install(ctx, c, f, args[:len(args)-1]...)
 
-	// If possible prefer streamed installs over normal installs.
-	// Normal installs require twice the amount of disk space given that apk is pushed to a temp location.
-	streamed := false
-	s, out, err := exeString(ctx, c, nil, "/system/bin/getprop", "ro.build.version.sdk")
-	if err == nil && s == 0 {
-		a, err := strconv.Atoi(strings.Trim(out, "\r\n"))
-		streamed = err == nil && a >= 21
-	}
-
-	path := args[len(args)-1]
-	if streamed {
-		fmt.Println("Doing streamed install ...")
-		fi, err := os.Stat(path)
-		if err != nil {
-			return err
-		}
-		_, out, err = shellString(ctx, c, nil, "pm", append([]string{"install-create"}, args[1:len(args)-1]...)...)
-		if err != nil {
-			return err
-		}
-
-		f, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-
-		session := out[strings.Index(out, "[")+1 : strings.Index(out, "]")]
-		_, _, err = shellString(ctx, c, f, "pm", "install-write", "-S", fmt.Sprintf("%d", fi.Size()), session, "-")
-		if err != nil {
-			return err
-		}
-
-		return shellStdout(ctx, c, "pm", "install-commit", session)
-	}
-
-	tmp := filepath.Join("/data/local/tmp")
-	if err := client.Push(ctx, c, path, tmp); err != nil {
-		return err
-	}
-	defer exeStdout(ctx, c, "rm", "-f", filepath.Join(tmp, filepath.Base(path)))
-
-	return shellStdout(ctx, c, "/system/bin/pm", append(args[:len(args)-1], filepath.Join(tmp, filepath.Base(path)))...)
+	// Log output of install command as is
+	fmt.Printf(r)
+	return err
 }
 
 func parseFwd(addr string, reverse bool) (string, error) {

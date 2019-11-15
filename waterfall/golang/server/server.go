@@ -17,11 +17,14 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
-	"syscall"
+	"strconv"
+	"strings"
 
 	empty_pb "github.com/golang/protobuf/ptypes/empty"
 	"github.com/google/waterfall/golang/constants"
@@ -31,6 +34,21 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+)
+
+const (
+	tmpDir  = "/data/local/tmp"
+	sdkProp = "ro.build.version.sdk"
+	getProp = "/system/bin/getprop"
+
+	pmCmd          = "pm"
+	cmdCmd         = "cmd"
+	packageService = "package"
+
+	installCreate  = "install-create"
+	installWrite   = "install-write"
+	installCommit  = "install-commit"
+	installAbandon = "install-abandon"
 )
 
 // WaterfallServer implements the waterfall gRPC service
@@ -172,6 +190,16 @@ func (em execMessageReader) GetBytes(m interface{}) ([]byte, error) {
 	return msg.Stdin, nil
 }
 
+func exitCode(err error) (int, error) {
+	if err == nil {
+		return 0, nil
+	}
+	if errExit, ok := err.(*exec.ExitError); ok {
+		return errExit.ProcessState.ExitCode(), nil
+	}
+	return 0, err
+}
+
 // Exec forks a new process with the desired command and pipes its output to the gRPC stream
 func (s *WaterfallServer) Exec(rpc waterfall_grpc.Waterfall_ExecServer) error {
 
@@ -262,19 +290,163 @@ func (s *WaterfallServer) Exec(rpc waterfall_grpc.Waterfall_ExecServer) error {
 		return err
 	}
 
-	if err := cmd.Wait(); err != nil {
-		if exiterr, ok := err.(*exec.ExitError); ok {
-			if stat, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-				return rpc.Send(&waterfall_grpc.CmdProgress{
-					ExitCode: uint32(stat.ExitStatus())})
-			}
-			// the server always runs on android so the type assertion will aways succeed
-			panic("this never happens")
-		}
-		// we got some other kind of error
+	ec, err := exitCode(cmd.Wait())
+	if err != nil {
 		return err
 	}
-	return rpc.Send(&waterfall_grpc.CmdProgress{ExitCode: 0})
+	return rpc.Send(&waterfall_grpc.CmdProgress{ExitCode: uint32(ec)})
+}
+
+type installReader struct{}
+
+func (r installReader) BuildMsg() interface{} {
+	return new(waterfall_grpc.InstallRequest)
+}
+
+// SetBytes sets the meessage bytes.
+func (r installReader) GetBytes(m interface{}) ([]byte, error) {
+	msg, ok := m.(*waterfall_grpc.InstallRequest)
+	if !ok {
+		// this never happens
+		panic("incorrect type")
+	}
+	return msg.Payload, nil
+}
+
+func shell(ctx context.Context, args []string) *exec.Cmd {
+	return exec.CommandContext(ctx, "/system/bin/sh", "-c", strings.Join(args, " "))
+}
+
+func getVersion() (int, error) {
+	cmd := exec.Command(getProp, sdkProp)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return 0, err
+	}
+	return strconv.Atoi(strings.Trim(string(out), "\r\n"))
+}
+
+// Installs installs the specified package on the device.
+func (s *WaterfallServer) Install(rpc waterfall_grpc.Waterfall_InstallServer) error {
+	ctx := rpc.Context()
+
+	ins, err := rpc.Recv()
+	if err != nil {
+		return err
+	}
+
+	// Ignore the error, well just default to legacy install
+	api, _ := getVersion()
+
+	// 3 Possible cases:
+	// Streaming installations are not available (api < 21): use pm install with temp file
+	// Streaming installations are available with pm (21 <= api < 24): use pm streamed install
+	// Streaming installations are available with cmd (api >= 24): use cmd streamed install
+	streamed := false
+	useCmd := false
+	if api >= 21 {
+		streamed = true
+	}
+	if api >= 24 {
+		useCmd = true
+	}
+
+	payload := stream.NewReader(rpc, installReader{})
+	if !streamed {
+		f, err := ioutil.TempFile(tmpDir, "*.apk")
+		if err != nil {
+			return err
+		}
+		defer os.Remove(f.Name())
+		defer f.Close()
+
+		if _, err := io.Copy(f, payload); err != nil {
+			return err
+		}
+
+		if err := f.Chmod(os.ModePerm); err != nil {
+			return err
+		}
+
+		cmd := shell(ctx, append([]string{pmCmd}, append(ins.Args, f.Name())...))
+		o, err := cmd.CombinedOutput()
+		s, err := exitCode(err)
+		if err != nil {
+			return err
+		}
+
+		return rpc.SendAndClose(
+			&waterfall_grpc.InstallResponse{
+				ExitCode: uint32(s),
+				Output:   string(o)})
+	}
+
+	insCmd := []string{pmCmd}
+	if useCmd {
+		insCmd = []string{cmdCmd, packageService}
+	}
+
+	action := append(insCmd, installCreate)
+	cmd := shell(ctx, append(action, ins.Args[1:]...))
+	o, err := cmd.CombinedOutput()
+	ec, err := exitCode(err)
+	if err != nil {
+		return err
+	}
+
+	if ec != 0 {
+		return rpc.SendAndClose(
+			&waterfall_grpc.InstallResponse{
+				ExitCode: uint32(ec),
+				Output:   string(o)})
+	}
+
+	out := string(o)
+	ss := out[strings.Index(out, "[")+1 : strings.Index(out, "]")]
+
+	action = append(insCmd, installWrite)
+	cmd = shell(ctx, append(action, "-S", fmt.Sprintf("%d", ins.ApkSize), ss, "-"))
+	cmd.Stdin = payload
+
+	o, err = cmd.CombinedOutput()
+	ec, err = exitCode(err)
+	if err != nil {
+		fmt.Printf("write error %v\n", err)
+		shell(ctx, append(insCmd, installAbandon, ss)).Run()
+		return err
+	}
+
+	if ec != 0 {
+		// Ignore error we want to propagate first error
+		shell(ctx, append(insCmd, installAbandon, ss)).Run()
+		return rpc.SendAndClose(
+			&waterfall_grpc.InstallResponse{
+				ExitCode: uint32(ec),
+				Output:   string(o)})
+	}
+
+	action = append(insCmd, installCommit)
+	cmd = shell(ctx, append(action, ss))
+
+	o, err = cmd.CombinedOutput()
+	ec, err = exitCode(err)
+	if err != nil {
+		fmt.Printf("commit error %v\n", err)
+		// Ignore error we want to propagate first error
+		shell(ctx, append(insCmd, installAbandon, ss)).Run()
+		return err
+	}
+
+	if ec != 0 {
+		fmt.Printf("commit non zero code\n")
+		// Ignore error we want to propagate first error
+		shell(ctx, append(insCmd, installAbandon, ss)).Run()
+	}
+
+	return rpc.SendAndClose(
+		&waterfall_grpc.InstallResponse{
+			ExitCode: uint32(ec),
+			Output:   string(o)})
 }
 
 // Forward forwards the grpc stream to the requested port.
