@@ -301,6 +301,7 @@ func (w installWriter) SetBytes(m interface{}, b []byte) {
 	msg.Payload = b
 }
 
+// Install installs an app on the target device
 func Install(ctx context.Context, client waterfall_grpc.WaterfallClient, rdr *os.File, args ...string) (string, error) {
 
 	fi, err := rdr.Stat()
