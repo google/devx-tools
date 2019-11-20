@@ -348,7 +348,7 @@ func (s *WaterfallServer) Install(rpc waterfall_grpc.Waterfall_InstallServer) er
 	if api >= 21 {
 		streamed = true
 	}
-	if api >= 24 {
+	if api >= 25 {
 		useCmd = true
 	}
 
