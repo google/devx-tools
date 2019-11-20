@@ -45,6 +45,7 @@ const (
 	cmdCmd         = "cmd"
 	packageService = "package"
 
+	install        = "install"
 	installCreate  = "install-create"
 	installWrite   = "install-write"
 	installCommit  = "install-commit"
@@ -368,7 +369,7 @@ func (s *WaterfallServer) Install(rpc waterfall_grpc.Waterfall_InstallServer) er
 			return err
 		}
 
-		cmd := shell(ctx, append([]string{pmCmd}, append(ins.Args, f.Name())...))
+		cmd := shell(ctx, append([]string{pmCmd, install}, append(ins.Args, f.Name())...))
 		o, err := cmd.CombinedOutput()
 		s, err := exitCode(err)
 		if err != nil {
