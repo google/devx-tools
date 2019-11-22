@@ -314,8 +314,6 @@ func Install(ctx context.Context, client waterfall_grpc.WaterfallClient, rdr *os
 		return "", err
 	}
 
-	fmt.Printf("Installing apk with args %v and size %d\n", args, fi.Size())
-
 	// initializes the install session on the server
 	if err := istream.Send(
 		&waterfall_grpc.InstallRequest{
