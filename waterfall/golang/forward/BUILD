@@ -27,6 +27,13 @@ go_binary(
     deps = DEPS,
 )
 
+go_binary(
+    name = "forward_bin_darwin",
+    srcs = ["forward_bin.go"],
+    goos = "darwin",
+    deps = DEPS,
+)
+
 # Emulator binaries
 go_binary(
     name = "forward_bin_386",

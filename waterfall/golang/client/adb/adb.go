@@ -27,7 +27,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 
 	empty_pb "github.com/golang/protobuf/ptypes/empty"
 	"github.com/google/waterfall/golang/client"
@@ -118,7 +117,7 @@ func Fallback(args []string) {
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	cmd.SysProcAttr = &syscall.SysProcAttr{Pdeathsig: syscall.SIGTERM}
+	cmd.SysProcAttr = procAttrs
 
 	if err := cmd.Start(); err != nil {
 		log.Fatal(err)
@@ -126,9 +125,7 @@ func Fallback(args []string) {
 
 	if err := cmd.Wait(); err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
-			if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
-				os.Exit(status.ExitStatus())
-			}
+			os.Exit(exitErr.ExitCode())
 		}
 		log.Fatal(err)
 	}
