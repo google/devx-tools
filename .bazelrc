@@ -1,10 +1,4 @@
 # Base bazelrc for devx-tools
 
 # Backwards compatible flags
-build --incompatible_new_actions_api=false
-build --incompatible_disable_deprecated_attr_params=false
-build --incompatible_depset_is_not_iterable=false
-build --incompatible_no_support_tools_in_action_inputs=false
-build --incompatible_require_ctx_in_configure_features=false
-build --incompatible_string_join_requires_strings=false
 build --host_force_python=PY2

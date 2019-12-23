@@ -10,11 +10,11 @@ load(
 package(default_visibility = ["//visibility:public"])
 
 DEPS = [
-        ":forward",
-        "//waterfall/golang/mux",
-        "//waterfall/golang/net/qemu",
-        "//waterfall/golang/utils",
-        "@org_golang_x_sync//errgroup:go_default_library",
+    ":forward",
+    "//waterfall/golang/mux",
+    "//waterfall/golang/net/qemu",
+    "//waterfall/golang/utils",
+    "@org_golang_x_sync//errgroup:go_default_library",
 ]
 
 # Host binary
@@ -53,8 +53,8 @@ go_binary(
 go_binary(
     name = "forward_usb_bin",
     srcs = ["forward_usb_bin.go"],
+    cgo = True,
     goos = "linux",
-    cgo = "on",
     deps = DEPS + ["//waterfall/golang/aoa"],
 )
 
@@ -64,16 +64,16 @@ go_library(
         "forward.go",
         "stream.go",
     ],
+    importpath = "github.com/google/waterfall/golang/forward",
     deps = [
-        "//waterfall/golang/stream",
         "//waterfall/golang/adb",
         "//waterfall/golang/client",
         "//waterfall/golang/net/qemu",
+        "//waterfall/golang/stream",
         "//waterfall/proto:waterfall_go_grpc",
         "//waterfall/proto:waterfall_go_proto",
         "@org_golang_google_grpc//:go_default_library",
     ],
-    importpath = "github.com/google/waterfall/golang/forward",
 )
 
 go_test(
@@ -83,12 +83,12 @@ go_test(
         "stream.go",
         "stream_test.go",
     ],
+    importpath = "github.com/google/waterfall/golang/forward",
     deps = [
         "//waterfall/golang/stream",
         "//waterfall/proto:waterfall_go_grpc",
         "//waterfall/proto:waterfall_go_proto",
     ],
-    importpath = "github.com/google/waterfall/golang/forward",
 )
 
 # integration test for the forward binary
@@ -103,8 +103,8 @@ go_test(
     data = [
         "//waterfall/golang/forward:forward_bin",
     ],
-    deps = [
-        "//waterfall/golang/testutils:testutils",
-    ],
     importpath = "github.com/google/waterfall/golang/forward",
+    deps = [
+        "//waterfall/golang/testutils",
+    ],
 )
