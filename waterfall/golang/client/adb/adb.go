@@ -68,7 +68,7 @@ var (
 		"push":      pushFn,
 		"pull":      pullFn,
 		"forward":   forwardFn,
-		"bugreport": passthroughFn,
+		"bugreport": bugreportFn,
 		"logcat":    passthroughFn,
 		"install":   installFn,
 		"uninstall": uninstallFn,
@@ -356,6 +356,50 @@ func uninstallFn(ctx context.Context, cfn ClientFn, args []string) error {
 	defer conn.Close()
 
 	return shellStdout(ctx, waterfall_grpc.NewWaterfallClient(conn), "/system/bin/pm", args...)
+}
+
+func bugreportFn(ctx context.Context, cfn ClientFn, args []string) error {
+	conn, err := cfn()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	// bugreport [PATH]
+	if len(args) > 2 {
+		return ParseError{}
+	}
+
+	c := waterfall_grpc.NewWaterfallClient(conn)
+	if len(args) == 1 {
+		_, err = exeStdout(ctx, c, args[0], args[1:]...)
+		return err
+	}
+
+	_, out, err := exeString(ctx, c, nil, "/system/bin/bugreportz", "-v")
+	if err != nil || out == "" {
+		// bugreportz is not supported
+		// TODO(mauriciogg): print useful version
+		fmt.Println("bugreportz not supported")
+	}
+
+	so := bytes.NewBuffer([]byte{})
+	_, err = shellIO(ctx, c, so, nil, nil, "/system/bin/bugreportz")
+	if err != nil {
+		return err
+	}
+
+	oz := args[1]
+	if !strings.HasSuffix(oz, ".zip") {
+		oz += ".zip"
+	}
+
+	dp := strings.Split(so.String(), "OK:")
+	if len(dp) < 2 {
+		return fmt.Errorf("unable to parse bugreport zip output")
+	}
+
+	return client.Pull(ctx, c, strings.Trim(dp[1], "\n\r"), oz)
 }
 
 // ParseCommand parses the comand line args
