@@ -378,9 +378,8 @@ func bugreportFn(ctx context.Context, cfn ClientFn, args []string) error {
 
 	_, out, err := exeString(ctx, c, nil, "/system/bin/bugreportz", "-v")
 	if err != nil || out == "" {
-		// bugreportz is not supported
-		// TODO(mauriciogg): print useful version
-		fmt.Println("bugreportz not supported")
+		fmt.Println("Bugreportz not supported. Use adb bugreport to run legacy version.")
+		return nil
 	}
 
 	so := bytes.NewBuffer([]byte{})
