@@ -17,29 +17,6 @@ http_archive(
 
 load("@rules_jvm_external//:defs.bzl", "maven_install")
 
-# gRPC Java
-# Note that this needs to come before io_bazel_go_rules. Both depend on
-# protobuf and the version that io_bazel_rules_go depends on is broken for
-# java, so io_grpc_grpc_java needs to get the dep first.
-http_archive(
-    name = "io_grpc_grpc_java",
-    sha256 = "9bc289e861c6118623fcb931044d843183c31d0e4d53fc43c4a32b56d6bb87fa",
-    strip_prefix = "grpc-java-1.21.0",
-    urls = ["https://github.com/grpc/grpc-java/archive/v1.21.0.tar.gz"],
-)
-
-load("@io_grpc_grpc_java//:repositories.bzl", "grpc_java_repositories")
-
-grpc_java_repositories()
-
-http_archive(
-    name = "zlib",
-    build_file = "@com_google_protobuf//:third_party/zlib.BUILD",
-    sha256 = "629380c90a77b964d896ed37163f5c3a34f6e6d897311f1df2a7016355c45eff",
-    strip_prefix = "zlib-1.2.11",
-    urls = ["https://github.com/madler/zlib/archive/v1.2.11.tar.gz"],
-)
-
 http_archive(
     name = "com_google_protobuf",
     sha256 = "e8c7601439dbd4489fe5069c33d374804990a56c2f710e00227ee5d8fd650e67",
@@ -50,6 +27,37 @@ http_archive(
 load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 
 protobuf_deps()
+
+# gRPC Java
+# Note that this needs to come before io_bazel_go_rules. Both depend on
+# protobuf and the version that io_bazel_rules_go depends on is broken for
+# java, so io_grpc_grpc_java needs to get the dep first.
+http_archive(
+    name = "io_grpc_grpc_java",
+    sha256 = "0378bf29029c48ed55f0d2ec210fb539cf1fc76a54da3ce9ecfc458d1ad5cb2b",
+    strip_prefix = "grpc-java-1.26.0",
+    urls = ["https://github.com/grpc/grpc-java/archive/v1.26.0.tar.gz"],
+)
+
+load("@io_grpc_grpc_java//:repositories.bzl", "grpc_java_repositories")
+
+grpc_java_repositories()
+
+http_archive(
+    name = "rules_proto",
+    sha256 = "602e7161d9195e50246177e7c55b2f39950a9cf7366f74ed5f22fd45750cd208",
+    strip_prefix = "rules_proto-97d8af4dc474595af3900dd85cb3a29ad28cc313",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
+        "https://github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
+    ],
+)
+
+load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
+
+rules_proto_dependencies()
+
+rules_proto_toolchains()
 
 # Go toolchains
 http_archive(
@@ -132,8 +140,6 @@ maven_install(
         "com.google.code.findbugs:jsr305:3.0.2",
         "com.google.dagger:dagger:2.23.2",
         "com.google.dagger:dagger-compiler:2.23.2",
-        "io.grpc:grpc-all:1.16.1",
-        "io.grpc:grpc-testing:1.16.1",
         "javax.inject:javax.inject:1",
         "junit:junit:4.12",
         "org.apache.commons:commons-compress:1.10",
