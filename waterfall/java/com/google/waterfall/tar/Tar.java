@@ -23,10 +23,11 @@ public final class Tar {
 
   /**
    * Tar serializes a directory or a file into the provided output stream.
-   * @param src Absolute or relative path to file or directory. If directory is provided, the
-   * output will be organized under one directory.
-   * @param output
-   * @throws IOException
+   *
+   * @param src Absolute or relative path to file or directory. If directory is provided, the output
+   *     will be organized under one directory
+   * @param output tarred file/directory contents will be streamed here.
+   * @throws IOException if unable to read from src
    */
   public static void tar(String src, OutputStream output) throws IOException {
     Path base = Paths.get(src);
@@ -51,6 +52,23 @@ public final class Tar {
           }
         });
 
+    tarOutput.finish();
+  }
+
+  /**
+   * Tars byte array source as a single file into output stream.
+   *
+   * @param src Byte array contents of a file that should be tarred.
+   * @param output tarred file contents will be streamed here.
+   * @throws IOException if unable to tar contents.
+   */
+  public static void tarFile(byte[] src, OutputStream output) throws IOException {
+    TarArchiveOutputStream tarOutput = new TarArchiveOutputStream(output);
+    TarArchiveEntry entry = new TarArchiveEntry("bytefile");
+    entry.setSize(src.length);
+    tarOutput.putArchiveEntry(entry);
+    tarOutput.write(src);
+    tarOutput.closeArchiveEntry();
     tarOutput.finish();
   }
 
@@ -102,12 +120,35 @@ public final class Tar {
   }
 
   /**
+   * Untars a tar input stream consisting of a single file to provided output stream
+   *
+   * @param input an input stream that provides data that is serialized as a tar
+   * @param output contents of a single file in the tar will be streamed here
+   * @throws IOException if unable to read from tar
+   */
+  public static void untarFile(InputStream input, OutputStream output) throws IOException {
+    TarArchiveInputStream tarIn = new TarArchiveInputStream(input);
+    TarArchiveEntry tarEntry = tarIn.getNextTarEntry();
+    if (tarEntry.isFile()) {
+      ByteStreams.copy(tarIn, output);
+      output.close();
+    } else {
+      throw new TarRuntimeException("Trying to read a not-filelike object into a single stream.");
+    }
+    if (tarIn.getNextTarEntry() != null) {
+      throw new TarRuntimeException("Trying to read multiple files into a single byte stream!!");
+    }
+    tarIn.close();
+  }
+
+  /**
    * Untar a tar input stream to the provided output file or directory.
+   *
    * @param input An input stream that provides data that is serialized as a tar.
-   * @param dst Absolute or relative path to file or directory. If directory is provided, the
-   * output will be organized under that directory. If it is a file, the tar source must be a file
-   * and will replace whatever is at that destination.
-   * @throws IOException
+   * @param dst Absolute or relative path to file or directory. If directory is provided, the output
+   *     will be organized under that directory. If it is a file, the tar source must be a file and
+   *     will replace whatever is at that destination.
+   * @throws IOException if unable to write to destination.
    */
   public static void untar(InputStream input, String dst) throws IOException {
     TarArchiveInputStream tarIn = new TarArchiveInputStream(input);
@@ -140,7 +181,7 @@ public final class Tar {
           throw new IOException(String.format("Failed to create directory %s.", outputPath));
         }
       } else {
-        throw new RuntimeException("Unsupported tar entry: " + tarEntry);
+        throw new TarRuntimeException("Unsupported tar entry: " + tarEntry);
       }
 
       tarEntry = tarIn.getNextTarEntry();
@@ -174,8 +215,9 @@ public final class Tar {
         outputRootDir = dstFile.getParentFile();
         outputPath = Paths.get(dst);
       } else {
-        throw new RuntimeException(String.format(
-            "Tar source is a directory and destination file already exists '%s'", dst));
+        throw new TarRuntimeException(
+            String.format(
+                "Tar source is a directory and destination file already exists '%s'", dst));
       }
     } else {
       if(tarEntry.isDirectory()) {
@@ -216,6 +258,13 @@ public final class Tar {
       this.outputPath = output;
       this.outputRootDir = root;
       this.rootReplacement = rootReplace;
+    }
+  }
+
+  /** Generic runtime exception thrown by Tar. */
+  public static class TarRuntimeException extends RuntimeException {
+    TarRuntimeException(String msg) {
+      super(msg);
     }
   }
 }
