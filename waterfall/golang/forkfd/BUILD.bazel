@@ -9,10 +9,6 @@ load(
 package(default_visibility = ["//visibility:public"])
 
 go_binary(
-    name = "forkfd_arm64",
+    name = "forkfd",
     srcs = ["forkfd.go"],
-    goarch = "arm64",
-    goos = "linux",
-    pure = "on",
-    static = "on",
 )

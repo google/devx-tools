@@ -9,50 +9,17 @@ load(
 
 package(default_visibility = ["//visibility:public"])
 
-DEPS = [
-    ":forward",
-    "//waterfall/golang/mux",
-    "//waterfall/golang/net/qemu",
-    "//waterfall/golang/utils",
-    "@org_golang_x_sync//errgroup:go_default_library",
-]
-
 # Host binary
 go_binary(
     name = "forward_bin",
     srcs = ["forward_bin.go"],
-    goos = "linux",
-    pure = "on",
-    static = "on",
-    deps = DEPS,
-)
-
-go_binary(
-    name = "forward_bin_darwin",
-    srcs = ["forward_bin.go"],
-    goos = "darwin",
-    deps = DEPS,
-)
-
-# Emulator binaries
-go_binary(
-    name = "forward_bin_386",
-    srcs = ["forward_bin.go"],
-    goarch = "386",
-    goos = "linux",
-    pure = "on",
-    static = "on",
-    deps = DEPS,
-)
-
-go_binary(
-    name = "forward_bin_arm",
-    srcs = ["forward_bin.go"],
-    goarch = "arm",
-    goos = "linux",
-    pure = "on",
-    static = "on",
-    deps = DEPS,
+    deps = [
+        ":forward",
+        "//waterfall/golang/mux",
+        "//waterfall/golang/net/qemu",
+        "//waterfall/golang/utils",
+        "@org_golang_x_sync//errgroup:go_default_library",
+    ],
 )
 
 # USB host binary
@@ -61,8 +28,14 @@ go_binary(
     name = "forward_usb_bin",
     srcs = ["forward_usb_bin.go"],
     cgo = True,
-    goos = "linux",
-    deps = DEPS + ["//waterfall/golang/aoa"],
+    deps = [
+        ":forward",
+        "//waterfall/golang/aoa",
+        "//waterfall/golang/mux",
+        "//waterfall/golang/net/qemu",
+        "//waterfall/golang/utils",
+        "@org_golang_x_sync//errgroup:go_default_library",
+    ],
 )
 
 go_library(

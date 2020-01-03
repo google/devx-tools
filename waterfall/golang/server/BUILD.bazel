@@ -30,7 +30,7 @@ go_library(
     ],
 )
 
-DEPS = [
+BINARY_DEPS = [
     ":server",
     "//waterfall/golang/constants",
     "//waterfall/golang/stream",
@@ -45,6 +45,13 @@ DEPS = [
 ]
 
 go_binary(
+    name = "server_bin",
+    srcs = ["server_bin.go"],
+    deps = BINARY_DEPS,
+)
+
+# Build for emulator tests
+go_binary(
     name = "server_bin_386",
     srcs = ["server_bin.go"],
     # Attributes for an emulator binary
@@ -52,38 +59,5 @@ go_binary(
     goos = "linux",
     pure = "on",
     static = "on",
-    deps = DEPS,
-)
-
-go_binary(
-    name = "server_bin_amd64",
-    srcs = ["server_bin.go"],
-    # Attributes for an emulator binary
-    goarch = "amd64",
-    goos = "linux",
-    pure = "on",
-    static = "on",
-    deps = DEPS,
-)
-
-go_binary(
-    name = "server_bin_arm",
-    srcs = ["server_bin.go"],
-    # Attributes for a physical device
-    goarch = "arm",
-    goos = "linux",
-    pure = "on",
-    static = "on",
-    deps = DEPS,
-)
-
-go_binary(
-    name = "server_bin_arm64",
-    srcs = ["server_bin.go"],
-    # Attributes for a physical device
-    goarch = "arm64",
-    goos = "linux",
-    pure = "on",
-    static = "on",
-    deps = DEPS,
+    deps = BINARY_DEPS,
 )
