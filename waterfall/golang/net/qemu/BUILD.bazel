@@ -51,7 +51,7 @@ go_test(
     ],
     importpath = "github.com/google/waterfall/golang/net/qemu",
     deps = [
-        "//waterfall/golang/testutils:testutils",
+        "//waterfall/golang/testutils",
         "@org_golang_x_net//context:go_default_library",
         "@org_golang_x_sync//errgroup:go_default_library",
     ],
