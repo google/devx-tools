@@ -1,5 +1,6 @@
 package com.google.waterfall.client;
 
+import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -107,6 +108,18 @@ public final class WaterfallClientTest {
   }
 
   @Test
+  public void testPullFileBytes() throws Exception {
+    String src = pullFile.getPath();
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+    WaterfallImplBase server = TestServiceBuilders.getValidPullServerImpl(src);
+    serviceRegistry.addService(server);
+
+    client.pullFile(src, out).get();
+    assertThat(out.toString()).isEqualTo(FileTestHelper.SAMPLE_FILE_CONTENT);
+  }
+
+  @Test
   public void testPushFile() throws Exception {
     String src = pushFile.getPath();
     String dst = rootFolder.getRoot() + "/" + pushFile.getName();
@@ -157,6 +170,17 @@ public final class WaterfallClientTest {
     serviceRegistry.addService(serverWithError);
 
     assertThrows(ExecutionException.class, () -> client.push(src, dst).get());
+  }
+
+  @Test
+  public void testPushBytes() throws Exception {
+    String dst = rootFolder.getRoot() + "/" + pushFile.getName();
+
+    WaterfallImplBase server = TestServiceBuilders.getValidPushServerImpl(dst);
+    serviceRegistry.addService(server);
+
+    client.pushBytes(FileTestHelper.SAMPLE_FILE_CONTENT.getBytes(UTF_8), dst).get();
+    assertTrue(FileTestHelper.fileContentEquals(dst, FileTestHelper.SAMPLE_FILE_CONTENT));
   }
 
   @Test

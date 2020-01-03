@@ -1,10 +1,13 @@
 package com.google.waterfall.tar;
 
+import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import com.google.waterfall.helpers.FileTestHelper;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -111,5 +114,17 @@ public class TarTest {
     try(FileOutputStream fos = new FileOutputStream(new File(dst))) {
       assertThrows(IOException.class, () -> Tar.tar(src, fos));
     }
+  }
+
+  @Test
+  public void testTarBytes() throws Exception {
+    ByteArrayOutputStream output = new ByteArrayOutputStream();
+    Tar.tarFile("hello".getBytes(UTF_8), output);
+
+    ByteArrayInputStream in = new ByteArrayInputStream(output.toByteArray());
+    ByteArrayOutputStream result = new ByteArrayOutputStream();
+    Tar.untarFile(in, result);
+
+    assertThat(result.toString()).isEqualTo("hello");
   }
 }
