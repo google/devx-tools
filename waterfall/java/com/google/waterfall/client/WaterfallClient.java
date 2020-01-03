@@ -51,12 +51,10 @@ import java.util.concurrent.TimeUnit;
  * */
 public class WaterfallClient {
   private static final int PIPE_BUFFER_SIZE = 256 * 1024;
-  private static final int LISTENER_CONCURRENCY = 2;
   private static final int SHUTDOWN_TIMEOUT_SECONDS = 1;
 
   private final WaterfallStub asyncStub;
   private final ManagedChannel channel;
-
   private final ListeningExecutorService executorService;
   private final boolean shouldCleanupExecutorService;
 
@@ -117,11 +115,6 @@ public class WaterfallClient {
       }
       return new WaterfallClient(channelBuilder, executorService, shouldCleanupExecutorService);
     }
-  }
-
-  /** @return executor service with limited concurrency */
-  private static ListeningExecutorService newListeners() {
-    return MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(LISTENER_CONCURRENCY));
   }
 
   /**
