@@ -220,7 +220,7 @@ func installFn(ctx context.Context, cfn ClientFn, args []string) error {
 	defer conn.Close()
 
 	c := waterfall_grpc.NewWaterfallClient(conn)
-	r, err := client.Install(ctx, c, f, args[:len(args)-1]...)
+	r, err := client.Install(ctx, c, f, args[1:len(args)-1]...)
 
 	// Log output of install command as is
 	fmt.Printf(r)
