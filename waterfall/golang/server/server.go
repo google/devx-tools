@@ -369,7 +369,7 @@ func (s *WaterfallServer) Install(rpc waterfall_grpc.Waterfall_InstallServer) er
 			return err
 		}
 
-		cmd := shell(ctx, append([]string{pmCmd, install}, append(ins.Args, f.Name())...))
+		cmd := shell(ctx, append([]string{pmCmd, install}, append(ins.Args[1:], f.Name())...))
 		o, err := cmd.CombinedOutput()
 		s, err := exitCode(err)
 		if err != nil {
@@ -388,7 +388,7 @@ func (s *WaterfallServer) Install(rpc waterfall_grpc.Waterfall_InstallServer) er
 	}
 
 	action := append(insCmd, installCreate)
-	cmd := shell(ctx, append(action, ins.Args...))
+	cmd := shell(ctx, append(action, ins.Args[1:]...))
 	o, err := cmd.CombinedOutput()
 	ec, err := exitCode(err)
 	if err != nil {
