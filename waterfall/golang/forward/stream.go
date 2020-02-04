@@ -18,7 +18,7 @@ import (
 	"io"
 
 	"github.com/google/waterfall/golang/stream"
-	waterfall_grpc "github.com/google/waterfall/proto/waterfall_go_grpc"
+	waterfall_grpc_pb "github.com/google/waterfall/proto/waterfall_go_grpc"
 )
 
 // StreamForwarder provides a mechanism to forward bytes between a stream and a connection.
@@ -31,17 +31,17 @@ type forwardMsg struct{}
 
 // BuildMsg returns a new message that can be sent through a forwarding stream.
 func (fm forwardMsg) BuildMsg() interface{} {
-	return new(waterfall_grpc.ForwardMessage)
+	return new(waterfall_grpc_pb.ForwardMessage)
 }
 
 // GetBytes reads the bytes from the message.
 func (fm forwardMsg) GetBytes(m interface{}) ([]byte, error) {
-	msg, ok := m.(*waterfall_grpc.ForwardMessage)
+	msg, ok := m.(*waterfall_grpc_pb.ForwardMessage)
 	if !ok {
 		// this never happens
 		panic("incorrect type")
 	}
-	if msg.Op == waterfall_grpc.ForwardMessage_CLOSE {
+	if msg.Op == waterfall_grpc_pb.ForwardMessage_CLOSE {
 		return nil, io.EOF
 	}
 	return msg.Payload, nil
@@ -49,7 +49,7 @@ func (fm forwardMsg) GetBytes(m interface{}) ([]byte, error) {
 
 // SetBytes sets the meessage bytes.
 func (fm forwardMsg) SetBytes(m interface{}, b []byte) {
-	msg, ok := m.(*waterfall_grpc.ForwardMessage)
+	msg, ok := m.(*waterfall_grpc_pb.ForwardMessage)
 	if !ok {
 		// this never happens
 		panic("incorrect type")
@@ -60,7 +60,7 @@ func (fm forwardMsg) SetBytes(m interface{}, b []byte) {
 
 // CloseMsg returns a new message to notify the other side that the stream is closed.
 func (fm forwardMsg) CloseMsg() interface{} {
-	return &waterfall_grpc.ForwardMessage{Op: waterfall_grpc.ForwardMessage_CLOSE}
+	return &waterfall_grpc_pb.ForwardMessage{Op: waterfall_grpc_pb.ForwardMessage_CLOSE}
 }
 
 // NewStreamForwarder returns a new stream <-> conn forwarder.

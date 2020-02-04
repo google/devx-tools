@@ -29,7 +29,7 @@ import (
 	"github.com/google/waterfall/golang/adb"
 	"github.com/google/waterfall/golang/client"
 	"github.com/google/waterfall/golang/net/qemu"
-	waterfall_grpc "github.com/google/waterfall/proto/waterfall_go_grpc"
+	waterfall_grpc_pb "github.com/google/waterfall/proto/waterfall_go_grpc"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 )
@@ -78,7 +78,7 @@ func pingServer(ctx context.Context, addr string, timeout time.Duration) error {
 		return err
 	}
 
-	wc := waterfall_grpc.NewWaterfallClient(cc)
+	wc := waterfall_grpc_pb.NewWaterfallClient(cc)
 	r, err := client.Echo(ctx, wc, []byte(helloMsg))
 	if err != nil {
 		return err

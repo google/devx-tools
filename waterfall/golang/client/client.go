@@ -24,12 +24,12 @@ import (
 	"path/filepath"
 
 	"github.com/google/waterfall/golang/stream"
-	waterfall_grpc "github.com/google/waterfall/proto/waterfall_go_grpc"
+	waterfall_grpc_pb "github.com/google/waterfall/proto/waterfall_go_grpc"
 	"golang.org/x/sync/errgroup"
 )
 
 // Echo streams back the contents of the request. Useful for testing the connection.
-func Echo(ctx context.Context, client waterfall_grpc.WaterfallClient, r []byte) ([]byte, error) {
+func Echo(ctx context.Context, client waterfall_grpc_pb.WaterfallClient, r []byte) ([]byte, error) {
 	stream, err := client.Echo(ctx)
 	if err != nil {
 		return nil, err
@@ -54,7 +54,7 @@ func Echo(ctx context.Context, client waterfall_grpc.WaterfallClient, r []byte) 
 		for {
 			n, err := send.Read(b)
 			if n > 0 {
-				p := &waterfall_grpc.Message{Payload: b[0:n]}
+				p := &waterfall_grpc_pb.Message{Payload: b[0:n]}
 				if err := stream.Send(p); err != nil {
 					return err
 				}
@@ -75,7 +75,7 @@ func Echo(ctx context.Context, client waterfall_grpc.WaterfallClient, r []byte) 
 }
 
 // Push pushes a tar stream to the server running in the device.
-func Push(ctx context.Context, client waterfall_grpc.WaterfallClient, src, dst string) error {
+func Push(ctx context.Context, client waterfall_grpc_pb.WaterfallClient, src, dst string) error {
 	r, w := io.Pipe()
 	defer r.Close()
 
@@ -92,7 +92,7 @@ func Push(ctx context.Context, client waterfall_grpc.WaterfallClient, src, dst s
 	return eg.Wait()
 }
 
-func pushTar(ctx context.Context, eg *errgroup.Group, client waterfall_grpc.WaterfallClient, r *io.PipeReader, dst string) error {
+func pushTar(ctx context.Context, eg *errgroup.Group, client waterfall_grpc_pb.WaterfallClient, r *io.PipeReader, dst string) error {
 	rpc, err := client.Push(ctx)
 	if err != nil {
 		return err
@@ -106,7 +106,7 @@ func pushTar(ctx context.Context, eg *errgroup.Group, client waterfall_grpc.Wate
 			}
 
 			if n > 0 {
-				xfer := &waterfall_grpc.Transfer{Path: dst, Payload: buff[0:n]}
+				xfer := &waterfall_grpc_pb.Transfer{Path: dst, Payload: buff[0:n]}
 				if err := rpc.Send(xfer); err != nil {
 					return err
 				}
@@ -129,7 +129,7 @@ func pushTar(ctx context.Context, eg *errgroup.Group, client waterfall_grpc.Wate
 }
 
 // PushBytes pushes src reader contents to a dst filepath on device.
-func PushBytes(ctx context.Context, client waterfall_grpc.WaterfallClient, srcBytes []byte, dst string) error {
+func PushBytes(ctx context.Context, client waterfall_grpc_pb.WaterfallClient, srcBytes []byte, dst string) error {
 	r, w := io.Pipe()
 	defer r.Close()
 
@@ -147,7 +147,7 @@ func PushBytes(ctx context.Context, client waterfall_grpc.WaterfallClient, srcBy
 }
 
 // Pull request a file/directory from the device and unpacks the contents into the desired path.
-func Pull(ctx context.Context, client waterfall_grpc.WaterfallClient, src, dst string) error {
+func Pull(ctx context.Context, client waterfall_grpc_pb.WaterfallClient, src, dst string) error {
 	if _, err := os.Stat(filepath.Dir(dst)); err != nil {
 		return err
 	}
@@ -165,8 +165,8 @@ func Pull(ctx context.Context, client waterfall_grpc.WaterfallClient, src, dst s
 	return eg.Wait()
 }
 
-func pullStream(ctx context.Context, client waterfall_grpc.WaterfallClient, eg *errgroup.Group, w *io.PipeWriter, src string) error {
-	xstream, err := client.Pull(ctx, &waterfall_grpc.Transfer{Path: src})
+func pullStream(ctx context.Context, client waterfall_grpc_pb.WaterfallClient, eg *errgroup.Group, w *io.PipeWriter, src string) error {
+	xstream, err := client.Pull(ctx, &waterfall_grpc_pb.Transfer{Path: src})
 	if err != nil {
 		return err
 	}
@@ -189,7 +189,7 @@ func pullStream(ctx context.Context, client waterfall_grpc.WaterfallClient, eg *
 }
 
 // PullBytes requests contents of a single src file from the device and provides it on dst writer.
-func PullBytes(ctx context.Context, client waterfall_grpc.WaterfallClient, dst io.Writer, src string) error {
+func PullBytes(ctx context.Context, client waterfall_grpc_pb.WaterfallClient, dst io.Writer, src string) error {
 	r, w := io.Pipe()
 	eg := &errgroup.Group{}
 	if err := pullStream(ctx, client, eg, w, src); err != nil {
@@ -207,12 +207,12 @@ type execMessageWriter struct{}
 
 // BuildMsg returns a reference to a new CmdProgress struct.
 func (em execMessageWriter) BuildMsg() interface{} {
-	return new(waterfall_grpc.CmdProgress)
+	return new(waterfall_grpc_pb.CmdProgress)
 }
 
 // SetBytes writes the payload b to stdin.
 func (em execMessageWriter) SetBytes(m interface{}, b []byte) {
-	msg, ok := m.(*waterfall_grpc.CmdProgress)
+	msg, ok := m.(*waterfall_grpc_pb.CmdProgress)
 	if !ok {
 		// this never happens
 		panic("incorrect type")
@@ -223,7 +223,7 @@ func (em execMessageWriter) SetBytes(m interface{}, b []byte) {
 }
 
 // Exec executes the requested command on the device. Semantics are the same as execve.
-func Exec(ctx context.Context, client waterfall_grpc.WaterfallClient, stdout, stderr io.Writer, stdin io.Reader, cmd string, args ...string) (int, error) {
+func Exec(ctx context.Context, client waterfall_grpc_pb.WaterfallClient, stdout, stderr io.Writer, stdin io.Reader, cmd string, args ...string) (int, error) {
 	xstream, err := client.Exec(ctx)
 	if err != nil {
 		return 0, err
@@ -231,8 +231,8 @@ func Exec(ctx context.Context, client waterfall_grpc.WaterfallClient, stdout, st
 
 	// initializes the command execution on the server
 	if err := xstream.Send(
-		&waterfall_grpc.CmdProgress{
-			Cmd: &waterfall_grpc.Cmd{Path: cmd,
+		&waterfall_grpc_pb.CmdProgress{
+			Cmd: &waterfall_grpc_pb.Cmd{Path: cmd,
 				Args:   args,
 				PipeIn: stdin != nil}}); err != nil {
 		return 0, err
@@ -254,7 +254,7 @@ func Exec(ctx context.Context, client waterfall_grpc.WaterfallClient, stdout, st
 		}
 	}
 
-	var last *waterfall_grpc.CmdProgress
+	var last *waterfall_grpc_pb.CmdProgress
 	for {
 		pgrs, err := xstream.Recv()
 		if err != nil {
@@ -288,12 +288,12 @@ type installWriter struct{}
 
 // BuildMsg returns a reference to a new InstallRequest struct.
 func (w installWriter) BuildMsg() interface{} {
-	return new(waterfall_grpc.InstallRequest)
+	return new(waterfall_grpc_pb.InstallRequest)
 }
 
 // SetBytes writes the payload b to stdin.
 func (w installWriter) SetBytes(m interface{}, b []byte) {
-	msg, ok := m.(*waterfall_grpc.InstallRequest)
+	msg, ok := m.(*waterfall_grpc_pb.InstallRequest)
 	if !ok {
 		// this never happens
 		panic("incorrect type")
@@ -302,7 +302,7 @@ func (w installWriter) SetBytes(m interface{}, b []byte) {
 }
 
 // Install installs an app on the target device
-func Install(ctx context.Context, client waterfall_grpc.WaterfallClient, rdr *os.File, args ...string) (string, error) {
+func Install(ctx context.Context, client waterfall_grpc_pb.WaterfallClient, rdr *os.File, args ...string) (string, error) {
 
 	fi, err := rdr.Stat()
 	if err != nil {
@@ -316,7 +316,7 @@ func Install(ctx context.Context, client waterfall_grpc.WaterfallClient, rdr *os
 
 	// initializes the install session on the server
 	if err := istream.Send(
-		&waterfall_grpc.InstallRequest{
+		&waterfall_grpc_pb.InstallRequest{
 			Args: args, ApkSize: uint32(fi.Size())}); err != nil {
 		return "", err
 	}

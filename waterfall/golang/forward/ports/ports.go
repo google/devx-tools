@@ -29,7 +29,7 @@ import (
 
 	empty_pb "github.com/golang/protobuf/ptypes/empty"
 	"github.com/google/waterfall/golang/forward"
-	waterfall_grpc "github.com/google/waterfall/proto/waterfall_go_grpc"
+	waterfall_grpc_pb "github.com/google/waterfall/proto/waterfall_go_grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -43,13 +43,13 @@ type forwardSession struct {
 
 // PortForwarder manages port forwarding sessions.
 type PortForwarder struct {
-	client        waterfall_grpc.WaterfallClient
+	client        waterfall_grpc_pb.WaterfallClient
 	sessions      map[string]*forwardSession
 	sessionsMutex *sync.Mutex
 }
 
 // NewServer returns a new PortForwarder server.
-func NewServer(client waterfall_grpc.WaterfallClient) *PortForwarder {
+func NewServer(client waterfall_grpc_pb.WaterfallClient) *PortForwarder {
 	return &PortForwarder{
 		client:        client,
 		sessions:      make(map[string]*forwardSession),
@@ -65,7 +65,7 @@ func parseAddr(addr string) (string, string, error) {
 	return pts[0], pts[1], nil
 }
 
-func makeForwarder(ctx context.Context, c waterfall_grpc.WaterfallClient, addr string, from net.Conn) (*forward.StreamForwarder, error) {
+func makeForwarder(ctx context.Context, c waterfall_grpc_pb.WaterfallClient, addr string, from net.Conn) (*forward.StreamForwarder, error) {
 	kind, addr, err := parseAddr(addr)
 	if err != nil {
 		return nil, err
@@ -76,17 +76,17 @@ func makeForwarder(ctx context.Context, c waterfall_grpc.WaterfallClient, addr s
 		return nil, err
 	}
 
-	var ntwk waterfall_grpc.ForwardMessage_Kind
+	var ntwk waterfall_grpc_pb.ForwardMessage_Kind
 	switch kind {
 	case "tcp":
-		ntwk = waterfall_grpc.ForwardMessage_TCP
+		ntwk = waterfall_grpc_pb.ForwardMessage_TCP
 	case "udp":
-		ntwk = waterfall_grpc.ForwardMessage_UDP
+		ntwk = waterfall_grpc_pb.ForwardMessage_UDP
 	case "unix":
-		ntwk = waterfall_grpc.ForwardMessage_UNIX
+		ntwk = waterfall_grpc_pb.ForwardMessage_UNIX
 	}
 
-	if err := rpc.Send(&waterfall_grpc.ForwardMessage{Kind: ntwk, Addr: addr}); err != nil {
+	if err := rpc.Send(&waterfall_grpc_pb.ForwardMessage{Kind: ntwk, Addr: addr}); err != nil {
 		return nil, err
 	}
 
@@ -94,7 +94,7 @@ func makeForwarder(ctx context.Context, c waterfall_grpc.WaterfallClient, addr s
 }
 
 // ForwardPort starts forwarding the desired port.
-func (pf *PortForwarder) ForwardPort(ctx context.Context, req *waterfall_grpc.PortForwardRequest) (*empty_pb.Empty, error) {
+func (pf *PortForwarder) ForwardPort(ctx context.Context, req *waterfall_grpc_pb.PortForwardRequest) (*empty_pb.Empty, error) {
 	pf.sessionsMutex.Lock()
 	defer pf.sessionsMutex.Unlock()
 
@@ -157,7 +157,7 @@ func (pf *PortForwarder) ForwardPort(ctx context.Context, req *waterfall_grpc.Po
 }
 
 // Stop stops a forwarding session killing all inflight connections.
-func (pf *PortForwarder) Stop(ctx context.Context, req *waterfall_grpc.PortForwardRequest) (*empty_pb.Empty, error) {
+func (pf *PortForwarder) Stop(ctx context.Context, req *waterfall_grpc_pb.PortForwardRequest) (*empty_pb.Empty, error) {
 	pf.sessionsMutex.Lock()
 	defer pf.sessionsMutex.Unlock()
 
@@ -190,10 +190,10 @@ func (pf *PortForwarder) StopAll(ctx context.Context, req *empty_pb.Empty) (*emp
 }
 
 // List returns a list of all the currently forwarded connections.
-func (pf *PortForwarder) List(ctx context.Context, req *empty_pb.Empty) (*waterfall_grpc.ForwardedSessions, error) {
-	ss := []*waterfall_grpc.ForwardSession{}
+func (pf *PortForwarder) List(ctx context.Context, req *empty_pb.Empty) (*waterfall_grpc_pb.ForwardedSessions, error) {
+	ss := []*waterfall_grpc_pb.ForwardSession{}
 	for _, s := range pf.sessions {
-		ss = append(ss, &waterfall_grpc.ForwardSession{Src: s.src, Dst: s.dst})
+		ss = append(ss, &waterfall_grpc_pb.ForwardSession{Src: s.src, Dst: s.dst})
 	}
-	return &waterfall_grpc.ForwardedSessions{Sessions: ss}, nil
+	return &waterfall_grpc_pb.ForwardedSessions{Sessions: ss}, nil
 }

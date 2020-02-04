@@ -21,7 +21,7 @@ import (
 	"net"
 	"testing"
 
-	waterfall_grpc "github.com/google/waterfall/proto/waterfall_go_grpc"
+	waterfall_grpc_pb "github.com/google/waterfall/proto/waterfall_go_grpc"
 )
 
 const numMsgs = 250000
@@ -29,13 +29,13 @@ const numMsgs = 250000
 // chanStream simulates a grpc stream.
 // msgIn and msgOut are used by the test to feed and extract the forwarded messages.
 type chanStream struct {
-	msgIn  chan *waterfall_grpc.ForwardMessage
-	msgOut chan *waterfall_grpc.ForwardMessage
+	msgIn  chan *waterfall_grpc_pb.ForwardMessage
+	msgOut chan *waterfall_grpc_pb.ForwardMessage
 }
 
 // SendMsg writes the msg to the stream channel.
 func (b *chanStream) SendMsg(m interface{}) error {
-	msg := m.(*waterfall_grpc.ForwardMessage)
+	msg := m.(*waterfall_grpc_pb.ForwardMessage)
 
 	bs := make([]byte, len(msg.Payload))
 	copy(bs, msg.Payload)
@@ -47,7 +47,7 @@ func (b *chanStream) SendMsg(m interface{}) error {
 
 // RecvMsg reads a msg from the stream channel.
 func (b *chanStream) RecvMsg(m interface{}) error {
-	msg := m.(*waterfall_grpc.ForwardMessage)
+	msg := m.(*waterfall_grpc_pb.ForwardMessage)
 	*msg = *<-b.msgIn
 	return nil
 }
@@ -81,8 +81,8 @@ func TestStreamForward(t *testing.T) {
 	}
 	defer conn.Close()
 
-	in := make(chan *waterfall_grpc.ForwardMessage, 1)
-	out := make(chan *waterfall_grpc.ForwardMessage, 1)
+	in := make(chan *waterfall_grpc_pb.ForwardMessage, 1)
+	out := make(chan *waterfall_grpc_pb.ForwardMessage, 1)
 
 	sf := NewStreamForwarder(&chanStream{msgIn: in, msgOut: out}, conn.(*net.TCPConn))
 
@@ -100,22 +100,22 @@ func TestStreamForward(t *testing.T) {
 			r := make([]byte, 2048)
 			// rand always reads full and never returns errors.
 			rand.Read(r)
-			in <- &waterfall_grpc.ForwardMessage{
-				Op:      waterfall_grpc.ForwardMessage_FWD,
+			in <- &waterfall_grpc_pb.ForwardMessage{
+				Op:      waterfall_grpc_pb.ForwardMessage_FWD,
 				Payload: r}
 			// Ok to ignore errors here as weell
 			sent.Write(r)
 		}
 
-		in <- &waterfall_grpc.ForwardMessage{
-			Op: waterfall_grpc.ForwardMessage_CLOSE}
+		in <- &waterfall_grpc_pb.ForwardMessage{
+			Op: waterfall_grpc_pb.ForwardMessage_CLOSE}
 	}()
 
 	total := 0
 	dd := make(chan struct{})
 	go func() {
 		for m := range out {
-			if m.Op == waterfall_grpc.ForwardMessage_CLOSE {
+			if m.Op == waterfall_grpc_pb.ForwardMessage_CLOSE {
 				break
 			}
 			recv.Write(m.Payload)
