@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	"github.com/google/waterfall/golang/forward/ports"
-	waterfall_grpc "github.com/google/waterfall/proto/waterfall_go_grpc"
+	waterfall_grpc_pb "github.com/google/waterfall/proto/waterfall_go_grpc"
 	"google.golang.org/grpc"
 )
 
@@ -59,7 +59,7 @@ func main() {
 	defer conn.Close()
 
 	grpcServer := grpc.NewServer()
-	waterfall_grpc.RegisterPortForwarderServer(grpcServer, ports.NewServer(waterfall_grpc.NewWaterfallClient(conn)))
+	waterfall_grpc_pb.RegisterPortForwarderServer(grpcServer, ports.NewServer(waterfall_grpc_pb.NewWaterfallClient(conn)))
 
 	log.Println("Forwarding ports ...")
 	grpcServer.Serve(lis)

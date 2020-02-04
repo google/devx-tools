@@ -13,13 +13,13 @@ import (
 	"time"
 
 	"github.com/google/waterfall/golang/stream"
-	waterfall_grpc "github.com/google/waterfall/proto/waterfall_go_grpc"
+	waterfall_grpc_pb "github.com/google/waterfall/proto/waterfall_go_grpc"
 	"google.golang.org/grpc"
 )
 
 // type server implements the waterfall grpc Multiplexer service.
 type server struct {
-	streamCh chan waterfall_grpc.Multiplexer_NewStreamServer
+	streamCh chan waterfall_grpc_pb.Multiplexer_NewStreamServer
 }
 
 // singletonListener implements a net.Listener that guarantees Accept is only ever called once.
@@ -60,7 +60,7 @@ func (sl *singletonListener) Addr() net.Addr {
 }
 
 // NewStream only purpose is to get a handle to the gRPC stream and send it over the stream channel.
-func (svr *server) NewStream(s waterfall_grpc.Multiplexer_NewStreamServer) error {
+func (svr *server) NewStream(s waterfall_grpc_pb.Multiplexer_NewStreamServer) error {
 	svr.streamCh <- s
 
 	// Block until the connection is closed
@@ -72,7 +72,7 @@ func (svr *server) NewStream(s waterfall_grpc.Multiplexer_NewStreamServer) error
 // Listener implements net.Listener multiplexed over a gRPC connection
 type Listener struct {
 	control *singletonListener
-	strms   chan waterfall_grpc.Multiplexer_NewStreamServer
+	strms   chan waterfall_grpc_pb.Multiplexer_NewStreamServer
 	svr     *grpc.Server
 }
 
@@ -110,10 +110,10 @@ func NewListener(f io.ReadWriteCloser) *Listener {
 	}
 	sl.connCh <- c
 
-	ss := make(chan waterfall_grpc.Multiplexer_NewStreamServer)
+	ss := make(chan waterfall_grpc_pb.Multiplexer_NewStreamServer)
 	gsvr := grpc.NewServer()
 	mux := &server{streamCh: ss}
-	waterfall_grpc.RegisterMultiplexerServer(gsvr, mux)
+	waterfall_grpc_pb.RegisterMultiplexerServer(gsvr, mux)
 
 	go func() {
 		gsvr.Serve(sl)
@@ -129,7 +129,7 @@ func NewListener(f io.ReadWriteCloser) *Listener {
 // ConnBuilder create new connections multiplexed throug gRPC.
 type ConnBuilder struct {
 	ctx    context.Context
-	client waterfall_grpc.MultiplexerClient
+	client waterfall_grpc_pb.MultiplexerClient
 	conn   *grpc.ClientConn
 }
 
@@ -144,7 +144,7 @@ func NewConnBuilder(ctx context.Context, rwc io.ReadWriteCloser) (*ConnBuilder, 
 	cc, err := grpc.Dial("", grpc.WithDialer(d), grpc.WithInsecure())
 	return &ConnBuilder{
 		ctx:    ctx,
-		client: waterfall_grpc.NewMultiplexerClient(cc),
+		client: waterfall_grpc_pb.NewMultiplexerClient(cc),
 		conn:   cc,
 	}, err
 }

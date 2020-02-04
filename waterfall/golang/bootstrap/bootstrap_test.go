@@ -32,7 +32,7 @@ import (
 	"github.com/google/waterfall/golang/testutils"
 	"google.golang.org/grpc"
 
-	waterfall_grpc "github.com/google/waterfall/proto/waterfall_go_grpc"
+	waterfall_grpc_pb "github.com/google/waterfall/proto/waterfall_go_grpc"
 )
 
 var (
@@ -76,7 +76,7 @@ func getProp(addr, prop string) (string, error) {
 		return "", err
 	}
 
-	wc := waterfall_grpc.NewWaterfallClient(cc)
+	wc := waterfall_grpc_pb.NewWaterfallClient(cc)
 	sOut := new(bytes.Buffer)
 	r, err := client.Exec(context.Background(), wc, sOut, ioutil.Discard, nil, "getprop", prop)
 	if err != nil {

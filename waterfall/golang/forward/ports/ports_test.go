@@ -26,7 +26,7 @@ import (
 	empty_pb "github.com/golang/protobuf/ptypes/empty"
 	"github.com/google/waterfall/golang/server"
 	"github.com/google/waterfall/golang/testutils"
-	waterfall_grpc "github.com/google/waterfall/proto/waterfall_go_grpc"
+	waterfall_grpc_pb "github.com/google/waterfall/proto/waterfall_go_grpc"
 	"google.golang.org/grpc"
 )
 
@@ -56,7 +56,7 @@ func runWaterfallServer(t *testing.T, addr string) {
 	defer lis.Close()
 
 	grpcServer := grpc.NewServer()
-	waterfall_grpc.RegisterWaterfallServer(grpcServer, new(server.WaterfallServer))
+	waterfall_grpc_pb.RegisterWaterfallServer(grpcServer, new(server.WaterfallServer))
 	grpcServer.Serve(lis)
 }
 
@@ -74,7 +74,7 @@ func runPortForwarderServer(t *testing.T, addr, wtf string) {
 	defer lis.Close()
 
 	grpcServer := grpc.NewServer()
-	waterfall_grpc.RegisterPortForwarderServer(grpcServer, NewServer(waterfall_grpc.NewWaterfallClient(conn)))
+	waterfall_grpc_pb.RegisterPortForwarderServer(grpcServer, NewServer(waterfall_grpc_pb.NewWaterfallClient(conn)))
 	grpcServer.Serve(lis)
 }
 
@@ -93,7 +93,7 @@ func waitForServer(addr string, attempts int) error {
 // 1) the waterfall server itself
 // 2) the port forwarder server that talks to waterfall
 // 3) an echo server to test forwarding is working as expected
-func setup(t *testing.T) (waterfall_grpc.PortForwarderClient, string) {
+func setup(t *testing.T) (waterfall_grpc_pb.PortForwarderClient, string) {
 	pe, err := testutils.PickUnusedPort()
 	if err != nil {
 		t.Fatal(err)
@@ -130,7 +130,7 @@ func setup(t *testing.T) (waterfall_grpc.PortForwarderClient, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return waterfall_grpc.NewPortForwarderClient(conn), echoAddr
+	return waterfall_grpc_pb.NewPortForwarderClient(conn), echoAddr
 }
 
 func rwTest(conn net.Conn, msg []byte) error {
@@ -161,13 +161,13 @@ func TestForwardPort(t *testing.T) {
 	src := fmt.Sprintf("tcp:%s", srcAddr)
 	dst := fmt.Sprintf("tcp:%s", echo)
 
-	s := &waterfall_grpc.ForwardSession{Src: src, Dst: dst}
+	s := &waterfall_grpc_pb.ForwardSession{Src: src, Dst: dst}
 	ctx := context.Background()
-	if _, err = c.ForwardPort(ctx, &waterfall_grpc.PortForwardRequest{Session: s}); err != nil {
+	if _, err = c.ForwardPort(ctx, &waterfall_grpc_pb.PortForwardRequest{Session: s}); err != nil {
 		t.Error(err)
 		return
 	}
-	defer c.Stop(ctx, &waterfall_grpc.PortForwardRequest{Session: s})
+	defer c.Stop(ctx, &waterfall_grpc_pb.PortForwardRequest{Session: s})
 
 	c1, err := net.Dial("tcp", srcAddr)
 	if err != nil {
@@ -207,17 +207,17 @@ func TestForwardPortRebind(t *testing.T) {
 	dst := fmt.Sprintf("tcp:%s", echo)
 
 	// Forward to a dummy port first
-	s := &waterfall_grpc.ForwardSession{Src: src, Dst: "tcp:foo"}
+	s := &waterfall_grpc_pb.ForwardSession{Src: src, Dst: "tcp:foo"}
 	ctx := context.Background()
-	if _, err = c.ForwardPort(ctx, &waterfall_grpc.PortForwardRequest{Session: s}); err != nil {
+	if _, err = c.ForwardPort(ctx, &waterfall_grpc_pb.PortForwardRequest{Session: s}); err != nil {
 		t.Error(err)
 		return
 	}
-	defer c.Stop(ctx, &waterfall_grpc.PortForwardRequest{Session: s})
+	defer c.Stop(ctx, &waterfall_grpc_pb.PortForwardRequest{Session: s})
 
 	// Rebind to a valid port and test we can talk to the server
 	s.Dst = dst
-	if _, err = c.ForwardPort(ctx, &waterfall_grpc.PortForwardRequest{Session: s, Rebind: true}); err != nil {
+	if _, err = c.ForwardPort(ctx, &waterfall_grpc_pb.PortForwardRequest{Session: s, Rebind: true}); err != nil {
 		t.Error(err)
 		return
 	}
@@ -246,15 +246,15 @@ func TestForwardPortNoRebind(t *testing.T) {
 	dst := fmt.Sprintf("tcp:%s", echo)
 
 	ctx := context.Background()
-	s := &waterfall_grpc.ForwardSession{Src: src, Dst: dst}
-	if _, err = c.ForwardPort(ctx, &waterfall_grpc.PortForwardRequest{Session: s}); err != nil {
+	s := &waterfall_grpc_pb.ForwardSession{Src: src, Dst: dst}
+	if _, err = c.ForwardPort(ctx, &waterfall_grpc_pb.PortForwardRequest{Session: s}); err != nil {
 		t.Error(err)
 		return
 	}
-	defer c.Stop(ctx, &waterfall_grpc.PortForwardRequest{Session: s})
+	defer c.Stop(ctx, &waterfall_grpc_pb.PortForwardRequest{Session: s})
 
 	s.Dst = "tcp:foo"
-	if _, err = c.ForwardPort(ctx, &waterfall_grpc.PortForwardRequest{Session: s, Rebind: false}); err == nil {
+	if _, err = c.ForwardPort(ctx, &waterfall_grpc_pb.PortForwardRequest{Session: s, Rebind: false}); err == nil {
 		t.Errorf("Was expecting error trying to rebind, but was successful.")
 		return
 	}
@@ -283,9 +283,9 @@ func TestStop(t *testing.T) {
 	src := fmt.Sprintf("tcp:%s", srcAddr)
 	dst := fmt.Sprintf("tcp:%s", echo)
 
-	s := &waterfall_grpc.ForwardSession{Src: src, Dst: dst}
+	s := &waterfall_grpc_pb.ForwardSession{Src: src, Dst: dst}
 	ctx := context.Background()
-	if _, err = c.ForwardPort(ctx, &waterfall_grpc.PortForwardRequest{Session: s}); err != nil {
+	if _, err = c.ForwardPort(ctx, &waterfall_grpc_pb.PortForwardRequest{Session: s}); err != nil {
 		t.Error(err)
 		return
 	}
@@ -297,7 +297,7 @@ func TestStop(t *testing.T) {
 	}
 	conn.Close()
 
-	if _, err := c.Stop(ctx, &waterfall_grpc.PortForwardRequest{Session: s}); err != nil {
+	if _, err := c.Stop(ctx, &waterfall_grpc_pb.PortForwardRequest{Session: s}); err != nil {
 		t.Error(err)
 		return
 	}
@@ -319,9 +319,9 @@ func TestStopAll(t *testing.T) {
 	src := fmt.Sprintf("tcp:%s", srcAddrA)
 	dst := fmt.Sprintf("tcp:%s", echo)
 
-	s := &waterfall_grpc.ForwardSession{Src: src, Dst: dst}
+	s := &waterfall_grpc_pb.ForwardSession{Src: src, Dst: dst}
 	ctx := context.Background()
-	if _, err = c.ForwardPort(ctx, &waterfall_grpc.PortForwardRequest{Session: s}); err != nil {
+	if _, err = c.ForwardPort(ctx, &waterfall_grpc_pb.PortForwardRequest{Session: s}); err != nil {
 		t.Error(err)
 		return
 	}
@@ -342,8 +342,8 @@ func TestStopAll(t *testing.T) {
 	src = fmt.Sprintf("tcp:%s", srcAddrB)
 	dst = fmt.Sprintf("tcp:%s", echo)
 
-	s = &waterfall_grpc.ForwardSession{Src: src, Dst: dst}
-	if _, err = c.ForwardPort(ctx, &waterfall_grpc.PortForwardRequest{Session: s}); err != nil {
+	s = &waterfall_grpc_pb.ForwardSession{Src: src, Dst: dst}
+	if _, err = c.ForwardPort(ctx, &waterfall_grpc_pb.PortForwardRequest{Session: s}); err != nil {
 		t.Error(err)
 		return
 	}
@@ -384,9 +384,9 @@ func TestList(t *testing.T) {
 
 	sessions[src] = dst
 
-	s := &waterfall_grpc.ForwardSession{Src: src, Dst: dst}
+	s := &waterfall_grpc_pb.ForwardSession{Src: src, Dst: dst}
 	ctx := context.Background()
-	if _, err = c.ForwardPort(ctx, &waterfall_grpc.PortForwardRequest{Session: s}); err != nil {
+	if _, err = c.ForwardPort(ctx, &waterfall_grpc_pb.PortForwardRequest{Session: s}); err != nil {
 		t.Error(err)
 		return
 	}
@@ -400,8 +400,8 @@ func TestList(t *testing.T) {
 
 	sessions[src] = dst
 
-	s = &waterfall_grpc.ForwardSession{Src: src, Dst: dst}
-	if _, err = c.ForwardPort(ctx, &waterfall_grpc.PortForwardRequest{Session: s}); err != nil {
+	s = &waterfall_grpc_pb.ForwardSession{Src: src, Dst: dst}
+	if _, err = c.ForwardPort(ctx, &waterfall_grpc_pb.PortForwardRequest{Session: s}); err != nil {
 		t.Error(err)
 		return
 	}

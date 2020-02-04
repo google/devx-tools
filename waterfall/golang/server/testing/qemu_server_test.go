@@ -35,7 +35,7 @@ import (
 	"github.com/google/waterfall/golang/client"
 	"github.com/google/waterfall/golang/net/qemu"
 	"github.com/google/waterfall/golang/testutils"
-	waterfall_grpc "github.com/google/waterfall/proto/waterfall_go_grpc"
+	waterfall_grpc_pb "github.com/google/waterfall/proto/waterfall_go_grpc"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 )
@@ -233,7 +233,7 @@ func TestConnection(t *testing.T) {
 			}
 			defer conn.Close()
 
-			k := waterfall_grpc.NewWaterfallClient(conn)
+			k := waterfall_grpc_pb.NewWaterfallClient(conn)
 			sent := testBytes(64 * 1024 * 1024)
 			rec, err := client.Echo(ctx, k, sent)
 
@@ -308,7 +308,7 @@ func TestConnectionWithSessionID(t *testing.T) {
 			return fmt.Errorf("GRPC Dial failed with error: %v", err)
 		}
 		defer conn.Close()
-		k := waterfall_grpc.NewWaterfallClient(conn)
+		k := waterfall_grpc_pb.NewWaterfallClient(conn)
 		sent := testBytes(64 * 1024 * 1024)
 		rec, err := client.Echo(ctx, k, sent)
 		if err != nil {
@@ -387,7 +387,7 @@ func TestPushPull(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	k := waterfall_grpc.NewWaterfallClient(conn)
+	k := waterfall_grpc_pb.NewWaterfallClient(conn)
 	deviceDir := "/data/local/tmp/zoo"
 	if err := client.Push(ctx, k, filepath.Join(td, testDir.path), deviceDir); err != nil {
 		t.Fatalf("failed push: %v", err)
@@ -471,7 +471,7 @@ func TestExec(t *testing.T) {
 	}
 	defer conn.Close()
 
-	k := waterfall_grpc.NewWaterfallClient(conn)
+	k := waterfall_grpc_pb.NewWaterfallClient(conn)
 
 	stdout := new(bytes.Buffer)
 	stderr := new(bytes.Buffer)
@@ -568,7 +568,7 @@ func TestExecPipeIn(t *testing.T) {
 	}
 	defer conn.Close()
 
-	k := waterfall_grpc.NewWaterfallClient(conn)
+	k := waterfall_grpc_pb.NewWaterfallClient(conn)
 
 	st := []string{"foo", "bar", "qux", "baz", "broom", "zoo", "tux", "12", "rust", "fox", "fux"}
 

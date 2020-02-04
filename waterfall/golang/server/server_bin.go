@@ -28,7 +28,7 @@ import (
 	"github.com/google/waterfall/golang/net/qemu"
 	"github.com/google/waterfall/golang/server"
 	"github.com/google/waterfall/golang/utils"
-	waterfall_grpc "github.com/google/waterfall/proto/waterfall_go_grpc"
+	waterfall_grpc_pb "github.com/google/waterfall/proto/waterfall_go_grpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	_ "google.golang.org/grpc/encoding/gzip"
@@ -131,7 +131,7 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer(options...)
-	waterfall_grpc.RegisterWaterfallServer(grpcServer, new(server.WaterfallServer))
+	waterfall_grpc_pb.RegisterWaterfallServer(grpcServer, new(server.WaterfallServer))
 
 	log.Println("Serving ...")
 	grpcServer.Serve(lis)

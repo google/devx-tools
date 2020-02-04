@@ -30,7 +30,7 @@ import (
 
 	empty_pb "github.com/golang/protobuf/ptypes/empty"
 	"github.com/google/waterfall/golang/client"
-	waterfall_grpc "github.com/google/waterfall/proto/waterfall_go_grpc"
+	waterfall_grpc_pb "github.com/google/waterfall/proto/waterfall_go_grpc"
 	"google.golang.org/grpc"
 )
 
@@ -132,28 +132,28 @@ func Fallback(args []string) {
 	os.Exit(0)
 }
 
-func exeStdout(ctx context.Context, c waterfall_grpc.WaterfallClient, cmd string, args ...string) (int, error) {
+func exeStdout(ctx context.Context, c waterfall_grpc_pb.WaterfallClient, cmd string, args ...string) (int, error) {
 	return client.Exec(ctx, c, os.Stdout, os.Stdout, nil, cmd, args...)
 }
 
-func exeString(ctx context.Context, c waterfall_grpc.WaterfallClient, in io.Reader, cmd string, args ...string) (int, string, error) {
+func exeString(ctx context.Context, c waterfall_grpc_pb.WaterfallClient, in io.Reader, cmd string, args ...string) (int, string, error) {
 	b := bytes.NewBuffer([]byte{})
 	s, err := client.Exec(ctx, c, b, b, in, cmd, args...)
 	return s, b.String(), err
 }
 
-func shellStdout(ctx context.Context, c waterfall_grpc.WaterfallClient, cmd string, args ...string) error {
+func shellStdout(ctx context.Context, c waterfall_grpc_pb.WaterfallClient, cmd string, args ...string) error {
 	_, err := shellIO(ctx, c, os.Stdout, os.Stdout, nil, cmd, args...)
 	return err
 }
 
-func shellString(ctx context.Context, c waterfall_grpc.WaterfallClient, in io.Reader, cmd string, args ...string) (int, string, error) {
+func shellString(ctx context.Context, c waterfall_grpc_pb.WaterfallClient, in io.Reader, cmd string, args ...string) (int, string, error) {
 	b := bytes.NewBuffer([]byte{})
 	s, err := shellIO(ctx, c, b, b, in, cmd, args...)
 	return s, b.String(), err
 }
 
-func shellIO(ctx context.Context, c waterfall_grpc.WaterfallClient, stdout io.Writer, stderr io.Writer, stdin io.Reader, cmd string, args ...string) (int, error) {
+func shellIO(ctx context.Context, c waterfall_grpc_pb.WaterfallClient, stdout io.Writer, stderr io.Writer, stdin io.Reader, cmd string, args ...string) (int, error) {
 	s, err := client.Exec(ctx, c, stdout, stderr, stdin, "/system/bin/sh", "-c", fmt.Sprintf("%s %s", cmd, strings.Join(args, " ")))
 	propagateStatusCode(s)
 	return s, err
@@ -170,7 +170,7 @@ func shellFn(ctx context.Context, cfn ClientFn, args []string) error {
 		return err
 	}
 	defer conn.Close()
-	return shellStdout(ctx, waterfall_grpc.NewWaterfallClient(conn), args[1], args[2:]...)
+	return shellStdout(ctx, waterfall_grpc_pb.NewWaterfallClient(conn), args[1], args[2:]...)
 }
 
 func pushFn(ctx context.Context, cfn ClientFn, args []string) error {
@@ -184,7 +184,7 @@ func pushFn(ctx context.Context, cfn ClientFn, args []string) error {
 	}
 	defer conn.Close()
 
-	return client.Push(ctx, waterfall_grpc.NewWaterfallClient(conn), args[1], args[2])
+	return client.Push(ctx, waterfall_grpc_pb.NewWaterfallClient(conn), args[1], args[2])
 }
 
 func pullFn(ctx context.Context, cfn ClientFn, args []string) error {
@@ -198,7 +198,7 @@ func pullFn(ctx context.Context, cfn ClientFn, args []string) error {
 	}
 	defer conn.Close()
 
-	return client.Pull(ctx, waterfall_grpc.NewWaterfallClient(conn), args[1], args[2])
+	return client.Pull(ctx, waterfall_grpc_pb.NewWaterfallClient(conn), args[1], args[2])
 }
 
 func installFn(ctx context.Context, cfn ClientFn, args []string) error {
@@ -219,7 +219,7 @@ func installFn(ctx context.Context, cfn ClientFn, args []string) error {
 	}
 	defer conn.Close()
 
-	c := waterfall_grpc.NewWaterfallClient(conn)
+	c := waterfall_grpc_pb.NewWaterfallClient(conn)
 	r, err := client.Install(ctx, c, f, args[1:len(args)-1]...)
 
 	// Log output of install command as is
@@ -271,7 +271,7 @@ func forwardFn(ctx context.Context, cfn ClientFn, args []string) error {
 		return err
 	}
 	defer conn.Close()
-	c := waterfall_grpc.NewPortForwarderClient(conn)
+	c := waterfall_grpc_pb.NewPortForwarderClient(conn)
 
 	var src, dst string
 	switch args[1] {
@@ -301,8 +301,8 @@ func forwardFn(ctx context.Context, cfn ClientFn, args []string) error {
 		if err != nil {
 			return err
 		}
-		_, err = c.Stop(ctx, &waterfall_grpc.PortForwardRequest{
-			Session: &waterfall_grpc.ForwardSession{Src: fwd}})
+		_, err = c.Stop(ctx, &waterfall_grpc_pb.PortForwardRequest{
+			Session: &waterfall_grpc_pb.ForwardSession{Src: fwd}})
 		return err
 	case "--remove-all":
 		if len(args) != 2 {
@@ -317,8 +317,8 @@ func forwardFn(ctx context.Context, cfn ClientFn, args []string) error {
 		if dst, err = parseFwd(args[3], false); err != nil {
 			return err
 		}
-		_, err = c.ForwardPort(ctx, &waterfall_grpc.PortForwardRequest{
-			Session: &waterfall_grpc.ForwardSession{Src: src, Dst: dst}, Rebind: false})
+		_, err = c.ForwardPort(ctx, &waterfall_grpc_pb.PortForwardRequest{
+			Session: &waterfall_grpc_pb.ForwardSession{Src: src, Dst: dst}, Rebind: false})
 		return err
 	default:
 		if src, err = parseFwd(args[1], false); err != nil {
@@ -327,8 +327,8 @@ func forwardFn(ctx context.Context, cfn ClientFn, args []string) error {
 		if dst, err = parseFwd(args[2], false); err != nil {
 			return err
 		}
-		_, err = c.ForwardPort(ctx, &waterfall_grpc.PortForwardRequest{
-			Session: &waterfall_grpc.ForwardSession{Src: src, Dst: dst}, Rebind: true})
+		_, err = c.ForwardPort(ctx, &waterfall_grpc_pb.PortForwardRequest{
+			Session: &waterfall_grpc_pb.ForwardSession{Src: src, Dst: dst}, Rebind: true})
 		return err
 	}
 }
@@ -340,7 +340,7 @@ func passthroughFn(ctx context.Context, cfn ClientFn, args []string) error {
 	}
 	defer conn.Close()
 
-	_, err = exeStdout(ctx, waterfall_grpc.NewWaterfallClient(conn), args[0], args[1:]...)
+	_, err = exeStdout(ctx, waterfall_grpc_pb.NewWaterfallClient(conn), args[0], args[1:]...)
 	return err
 }
 
@@ -355,7 +355,7 @@ func uninstallFn(ctx context.Context, cfn ClientFn, args []string) error {
 	}
 	defer conn.Close()
 
-	return shellStdout(ctx, waterfall_grpc.NewWaterfallClient(conn), "/system/bin/pm", args...)
+	return shellStdout(ctx, waterfall_grpc_pb.NewWaterfallClient(conn), "/system/bin/pm", args...)
 }
 
 func bugreportFn(ctx context.Context, cfn ClientFn, args []string) error {
@@ -370,7 +370,7 @@ func bugreportFn(ctx context.Context, cfn ClientFn, args []string) error {
 		return ParseError{}
 	}
 
-	c := waterfall_grpc.NewWaterfallClient(conn)
+	c := waterfall_grpc_pb.NewWaterfallClient(conn)
 	if len(args) == 1 {
 		_, err = exeStdout(ctx, c, args[0], args[1:]...)
 		return err

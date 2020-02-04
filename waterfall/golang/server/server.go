@@ -30,7 +30,7 @@ import (
 	"github.com/google/waterfall/golang/constants"
 	"github.com/google/waterfall/golang/forward"
 	"github.com/google/waterfall/golang/stream"
-	waterfall_grpc "github.com/google/waterfall/proto/waterfall_go_grpc"
+	waterfall_grpc_pb "github.com/google/waterfall/proto/waterfall_go_grpc"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -59,7 +59,7 @@ type WaterfallServer struct {
 // Echo exists solely for test purposes. It's a utility function to
 // create integration tests between grpc and custom network transports
 // like qemu_pipe and usb
-func (s *WaterfallServer) Echo(stream waterfall_grpc.Waterfall_EchoServer) error {
+func (s *WaterfallServer) Echo(stream waterfall_grpc_pb.Waterfall_EchoServer) error {
 	for {
 		msg, err := stream.Recv()
 		if err == io.EOF {
@@ -75,7 +75,7 @@ func (s *WaterfallServer) Echo(stream waterfall_grpc.Waterfall_EchoServer) error
 }
 
 // Push untars a file/dir that it receives over a gRPC stream
-func (s *WaterfallServer) Push(rpc waterfall_grpc.Waterfall_PushServer) error {
+func (s *WaterfallServer) Push(rpc waterfall_grpc_pb.Waterfall_PushServer) error {
 	xfer, err := rpc.Recv()
 	if err != nil {
 		return err
@@ -96,14 +96,14 @@ func (s *WaterfallServer) Push(rpc waterfall_grpc.Waterfall_PushServer) error {
 		for {
 			if err == io.EOF {
 				return rpc.SendAndClose(
-					&waterfall_grpc.Transfer{Success: true})
+					&waterfall_grpc_pb.Transfer{Success: true})
 			}
 			if err != nil {
 				return err
 			}
 			if _, err := w.Write(xfer.Payload); err != nil {
 				return rpc.SendAndClose(
-					&waterfall_grpc.Transfer{
+					&waterfall_grpc_pb.Transfer{
 						Success: false,
 						Err:     []byte(err.Error())})
 			}
@@ -114,7 +114,7 @@ func (s *WaterfallServer) Push(rpc waterfall_grpc.Waterfall_PushServer) error {
 }
 
 // Pull tars up a file/dir and sends it over a gRPC stream
-func (s *WaterfallServer) Pull(t *waterfall_grpc.Transfer, rpc waterfall_grpc.Waterfall_PullServer) error {
+func (s *WaterfallServer) Pull(t *waterfall_grpc_pb.Transfer, rpc waterfall_grpc_pb.Waterfall_PullServer) error {
 	if _, err := os.Stat(t.Path); os.IsNotExist(err) {
 		return err
 	}
@@ -147,7 +147,7 @@ func (s *WaterfallServer) Pull(t *waterfall_grpc.Transfer, rpc waterfall_grpc.Wa
 			if n > 0 {
 				// No need to populate anything else. Sending the path
 				// everytime is just overhead.
-				xfer := &waterfall_grpc.Transfer{Payload: buff[0:n]}
+				xfer := &waterfall_grpc_pb.Transfer{Payload: buff[0:n]}
 				if err := rpc.Send(xfer); err != nil {
 					return err
 				}
@@ -177,12 +177,12 @@ func (c chanWriter) Write(b []byte) (int, error) {
 type execMessageReader struct{}
 
 func (em execMessageReader) BuildMsg() interface{} {
-	return new(waterfall_grpc.CmdProgress)
+	return new(waterfall_grpc_pb.CmdProgress)
 }
 
 // SetBytes sets the meessage bytes.
 func (em execMessageReader) GetBytes(m interface{}) ([]byte, error) {
-	msg, ok := m.(*waterfall_grpc.CmdProgress)
+	msg, ok := m.(*waterfall_grpc_pb.CmdProgress)
 	if !ok {
 		// this never happens
 		panic("incorrect type")
@@ -202,7 +202,7 @@ func exitCode(err error) (int, error) {
 }
 
 // Exec forks a new process with the desired command and pipes its output to the gRPC stream
-func (s *WaterfallServer) Exec(rpc waterfall_grpc.Waterfall_ExecServer) error {
+func (s *WaterfallServer) Exec(rpc waterfall_grpc_pb.Waterfall_ExecServer) error {
 
 	// The first message contains the actual command to execute.
 	// Implmented as a streaming method in order to support stdin redirection in the future.
@@ -265,18 +265,18 @@ func (s *WaterfallServer) Exec(rpc waterfall_grpc.Waterfall_ExecServer) error {
 		oo := true
 		eo := true
 		for oo || eo {
-			var msg *waterfall_grpc.CmdProgress
+			var msg *waterfall_grpc_pb.CmdProgress
 			select {
 			case o, oo = <-stdoutCh:
 				if !oo {
 					break
 				}
-				msg = &waterfall_grpc.CmdProgress{Stdout: o}
+				msg = &waterfall_grpc_pb.CmdProgress{Stdout: o}
 			case e, eo = <-stderrCh:
 				if !eo {
 					break
 				}
-				msg = &waterfall_grpc.CmdProgress{Stderr: e}
+				msg = &waterfall_grpc_pb.CmdProgress{Stderr: e}
 			}
 			if msg != nil {
 				if err := rpc.Send(msg); err != nil {
@@ -295,18 +295,18 @@ func (s *WaterfallServer) Exec(rpc waterfall_grpc.Waterfall_ExecServer) error {
 	if err != nil {
 		return err
 	}
-	return rpc.Send(&waterfall_grpc.CmdProgress{ExitCode: uint32(ec)})
+	return rpc.Send(&waterfall_grpc_pb.CmdProgress{ExitCode: uint32(ec)})
 }
 
 type installReader struct{}
 
 func (r installReader) BuildMsg() interface{} {
-	return new(waterfall_grpc.InstallRequest)
+	return new(waterfall_grpc_pb.InstallRequest)
 }
 
 // SetBytes sets the meessage bytes.
 func (r installReader) GetBytes(m interface{}) ([]byte, error) {
-	msg, ok := m.(*waterfall_grpc.InstallRequest)
+	msg, ok := m.(*waterfall_grpc_pb.InstallRequest)
 	if !ok {
 		// this never happens
 		panic("incorrect type")
@@ -328,7 +328,7 @@ func getVersion() (int, error) {
 }
 
 // Install installs the specified package on the device.
-func (s *WaterfallServer) Install(rpc waterfall_grpc.Waterfall_InstallServer) error {
+func (s *WaterfallServer) Install(rpc waterfall_grpc_pb.Waterfall_InstallServer) error {
 	ctx := rpc.Context()
 
 	ins, err := rpc.Recv()
@@ -377,7 +377,7 @@ func (s *WaterfallServer) Install(rpc waterfall_grpc.Waterfall_InstallServer) er
 		}
 
 		return rpc.SendAndClose(
-			&waterfall_grpc.InstallResponse{
+			&waterfall_grpc_pb.InstallResponse{
 				ExitCode: uint32(s),
 				Output:   string(o)})
 	}
@@ -397,7 +397,7 @@ func (s *WaterfallServer) Install(rpc waterfall_grpc.Waterfall_InstallServer) er
 
 	if ec != 0 {
 		return rpc.SendAndClose(
-			&waterfall_grpc.InstallResponse{
+			&waterfall_grpc_pb.InstallResponse{
 				ExitCode: uint32(ec),
 				Output:   string(o)})
 	}
@@ -425,7 +425,7 @@ func (s *WaterfallServer) Install(rpc waterfall_grpc.Waterfall_InstallServer) er
 		// Ignore error we want to propagate first error
 		shell(ctx, append(insCmd, installAbandon, ss)).Run()
 		return rpc.SendAndClose(
-			&waterfall_grpc.InstallResponse{
+			&waterfall_grpc_pb.InstallResponse{
 				ExitCode: uint32(ec),
 				Output:   string(o)})
 	}
@@ -449,13 +449,13 @@ func (s *WaterfallServer) Install(rpc waterfall_grpc.Waterfall_InstallServer) er
 	}
 
 	return rpc.SendAndClose(
-		&waterfall_grpc.InstallResponse{
+		&waterfall_grpc_pb.InstallResponse{
 			ExitCode: uint32(ec),
 			Output:   string(o)})
 }
 
 // Forward forwards the grpc stream to the requested port.
-func (s *WaterfallServer) Forward(rpc waterfall_grpc.Waterfall_ForwardServer) error {
+func (s *WaterfallServer) Forward(rpc waterfall_grpc_pb.Waterfall_ForwardServer) error {
 	fwd, err := rpc.Recv()
 	if err != nil {
 		return err
@@ -463,11 +463,11 @@ func (s *WaterfallServer) Forward(rpc waterfall_grpc.Waterfall_ForwardServer) er
 
 	var kind string
 	switch fwd.Kind {
-	case waterfall_grpc.ForwardMessage_TCP:
+	case waterfall_grpc_pb.ForwardMessage_TCP:
 		kind = "tcp"
-	case waterfall_grpc.ForwardMessage_UDP:
+	case waterfall_grpc_pb.ForwardMessage_UDP:
 		kind = "udp"
-	case waterfall_grpc.ForwardMessage_UNIX:
+	case waterfall_grpc_pb.ForwardMessage_UNIX:
 		kind = "unix"
 	default:
 		return status.Error(codes.InvalidArgument, "unsupported network type")
@@ -482,6 +482,6 @@ func (s *WaterfallServer) Forward(rpc waterfall_grpc.Waterfall_ForwardServer) er
 }
 
 // Version returns the version of the server.
-func (s *WaterfallServer) Version(context.Context, *empty_pb.Empty) (*waterfall_grpc.VersionMessage, error) {
-	return &waterfall_grpc.VersionMessage{Version: "0.0"}, nil
+func (s *WaterfallServer) Version(context.Context, *empty_pb.Empty) (*waterfall_grpc_pb.VersionMessage, error) {
+	return &waterfall_grpc_pb.VersionMessage{Version: "0.0"}, nil
 }
