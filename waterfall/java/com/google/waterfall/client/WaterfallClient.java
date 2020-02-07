@@ -17,27 +17,15 @@
 package com.google.waterfall.client;
 
 import com.google.common.base.Preconditions;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.common.util.concurrent.SettableFuture;
-import com.google.protobuf.ByteString;
 import com.google.waterfall.WaterfallGrpc;
 import com.google.waterfall.WaterfallGrpc.WaterfallStub;
-import com.google.waterfall.WaterfallProto.Cmd;
 import com.google.waterfall.WaterfallProto.CmdProgress;
-import com.google.waterfall.WaterfallProto.Transfer;
-import com.google.waterfall.tar.Tar;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
-import io.grpc.stub.StreamObserver;
-import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
@@ -50,7 +38,6 @@ import java.util.concurrent.TimeUnit;
  * Client for the waterfall service using gRPC. Executes asynchronously.
  * */
 public class WaterfallClient {
-  private static final int PIPE_BUFFER_SIZE = 256 * 1024;
   private static final int SHUTDOWN_TIMEOUT_SECONDS = 1;
 
   private final WaterfallStub asyncStub;
@@ -134,45 +121,7 @@ public class WaterfallClient {
    * @param dst Absolute path to destination directory on host using location file system
    */
   public ListenableFuture<Void> pull(String src, Path dst) {
-    try {
-      PipedInputStream input = new PipedInputStream(PIPE_BUFFER_SIZE);
-      PipedOutputStream output = new PipedOutputStream(input);
-      final SettableFuture<Void> future = SettableFuture.create();
-      pullFromWaterfall(src, output, future);
-      final ListenableFuture<Void> untarFuture =
-          executorService.submit(
-              () -> {
-                try {
-                  Tar.untar(input, dst.toString());
-                  future.set(null);
-                } catch (IOException e) {
-                  future.setException(e);
-                } finally {
-                  try {
-                    output.close();
-                  } catch (IOException e) {
-                    future.setException(e);
-                  }
-                }
-                return null;
-              });
-      // Cancel running untar if there was an exception in pulling file from waterfall.
-      Futures.addCallback(
-          future,
-          new FutureCallback<Void>() {
-            @Override
-            public void onSuccess(Void result) {}
-
-            @Override
-            public void onFailure(Throwable t) {
-              untarFuture.cancel(true);
-            }
-          },
-          MoreExecutors.directExecutor());
-      return future;
-    } catch (IOException e) {
-      throw new WaterfallRuntimeException("Unable to pull src files/dirs from device.", e);
-    }
+    return StaticWaterfallClient.pull(asyncStub, executorService, src, dst);
   }
 
   /**
@@ -183,75 +132,7 @@ public class WaterfallClient {
    * @param out Output stream where the contents of src files will be written to.
    */
   public ListenableFuture<Void> pullFile(String src, OutputStream out) {
-    try {
-      PipedInputStream input = new PipedInputStream(PIPE_BUFFER_SIZE);
-      PipedOutputStream output = new PipedOutputStream(input);
-      final SettableFuture<Void> future = SettableFuture.create();
-      pullFromWaterfall(src, output, future);
-      final ListenableFuture<Void> untarFuture =
-          executorService.submit(
-              () -> {
-                try {
-                  Tar.untarFile(input, out);
-                  future.set(null);
-                } catch (IOException e) {
-                  future.setException(e);
-                } finally {
-                  try {
-                    output.close();
-                  } catch (IOException e) {
-                    future.setException(e);
-                  }
-                }
-                return null;
-              });
-      // Cancel running untar if there was an exception in pulling file from waterfall.
-      Futures.addCallback(
-          future,
-          new FutureCallback<Void>() {
-            @Override
-            public void onSuccess(Void result) {}
-
-            @Override
-            public void onFailure(Throwable t) {
-              untarFuture.cancel(true);
-            }
-          },
-          MoreExecutors.directExecutor());
-      return future;
-    } catch (IOException e) {
-      throw new WaterfallRuntimeException("Unable to pull src file from device.", e);
-    }
-  }
-
-  private void pullFromWaterfall(String src, OutputStream output, SettableFuture<Void> future) {
-    Transfer transfer = Transfer.newBuilder().setPath(src).build();
-    StreamObserver<Transfer> responseObserver =
-        new StreamObserver<Transfer>() {
-          @Override
-          public void onNext(Transfer value) {
-            try {
-              value.getPayload().writeTo(output);
-            } catch (IOException e) {
-              onError(new WaterfallRuntimeException("Unable to pull file(s) from device.", e));
-            }
-          }
-
-          @Override
-          public void onError(Throwable t) {
-            future.setException(t);
-          }
-
-          @Override
-          public void onCompleted() {
-            try {
-              output.close();
-            } catch (IOException e) {
-              onError(e);
-            }
-          }
-        };
-    asyncStub.pull(transfer, responseObserver);
+    return StaticWaterfallClient.pullFile(asyncStub, executorService, src, out);
   }
 
   /**
@@ -271,31 +152,7 @@ public class WaterfallClient {
    * @param dst Absolute path to destination on device
    */
   public Future<Void> push(Path src, String dst) {
-    try {
-      PipedInputStream input = new PipedInputStream(PIPE_BUFFER_SIZE);
-      PipedOutputStream output = new PipedOutputStream(input);
-      final SettableFuture<Void> future = SettableFuture.create();
-      ListenableFuture<Void> unusedTarFuture =
-          executorService.submit(
-              () -> {
-                try {
-                  Tar.tar(src.toString(), output);
-                } catch (IOException e) {
-                  future.setException(e);
-                } finally {
-                  try {
-                    output.close();
-                  } catch (IOException e) {
-                    future.setException(e);
-                  }
-                }
-                return null;
-              });
-      pushToWaterfall(input, dst, future);
-      return future;
-    } catch (IOException e) {
-      throw new WaterfallRuntimeException("Unable to push file(s) into device", e);
-    }
+    return StaticWaterfallClient.push(asyncStub, executorService, src, dst);
   }
 
   /**
@@ -305,91 +162,7 @@ public class WaterfallClient {
    * @param dst Absolute path to destination on device
    */
   public Future<Void> pushBytes(byte[] src, String dst) {
-    try {
-      PipedInputStream input = new PipedInputStream(PIPE_BUFFER_SIZE);
-      PipedOutputStream output = new PipedOutputStream(input);
-      final SettableFuture<Void> future = SettableFuture.create();
-      ListenableFuture<Void> unusedTarFuture =
-          executorService.submit(
-              () -> {
-                try {
-                  Tar.tarFile(src, output);
-                } catch (IOException e) {
-                  future.setException(e);
-                } finally {
-                  try {
-                    output.close();
-                  } catch (IOException e) {
-                    future.setException(e);
-                  }
-                }
-                return null;
-              });
-      pushToWaterfall(input, dst, future);
-      return future;
-    } catch (IOException e) {
-      throw new WaterfallRuntimeException("Unable to push bytes into device", e);
-    }
-  }
-
-  private void pushToWaterfall(InputStream in, String dst, SettableFuture<Void> future) {
-    StreamObserver<Transfer> responseObserver =
-        new StreamObserver<Transfer>() {
-          @Override
-          public void onNext(Transfer transfer) {
-            // We don't expect any incoming messages when pushing.
-          }
-
-          @Override
-          public void onError(Throwable t) {
-            future.setException(t);
-          }
-
-          @Override
-          public void onCompleted() {
-            future.set(null);
-          }
-        };
-
-    StreamObserver<Transfer> requestObserver = asyncStub.push(responseObserver);
-    requestObserver.onNext(Transfer.newBuilder().setPath(dst).build());
-
-    final ListenableFuture<?> transferFuture =
-        executorService.submit(
-            () -> {
-              try {
-                byte[] buff = new byte[PIPE_BUFFER_SIZE];
-
-                while (!future.isDone()) {
-                  int r = in.read(buff);
-
-                  if (r == -1) {
-                    break;
-                  }
-
-                  requestObserver.onNext(
-                      Transfer.newBuilder().setPayload(ByteString.copyFrom(buff, 0, r)).build());
-                }
-
-                in.close();
-                requestObserver.onCompleted();
-              } catch (IOException e) {
-                requestObserver.onError(e);
-                future.setException(e);
-              }
-            });
-    Futures.addCallback(
-        future,
-        new FutureCallback<Void>() {
-          @Override
-          public void onSuccess(Void result) {}
-
-          @Override
-          public void onFailure(Throwable t) {
-            transferFuture.cancel(true);
-          }
-        },
-        MoreExecutors.directExecutor());
+    return StaticWaterfallClient.pushBytes(asyncStub, executorService, src, dst);
   }
 
   /**
@@ -403,82 +176,18 @@ public class WaterfallClient {
    */
   public ListenableFuture<CmdProgress> exec(
       String command, List<String> args, String input, OutputStream stdout, OutputStream stderr) {
-
-    try {
-      return execChecked(command, args, input, stdout, stderr);
-    } catch (Exception e) {
-      throw new WaterfallRuntimeException("Exception running waterfall exec command", e);
-    }
-  }
-
-  private ListenableFuture<CmdProgress> execChecked(
-      String command, List<String> args, String input, OutputStream stdout, OutputStream stderr) {
-
-    final SettableFuture<CmdProgress> result = SettableFuture.create();
-
-    StreamObserver<CmdProgress> responseObserver = new StreamObserver<CmdProgress>() {
-          private CmdProgress last = null;
-
-          @Override
-          public void onNext(CmdProgress cmdProgress) {
-            try {
-              cmdProgress.getStdout().writeTo(stdout);
-              cmdProgress.getStderr().writeTo(stderr);
-              last = cmdProgress;
-            } catch (IOException e) {
-              onError(e);
-            }
-          }
-
-          @Override
-          public void onError(Throwable t) {
-            result.setException(t);
-          }
-
-          @Override
-          public void onCompleted() {
-            result.set(last);
-          }
-        };
-
-    StreamObserver<CmdProgress> requestObserver = asyncStub.exec(responseObserver);
-
-    try {
-      requestObserver.onNext(
-          CmdProgress.newBuilder()
-              .setCmd(Cmd.newBuilder().setPath(command).addAllArgs(args).setPipeIn(input != null))
-              .build());
-
-      if (input != null) {
-        requestObserver.onNext(
-            CmdProgress.newBuilder().setStdin(ByteString.copyFromUtf8(input)).build());
-      }
-
-      requestObserver.onCompleted();
-    } catch (Exception e) {
-      requestObserver.onError(e);
-      result.setException(e);
-    }
-
-    return result;
+    return StaticWaterfallClient.exec(asyncStub, command, args, input, stdout, stderr);
   }
 
   /**
    * Cleans up client. Times out if channel termination takes too long.
    *
    * @throws InterruptedException Thrown by channel cleanup.
-   * */
+   */
   public void shutdown() throws InterruptedException {
     channel.shutdown().awaitTermination(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     if (shouldCleanupExecutorService) {
       executorService.shutdown();
-    }
-  }
-
-  /** Generic runtime exception thrown by WaterfallClient. */
-  public static final class WaterfallRuntimeException extends RuntimeException {
-    WaterfallRuntimeException(String msg, Throwable cause) {
-      super(msg, cause);
     }
   }
 }

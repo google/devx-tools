@@ -12,13 +12,26 @@ java_library(
         "WaterfallClient.java",
     ],
     deps = [
+        ":static",
+        "//waterfall/proto:waterfall_java_grpc",
+        "//waterfall/proto:waterfall_java_proto",
+        "@com_google_guava_guava//jar",
+        "@io_grpc_grpc_java//core",
+    ],
+)
+
+java_library(
+    name = "static",
+    srcs = [
+        "StaticWaterfallClient.java",
+    ],
+    deps = [
         "//waterfall/java/com/google/waterfall/tar",
         "//waterfall/proto:waterfall_java_grpc",
         "//waterfall/proto:waterfall_java_proto",
         "@com_google_guava_guava//jar",
         "@com_google_protobuf//:protobuf_java",
         "@com_google_protobuf//:protobuf_lite",
-        "@io_grpc_grpc_java//core",
         "@io_grpc_grpc_java//stub",
     ],
 )
