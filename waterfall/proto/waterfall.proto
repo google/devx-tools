@@ -57,7 +57,7 @@ message Cmd {
   // Whether to pipe stdin to the command
   bool pipeIn = 4;
 
-  // Enviroment to use
+  // Environment to use
   map<string, string> env = 5;
 
 }
