@@ -43,17 +43,21 @@ type forwardSession struct {
 
 // PortForwarder manages port forwarding sessions.
 type PortForwarder struct {
-	client        waterfall_grpc_pb.WaterfallClient
-	sessions      map[string]*forwardSession
-	sessionsMutex *sync.Mutex
+	client               waterfall_grpc_pb.WaterfallClient
+	sessions             map[string]*forwardSession
+	sessionsMutex        *sync.Mutex
+	reverseSessions      map[string]*forwardSession
+	reverseSessionsMutex *sync.Mutex
 }
 
 // NewServer returns a new PortForwarder server.
 func NewServer(client waterfall_grpc_pb.WaterfallClient) *PortForwarder {
 	return &PortForwarder{
-		client:        client,
-		sessions:      make(map[string]*forwardSession),
-		sessionsMutex: &sync.Mutex{},
+		client:               client,
+		sessions:             make(map[string]*forwardSession),
+		sessionsMutex:        &sync.Mutex{},
+		reverseSessions:      make(map[string]*forwardSession),
+		reverseSessionsMutex: &sync.Mutex{},
 	}
 }
 
@@ -63,6 +67,19 @@ func parseAddr(addr string) (string, string, error) {
 		return "", "", fmt.Errorf("failed to parse address %s", addr)
 	}
 	return pts[0], pts[1], nil
+}
+
+func networkKind(kind string) (waterfall_grpc_pb.ForwardMessage_Kind, error) {
+	switch kind {
+	case "tcp":
+		return waterfall_grpc_pb.ForwardMessage_TCP, nil
+	case "udp":
+		return waterfall_grpc_pb.ForwardMessage_UDP, nil
+	case "unix":
+		return waterfall_grpc_pb.ForwardMessage_UNIX, nil
+	default:
+		return waterfall_grpc_pb.ForwardMessage_UNSET, status.Error(codes.InvalidArgument, "unknown network kind")
+	}
 }
 
 func makeForwarder(ctx context.Context, c waterfall_grpc_pb.WaterfallClient, addr string, from net.Conn) (*forward.StreamForwarder, error) {
@@ -76,14 +93,9 @@ func makeForwarder(ctx context.Context, c waterfall_grpc_pb.WaterfallClient, add
 		return nil, err
 	}
 
-	var ntwk waterfall_grpc_pb.ForwardMessage_Kind
-	switch kind {
-	case "tcp":
-		ntwk = waterfall_grpc_pb.ForwardMessage_TCP
-	case "udp":
-		ntwk = waterfall_grpc_pb.ForwardMessage_UDP
-	case "unix":
-		ntwk = waterfall_grpc_pb.ForwardMessage_UNIX
+	ntwk, err := networkKind(kind)
+	if err != nil {
+		return nil, err
 	}
 
 	if err := rpc.Send(&waterfall_grpc_pb.ForwardMessage{Kind: ntwk, Addr: addr}); err != nil {
@@ -154,6 +166,143 @@ func (pf *PortForwarder) ForwardPort(ctx context.Context, req *waterfall_grpc_pb
 	}()
 
 	return &empty_pb.Empty{}, nil
+}
+
+func (pf *PortForwarder) stopReverseForwarding(ctx context.Context, session *forwardSession) error {
+	defer session.cancel()
+
+	kind, addr, err := parseAddr(session.src)
+	if err != nil {
+		return err
+	}
+	delete(pf.reverseSessions, session.src)
+
+	ntwk, err := networkKind(kind)
+	if err != nil {
+		return err
+	}
+
+	_, err = pf.client.StopReverseForward(
+		ctx,
+		&waterfall_grpc_pb.ForwardMessage{
+			Op:   waterfall_grpc_pb.ForwardMessage_CLOSE,
+			Kind: ntwk,
+			Addr: addr})
+	return err
+}
+
+// ReverseForwardPort forwards a port from the remote connection to a local port.
+// Forwarding works as following:
+// 1) The client (this process) sends a request to start forwarding a given port (StartReverseForward rpc)
+//    and keeps the connection open to listen for new connections coming from the server.
+// 2) When a new connection message is received, this process sends a new rpc to the server to hand the server a stream
+//    on which to forward the connection (ReverseForward rpc).
+// 3) The ReverseForward rpc is piped to the local port the streamed should be forwarded.
+func (pf *PortForwarder) ReverseForwardPort(ctx context.Context, req *waterfall_grpc_pb.PortForwardRequest) (*empty_pb.Empty, error) {
+	pf.reverseSessionsMutex.Lock()
+	defer pf.reverseSessionsMutex.Unlock()
+
+	log.Printf("Reverse forwarding %s -> %s ...\n", req.Session.Src, req.Session.Dst)
+	if rs, ok := pf.reverseSessions[req.Session.Src]; ok {
+		if !req.Rebind {
+			return nil, status.Errorf(codes.AlreadyExists, "no-rebind specified, can't forward address: %s", req.Session.Src)
+		}
+		if err := pf.stopReverseForwarding(ctx, rs); err != nil {
+			return nil, err
+		}
+	}
+
+	srcKind, srcAddr, err := parseAddr(req.Session.Src)
+	if err != nil {
+		return nil, err
+	}
+
+	dstKind, dstAddr, err := parseAddr(req.Session.Dst)
+	if err != nil {
+		return nil, err
+	}
+
+	srcNtwk, err := networkKind(srcKind)
+	if err != nil {
+		return nil, err
+	}
+
+	// The context we create in this case is scoped to the duration of the forwarding
+	// session, which outlives this request, therefore we can't propagate the request
+	// context and are forced to create a new one.
+	fCtx, cancel := context.WithCancel(context.Background())
+
+	// 1) Ask the server to listen for connections on src
+	ncs, err := pf.client.StartReverseForward(
+		fCtx,
+		&waterfall_grpc_pb.ForwardMessage{
+			Op:   waterfall_grpc_pb.ForwardMessage_OPEN,
+			Kind: srcNtwk,
+			Addr: srcAddr})
+	if err != nil {
+		log.Printf("Failed to start reverse forwarding session (%s -> %s): %v", req.Session.Src, req.Session.Dst, err)
+		return nil, err
+	}
+
+	ss := &forwardSession{src: req.Session.Src, dst: req.Session.Dst, cancel: cancel}
+	pf.reverseSessions[req.Session.Src] = ss
+
+	// Listen for new connections on a different goroutine so we can return to the client
+	go func() {
+		defer pf.stopReverseForwarding(fCtx, ss)
+		for {
+			log.Printf("Waiting for new connection to forward: %v", err)
+			fwd, err := ncs.Recv()
+			if err != nil {
+				return
+			}
+
+			if fwd.Op != waterfall_grpc_pb.ForwardMessage_OPEN {
+				// The only type of message the server can reply is with an OPEN message
+				log.Printf("Requested OP %v but only open is supported ...\n", fwd.Op)
+				return
+			}
+
+			// 2) Hand the server a stream to start forwarding the connection
+			fs, err := pf.client.ReverseForward(fCtx)
+			if err != nil {
+				log.Printf("Failed to create new forwarding session: %v", err)
+				return
+			}
+			if err := fs.Send(&waterfall_grpc_pb.ForwardMessage{
+				Op:   waterfall_grpc_pb.ForwardMessage_OPEN,
+				Kind: srcNtwk,
+				Addr: srcAddr,
+			}); err != nil {
+				log.Printf("Failed to create new forwarding request: %v", err)
+				return
+			}
+
+			conn, err := net.Dial(dstKind, dstAddr)
+			if err != nil {
+				// Ignore this error. The socket might not be open initially
+				// but can be created after the forwarding session.
+				log.Printf("Failed to connect %s:%s: %v", dstKind, dstAddr, err)
+				continue
+			}
+
+			// 3) Forward the stream to the connection
+			go forward.NewStreamForwarder(fs, conn.(forward.HalfReadWriteCloser)).Forward()
+		}
+	}()
+	return &empty_pb.Empty{}, nil
+}
+
+// StopReverse stops a reverse forwarding session killing all inflight connections.
+func (pf *PortForwarder) StopReverse(ctx context.Context, req *waterfall_grpc_pb.PortForwardRequest) (*empty_pb.Empty, error) {
+	pf.reverseSessionsMutex.Lock()
+	defer pf.reverseSessionsMutex.Unlock()
+
+	s, ok := pf.reverseSessions[req.Session.Src]
+	if !ok {
+		return &empty_pb.Empty{}, nil
+	}
+	return &empty_pb.Empty{}, pf.stopReverseForwarding(ctx, s)
 }
 
 // Stop stops a forwarding session killing all inflight connections.

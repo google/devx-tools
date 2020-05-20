@@ -68,6 +68,7 @@ var (
 		"push":      pushFn,
 		"pull":      pullFn,
 		"forward":   forwardFn,
+		"reverse":   reverseFn,
 		"bugreport": bugreportFn,
 		"logcat":    passthroughFn,
 		"install":   installFn,
@@ -328,6 +329,33 @@ func forwardFn(ctx context.Context, cfn ClientFn, args []string) error {
 			return err
 		}
 		_, err = c.ForwardPort(ctx, &waterfall_grpc_pb.PortForwardRequest{
+			Session: &waterfall_grpc_pb.ForwardSession{Src: src, Dst: dst}, Rebind: true})
+		return err
+	}
+}
+
+func reverseFn(ctx context.Context, cfn ClientFn, args []string) error {
+	if len(args) < 2 || len(args) > 4 {
+		return ParseError{}
+	}
+
+	conn, err := cfn()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	c := waterfall_grpc_pb.NewPortForwarderClient(conn)
+
+	var src, dst string
+	switch args[1] {
+	default:
+		if src, err = parseFwd(args[1], false); err != nil {
+			return err
+		}
+		if dst, err = parseFwd(args[2], false); err != nil {
+			return err
+		}
+		_, err = c.ReverseForwardPort(ctx, &waterfall_grpc_pb.PortForwardRequest{
 			Session: &waterfall_grpc_pb.ForwardSession{Src: src, Dst: dst}, Rebind: true})
 		return err
 	}

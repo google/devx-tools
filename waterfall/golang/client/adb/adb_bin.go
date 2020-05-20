@@ -69,7 +69,7 @@ func runCommand(ctx context.Context, args []string) error {
 			}
 
 			// Forward request uses a different service, so we need to dial accordingly.
-			if parsedArgs.Command == "forward" {
+			if parsedArgs.Command == "forward" || parsedArgs.Command == "reverse" {
 				cfn = func() (*grpc.ClientConn, error) {
 					return grpc.Dial(fmt.Sprintf("unix:@h2o_%s_xforward", parsedArgs.Device), grpc.WithInsecure())
 				}
