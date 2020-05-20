@@ -20,11 +20,13 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 
 	empty_pb "github.com/golang/protobuf/ptypes/empty"
 	"github.com/google/waterfall/golang/constants"
@@ -54,6 +56,15 @@ const (
 
 // WaterfallServer implements the waterfall gRPC service
 type WaterfallServer struct {
+	reverseForwardSessionsMutex *sync.Mutex
+
+	reverseForwardSessions map[string]*reverseForwardSession
+}
+
+type reverseForwardSession struct {
+	addr   string
+	connCh chan net.Conn
+	lis    net.Listener
 }
 
 // Echo exists solely for test purposes. It's a utility function to
@@ -454,6 +465,19 @@ func (s *WaterfallServer) Install(rpc waterfall_grpc_pb.Waterfall_InstallServer)
 			Output:   string(o)})
 }
 
+func networkDescription(kind waterfall_grpc_pb.ForwardMessage_Kind) (string, error) {
+	switch kind {
+	case waterfall_grpc_pb.ForwardMessage_TCP:
+		return "tcp", nil
+	case waterfall_grpc_pb.ForwardMessage_UDP:
+		return "udp", nil
+	case waterfall_grpc_pb.ForwardMessage_UNIX:
+		return "unix", nil
+	default:
+		return "", status.Error(codes.InvalidArgument, "unsupported network type")
+	}
+}
+
 // Forward forwards the grpc stream to the requested port.
 func (s *WaterfallServer) Forward(rpc waterfall_grpc_pb.Waterfall_ForwardServer) error {
 	fwd, err := rpc.Recv()
@@ -461,16 +485,9 @@ func (s *WaterfallServer) Forward(rpc waterfall_grpc_pb.Waterfall_ForwardServer)
 		return err
 	}
 
-	var kind string
-	switch fwd.Kind {
-	case waterfall_grpc_pb.ForwardMessage_TCP:
-		kind = "tcp"
-	case waterfall_grpc_pb.ForwardMessage_UDP:
-		kind = "udp"
-	case waterfall_grpc_pb.ForwardMessage_UNIX:
-		kind = "unix"
-	default:
-		return status.Error(codes.InvalidArgument, "unsupported network type")
+	kind, err := networkDescription(fwd.Kind)
+	if err != nil {
+		return err
 	}
 
 	conn, err := net.Dial(kind, fwd.Addr)
@@ -481,7 +498,117 @@ func (s *WaterfallServer) Forward(rpc waterfall_grpc_pb.Waterfall_ForwardServer)
 	return sf.Forward()
 }
 
+// RverseForward starts forwarding through the provieded stream
+func (s *WaterfallServer) ReverseForward(stream waterfall_grpc_pb.Waterfall_ReverseForwardServer) error {
+	fwd, err := stream.Recv()
+	if err != nil {
+		return err
+	}
+
+	kind, err := networkDescription(fwd.Kind)
+	if err != nil {
+		return err
+	}
+
+	addr := fmt.Sprintf("%s:%s", kind, fwd.Addr)
+	ss, ok := s.reverseForwardSessions[addr]
+	if !ok {
+		return status.Error(codes.NotFound, fmt.Sprintf(
+			"forwarding session for %s does not exist", addr))
+	}
+
+	conn := <-ss.connCh
+	return forward.NewStreamForwarder(stream, conn.(forward.HalfReadWriteCloser)).Forward()
+}
+
+// StartReverseForward forwards the connections from the desired socket through the gRPC stream.
+// It works in conjunction with ReverseForward rpc as follows:
+// 1) It gets a forwarding request and starts listening for connections in the requested socket
+// 2) On accepting a new connection, it sends the client a new request to open a new rpc stream.
+//    This is because the server can't directly open a connection on the client.
+// 3) The client then sends a new ReverseForward rpc which is used to forward the connection.
+// Note that this function blocks until the session is terminated or an error occurs.
+func (s *WaterfallServer) StartReverseForward(fwd *waterfall_grpc_pb.ForwardMessage, rpc waterfall_grpc_pb.Waterfall_StartReverseForwardServer) error {
+	if fwd.Op != waterfall_grpc_pb.ForwardMessage_OPEN {
+		return status.Error(codes.InvalidArgument, "unexpected forward kind")
+	}
+
+	kind, err := networkDescription(fwd.Kind)
+	if err != nil {
+		log.Printf("failed to parse network kind %v %v\n", err, fwd)
+		return err
+	}
+
+	addr := fmt.Sprintf("%s:%s", kind, fwd.Addr)
+	log.Printf("Starting reverse fwd for %v", fwd)
+
+	if _, ok := s.reverseForwardSessions[addr]; ok {
+		return status.Error(codes.AlreadyExists, "address already being forwarded")
+	}
+
+	lis, err := net.Listen(kind, fwd.Addr)
+	if err != nil {
+		return err
+	}
+	defer lis.Close()
+
+	s.reverseForwardSessionsMutex.Lock()
+	ss := &reverseForwardSession{
+		addr:   addr,
+		lis:    lis,
+		connCh: make(chan net.Conn, 1),
+	}
+	s.reverseForwardSessions[addr] = ss
+	s.reverseForwardSessionsMutex.Unlock()
+
+	for {
+		log.Printf("Listening for connections to forward %v ...", fwd)
+		conn, err := lis.Accept()
+		if err != nil {
+			return err
+		}
+
+		ss.connCh <- conn
+		if err := rpc.Send(
+			&waterfall_grpc_pb.ForwardMessage{Op: waterfall_grpc_pb.ForwardMessage_OPEN}); err != nil {
+			delete(s.reverseForwardSessions, addr)
+			return err
+		}
+	}
+}
+
+// StopReverseForward stops a reverse forwarding session.
+func (s *WaterfallServer) StopReverseForward(ctxt context.Context, fwd *waterfall_grpc_pb.ForwardMessage) (*empty_pb.Empty, error) {
+	s.reverseForwardSessionsMutex.Lock()
+	defer s.reverseForwardSessionsMutex.Unlock()
+
+	kind, err := networkDescription(fwd.Kind)
+	if err != nil {
+		return nil, err
+	}
+	addr := fmt.Sprintf("%s:%s", kind, fwd.Addr)
+
+	ss, ok := s.reverseForwardSessions[addr]
+	if !ok {
+		return &empty_pb.Empty{}, nil
+	}
+	delete(s.reverseForwardSessions, addr)
+
+	ss.lis.Close()
+	close(ss.connCh)
+
+	return &empty_pb.Empty{}, nil
+}
+
 // Version returns the version of the server.
 func (s *WaterfallServer) Version(context.Context, *empty_pb.Empty) (*waterfall_grpc_pb.VersionMessage, error) {
 	return &waterfall_grpc_pb.VersionMessage{Version: "0.0"}, nil
+}
+
+// New initializes a new waterfall server
+func New() *WaterfallServer {
+	return &WaterfallServer{
+		reverseForwardSessionsMutex: new(sync.Mutex),
+		reverseForwardSessions:      map[string]*reverseForwardSession{},
+	}
 }

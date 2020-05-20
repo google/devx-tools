@@ -56,7 +56,7 @@ func runWaterfallServer(t *testing.T, addr string) {
 	defer lis.Close()
 
 	grpcServer := grpc.NewServer()
-	waterfall_grpc_pb.RegisterWaterfallServer(grpcServer, new(server.WaterfallServer))
+	waterfall_grpc_pb.RegisterWaterfallServer(grpcServer, server.New())
 	grpcServer.Serve(lis)
 }
 

@@ -131,7 +131,7 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer(options...)
-	waterfall_grpc_pb.RegisterWaterfallServer(grpcServer, new(server.WaterfallServer))
+	waterfall_grpc_pb.RegisterWaterfallServer(grpcServer, server.New())
 
 	log.Println("Serving ...")
 	grpcServer.Serve(lis)

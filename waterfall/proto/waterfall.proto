@@ -144,6 +144,19 @@ service Waterfall {
   // Forward forwards the stream payload to the requested socket
   rpc Forward(stream ForwardMessage) returns (stream ForwardMessage);
 
+   // StartReverseForward starts a reverse forward session in the server.
+  // This call starts listening for connections on the requested address
+  // and expects to receive streams to pipe this connections through
+  // ReverseForward.
+  rpc StartReverseForward(ForwardMessage) returns (stream ForwardMessage);
+
+  // ReverseForward establish a stream that can be used to pipe data.
+  rpc ReverseForward(stream ForwardMessage) returns (stream ForwardMessage);
+
+  // StopReverseForward stops the forwarding session identified by
+  // ForwardMessage.
+  rpc StopReverseForward(ForwardMessage) returns (google.protobuf.Empty);
+
   // Version gets the version of the server.
   rpc Version(google.protobuf.Empty) returns (VersionMessage);
 }
@@ -166,22 +179,36 @@ message ForwardedSessions {
 // It allows start and stop forwarding connections when the waterfall client
 // is unable to mantains any state (e.g. the waterfall adb binary).
 service PortForwarder {
+  // ForwardPort starts a forwarding session from host to target.
   rpc ForwardPort(PortForwardRequest) returns (google.protobuf.Empty);
+
+  // ReverseForwardPort starts a forwarding session from target to host.
+  rpc ReverseForwardPort(PortForwardRequest) returns (google.protobuf.Empty);
+
+  // StopReverse stops the reverse forwarding session specified by
+  // PortForwardRequest.
+  rpc StopReverse(PortForwardRequest) returns (google.protobuf.Empty);
+
+  // Stop stops the port forwarding session specified by PortForwardRequest.
   rpc Stop(PortForwardRequest) returns (google.protobuf.Empty);
+
+  // StopAll stops all (host to target) forwarding sessions.
   rpc StopAll(google.protobuf.Empty) returns (google.protobuf.Empty);
+
+  // List lists the current forwarding sessions.
   rpc List(google.protobuf.Empty) returns (ForwardedSessions);
+
 }
 
 // Multiplexer allows multiplexing multiple virtual connections through a single
-// connection. This allows us to multiplex over single stream channels (e.g USB connections)
-// without implementing most of the multiplexing logic.
-// This relies on gRPC over HTTP2 implementation, which maps a
-// method invocation to a HTTP2 stream. This is intended to be used by the
-// server and forwarder only (not actual clients).
-// Note that the gRPC lib migth decide to establish multiple HTTP2 connections.
-// connection, but Dialers/Listeners instances provided to gRPC should only create
-// a single connection.
-// See https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md.
+// connection. This allows us to multiplex over single stream channels (e.g USB
+// connections) without implementing most of the multiplexing logic. This relies
+// on gRPC over HTTP2 implementation, which maps a method invocation to a HTTP2
+// stream. This is intended to be used by the server and forwarder only (not
+// actual clients). Note that the gRPC lib migth decide to establish multiple
+// HTTP2 connections. connection, but Dialers/Listeners instances provided to
+// gRPC should only create a single connection. See
+// https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md.
 service Multiplexer {
   // NewStream returns a bidirectional byte stream.
   rpc NewStream(stream Message) returns (stream Message);
