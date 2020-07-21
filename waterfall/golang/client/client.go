@@ -240,10 +240,28 @@ func Exec(ctx context.Context, client waterfall_grpc_pb.WaterfallClient, stdout,
 
 	eg := &errgroup.Group{}
 
+	earlyExitCh := make(chan struct{})
+
+	// copy functions that allows for early cancelations to account for the fact that a
+	// process may exit before ingesting stdin.
+	cancelCopy := func(w io.Writer, r io.Reader) error {
+		errCh := make(chan error)
+		go func() {
+			_, err := io.Copy(w, r)
+			errCh <- err
+		}()
+
+		select {
+		case err := <-errCh:
+			return err
+		case <-earlyExitCh:
+			return nil
+		}
+	}
+
 	if stdin != nil {
 		eg.Go(func() error {
-			_, err := io.Copy(stream.NewWriter(xstream, execMessageWriter{}), stdin)
-			if err == nil || err == io.EOF {
+			if err := cancelCopy(stream.NewWriter(xstream, execMessageWriter{}), stdin); err == nil || err == io.EOF {
 				return xstream.CloseSend()
 			}
 			return err
@@ -276,6 +294,9 @@ func Exec(ctx context.Context, client waterfall_grpc_pb.WaterfallClient, stdout,
 		}
 		last = pgrs
 	}
+
+	// signal process stdin process termination
+	close(earlyExitCh)
 
 	if err := eg.Wait(); err != nil {
 		return 0, err
