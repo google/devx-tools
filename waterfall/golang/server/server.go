@@ -240,7 +240,17 @@ func (s *WaterfallServer) Exec(rpc waterfall_grpc_pb.Waterfall_ExecServer) error
 	}
 
 	if cmdMsg.Cmd.PipeIn {
-		cmd.Stdin = stream.NewReader(rpc, execMessageReader{})
+		// see use a pipe insted of assigning directly to cmd.Stdin
+		// see https://github.com/golang/go/issues/7990
+		si, err := cmd.StdinPipe()
+		if err != nil {
+			return err
+		}
+
+		go func() {
+			defer si.Close()
+			io.Copy(si, stream.NewReader(rpc, execMessageReader{}))
+		}()
 	}
 
 	if err := cmd.Start(); err != nil {
