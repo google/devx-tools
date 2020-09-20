@@ -21,6 +21,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strconv"
 	"syscall"
 
 	"github.com/google/waterfall/golang/constants"
@@ -29,6 +30,7 @@ import (
 	"github.com/google/waterfall/golang/server"
 	"github.com/google/waterfall/golang/utils"
 	waterfall_grpc_pb "github.com/google/waterfall/proto/waterfall_go_grpc"
+	"github.com/mdlayher/vsock"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	_ "google.golang.org/grpc/encoding/gzip"
@@ -92,6 +94,15 @@ func main() {
 			log.Fatalf("failed to open qemu_pipe %v", err)
 		}
 		lis = qemu.MakeControlSocket(pip)
+	case utils.VsockGuest:
+		p, err := strconv.Atoi(pa.SocketName)
+		if err != nil {
+			log.Fatalf("Failed to parse vsock: %v", pa)
+		}
+		lis, err = vsock.Listen(uint32(p))
+		if err != nil {
+			log.Fatalf("failed to open vsock %v", err)
+		}
 	case utils.Unix:
 		fallthrough
 	case utils.TCP:

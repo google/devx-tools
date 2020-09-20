@@ -115,9 +115,21 @@ go_repository(
 )
 
 go_repository(
+    name = "org_golang_x_sys",
+    commit = "af09f7315aff1cbc48fb21d21aa55d67b4f914c5",
+    importpath = "golang.org/x/sys",
+)
+
+go_repository(
     name = "org_golang_x_sync",
     commit = "1d60e4601c6fd243af51cc01ddf169918a5407ca",
     importpath = "golang.org/x/sync",
+)
+
+go_repository(
+    name = "com_github_mdlayher_vsock",
+    commit = "7ad3638b3fbc5ddf14fc37a1f9d046d1d6dd2013",
+    importpath = "github.com/mdlayher/vsock",
 )
 
 new_git_repository(
