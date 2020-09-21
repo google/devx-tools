@@ -23,6 +23,7 @@ import (
 	"os"
 	"strconv"
 	"syscall"
+	"time"
 
 	"github.com/google/waterfall/golang/constants"
 	"github.com/google/waterfall/golang/mux"
@@ -117,7 +118,11 @@ func main() {
 	}
 	defer lis.Close()
 
-	options := []grpc.ServerOption{grpc.WriteBufferSize(constants.WriteBufferSize)}
+	options := []grpc.ServerOption{
+		grpc.WriteBufferSize(constants.WriteBufferSize),
+		// Don't timeout connections (1 year timeout)
+		grpc.ConnectionTimeout(8760 * time.Hour),
+	}
 	if *cert != "" || *privateKey != "" {
 		if *cert == "" || *privateKey == "" {
 			log.Fatal("Need to specify -cert and -private_key")
