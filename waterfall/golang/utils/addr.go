@@ -17,6 +17,12 @@ const (
 	// It is of the form qemu-guest:$socket_name where socket_name is the name of the socket the host is listening.
 	QemuGuest = "qemu-guest"
 
+	// VsockHost describes a VSOCK address from the host perspective
+	VsockHost = "vsock-host"
+
+	// VsockGuest describes a VSOCK address from the guest perspective
+	VsockGuest = "vsock-guest"
+
 	// QemuCtrl describes an address from the guest perspective, when using the qemu2 protocol.
 	// It is of the form qemu-guest:$socket_name where socket_name is the name of the socket the host is listening.
 	QemuCtrl = "qemu2"
@@ -50,6 +56,8 @@ var (
 		QemuHost:  true,
 		QemuCtrl:  true,
 		QemuGuest: true,
+		VsockHost:  true,
+		VsockGuest: true,
 		Unix:      true,
 		TCP:       true,
 		Mux:       true,
@@ -86,6 +94,18 @@ func ParseAddr(addr string) (*ParsedAddr, error) {
 			return nil, err
 		}
 		return &ParsedAddr{Kind: pts[0], MuxAddr: mAddr}, nil
+	}
+
+	if pts[0] == VsockHost {
+		p := strings.SplitN(pts[1], ":", 2)
+		if len(p) != 2 {
+			return nil, fmt.Errorf("failed to parse address %s", addr)
+		}
+		return &ParsedAddr{Kind: pts[0], Addr: p[0], SocketName: p[1]}, nil
+	}
+
+	if pts[0] == VsockGuest {
+		return &ParsedAddr{Kind: pts[0], Addr: "", SocketName: pts[1]}, nil
 	}
 
 	if pts[0] == FD {

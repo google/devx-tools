@@ -21,6 +21,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -28,6 +29,7 @@ import (
 	"github.com/google/waterfall/golang/mux"
 	"github.com/google/waterfall/golang/net/qemu"
 	"github.com/google/waterfall/golang/utils"
+	"github.com/mdlayher/vsock"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -55,6 +57,19 @@ func init() {
 type connBuilder interface {
 	Accept() (net.Conn, error)
 	Close() error
+}
+
+type vsockBuilder struct {
+	cid  uint32
+	port uint32
+}
+
+func (v *vsockBuilder) Accept() (net.Conn, error) {
+	return vsock.Dial(v.cid, v.port)
+}
+
+func (v *vsockBuilder) Close() error {
+	return nil
 }
 
 type dialBuilder struct {
@@ -134,6 +149,17 @@ func main() {
 		fallthrough
 	case utils.TCP:
 		b = &dialBuilder{netType: cpa.Kind, addr: cpa.Addr}
+	case utils.VsockHost:
+		cid, err := strconv.Atoi(cpa.Addr)
+		if err != nil {
+			log.Fatalf("Got error parsing vsock addr %v.", cpa)
+		}
+
+		port, err := strconv.Atoi(cpa.SocketName)
+		if err != nil {
+			log.Fatalf("Got error parsing vsock addr %v.", cpa)
+		}
+		b = &vsockBuilder{cid: uint32(cid), port: uint32(port)}
 	case utils.Mux:
 		mc, err := net.Dial(cpa.MuxAddr.Kind, cpa.MuxAddr.Addr)
 		if err != nil {
