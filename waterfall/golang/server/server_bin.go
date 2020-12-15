@@ -18,10 +18,13 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"fmt"
 	"log"
 	"net"
 	"os"
+	"os/exec"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -48,6 +51,8 @@ var (
 
 	cert       = flag.String("cert", "", "The path to the server certificate")
 	privateKey = flag.String("private_key", "", "Path to the server private key")
+	daemon     = flag.Bool("daemon", false, "If true the server runs in daemon mode")
+
 )
 
 func makeCredentials(cert, privateKey string) (credentials.TransportCredentials, error) {
@@ -57,6 +62,37 @@ func makeCredentials(cert, privateKey string) (credentials.TransportCredentials,
 	}
 
 	return credentials.NewTLS(&tls.Config{Certificates: []tls.Certificate{crt}}), nil
+}
+
+func forkInDaemonMode(path string, paddr *utils.ParsedAddr, sessionID, cert, privateKey string) error {
+	a := fmt.Sprintf("%s:%s", paddr.Kind, paddr.Addr)
+	ef := []*os.File{}
+	if paddr.Kind == utils.TCP {
+		// allocate port before forking to avoid race conditions
+		// this is specially useful for situations where port is unknown (i.e :0)
+		// This way we can pick port here and hand it to the child.
+		// This way child doesent need to talk to the parent.
+		lis, err := net.Listen("tcp", paddr.Addr)
+		if err != nil {
+			return err
+		}
+
+		l, _ := lis.(*net.TCPListener)
+
+		pts := strings.Split(l.Addr().String(), ":")
+		fmt.Printf("Waterfall server port: [%s]\n", pts[len(pts)-1])
+		f, err := l.File()
+		if err != nil {
+			return err
+		}
+		a = "fd:3"
+		ef = append(ef, f)
+	}
+
+	cmd := exec.Command(
+		path, "-addr", a, "-daemon=false", "-session_id", sessionID, "-cert", cert, "-private_key", privateKey)
+	cmd.ExtraFiles = ef
+	return cmd.Start()
 }
 
 func main() {
@@ -81,6 +117,12 @@ func main() {
 	}
 
 	log.Printf("Starting %s:%s\n", pa.Kind, pa.Addr)
+	if *daemon {
+		if err := forkInDaemonMode(os.Args[0], pa, *sessionID, *cert, *privateKey); err != nil {
+			log.Fatalf("Failed to start waterfall in daemon mode: %v", err)
+		}
+		return
+	}
 
 	switch pa.Kind {
 	case utils.QemuGuest:
@@ -110,6 +152,11 @@ func main() {
 		lis, err = net.Listen(pa.Kind, pa.Addr)
 		if err != nil {
 			log.Fatalf("Failed to listen %v", err)
+		}
+	case utils.FD:
+		lis, err = net.FileListener(os.NewFile(uintptr(pa.FD), ""))
+		if err != nil {
+			log.Fatalf("Failed to create fd listener %v", err)
 		}
 	case utils.Mux:
 		lis = mux.NewListener(os.NewFile(uintptr(pa.MuxAddr.FD), ""))
