@@ -251,9 +251,10 @@ func (pf *PortForwarder) ReverseForwardPort(ctx context.Context, req *waterfall_
 	go func() {
 		defer pf.stopReverseForwarding(fCtx, ss)
 		for {
-			log.Printf("Waiting for new connection to forward: %v", err)
+			log.Print("Waiting for new connection to forward...")
 			fwd, err := ncs.Recv()
 			if err != nil {
+				log.Printf("Waterfall server error when listening for reverse forwarding connections: %v", err)
 				return
 			}
 
@@ -269,10 +270,17 @@ func (pf *PortForwarder) ReverseForwardPort(ctx context.Context, req *waterfall_
 				log.Printf("Failed to create new forwarding session: %v", err)
 				return
 			}
+
+			ntwk := srcNtwk
+			addr := srcAddr
+			if fwd.GetKind() != waterfall_grpc_pb.ForwardMessage_UNSET && len(fwd.Addr) > 0 {
+				ntwk = fwd.Kind
+				addr = fwd.Addr
+			}
 			if err := fs.Send(&waterfall_grpc_pb.ForwardMessage{
 				Op:   waterfall_grpc_pb.ForwardMessage_OPEN,
-				Kind: srcNtwk,
-				Addr: srcAddr,
+				Kind: ntwk,
+				Addr: addr,
 			}); err != nil {
 				log.Printf("Failed to create new forwarding request: %v", err)
 				return
