@@ -62,3 +62,33 @@ go_binary(
     static = "on",
     deps = BINARY_DEPS,
 )
+
+go_binary(
+    name = "server_bin_arm",
+    srcs = ["server_bin.go"],
+    goarch = "arm",
+    goos = "linux",
+    pure = "on",
+    static = "on",
+    deps = BINARY_DEPS,
+)
+
+go_binary(
+    name = "server_bin_arm64",
+    srcs = ["server_bin.go"],
+    goarch = "arm64",
+    goos = "linux",
+    pure = "on",
+    static = "on",
+    deps = BINARY_DEPS,
+)
+
+go_binary(
+    name = "server_bin_amd64",
+    srcs = ["server_bin.go"],
+    goarch = "amd64",
+    goos = "linux",
+    pure = "on",
+    static = "on",
+    deps = BINARY_DEPS,
+)

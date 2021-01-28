@@ -62,9 +62,9 @@ type WaterfallServer struct {
 }
 
 type reverseForwardSession struct {
-	addr   string
-	connCh chan net.Conn
-	lis    net.Listener
+	addr    string
+	connMap map[uint64]net.Conn
+	lis     net.Listener
 }
 
 // Echo exists solely for test purposes. It's a utility function to
@@ -519,15 +519,29 @@ func (s *WaterfallServer) ReverseForward(stream waterfall_grpc_pb.Waterfall_Reve
 	if err != nil {
 		return err
 	}
+	pts := strings.SplitN(fwd.Addr, "/", 2)
+	if len(pts) != 2 {
+		return status.Error(codes.InvalidArgument, fmt.Sprintf("unable to parse src address \"%s\"", fwd.Addr))
+	}
 
-	addr := fmt.Sprintf("%s:%s", kind, fwd.Addr)
+	addr := fmt.Sprintf("%s:%s", kind, pts[0])
 	ss, ok := s.reverseForwardSessions[addr]
+	cID, err := strconv.ParseUint(pts[1], 10, 64)
+	if err != nil {
+		return status.Error(codes.InvalidArgument, fmt.Sprintf("unable to parse cID from src address \"%s\"", fwd.Addr))
+	}
 	if !ok {
 		return status.Error(codes.NotFound, fmt.Sprintf(
 			"forwarding session for %s does not exist", addr))
 	}
 
-	conn := <-ss.connCh
+	conn, ok := ss.connMap[cID]
+	if !ok {
+		return status.Error(codes.NotFound, fmt.Sprintf(
+			"forwarding session for %s does not exist", fwd.Addr))
+	}
+	defer ss.connMap[cID].Close()
+	defer delete(ss.connMap, cID)
 	return forward.NewStreamForwarder(stream, conn.(forward.HalfReadWriteCloser)).Forward()
 }
 
@@ -564,12 +578,13 @@ func (s *WaterfallServer) StartReverseForward(fwd *waterfall_grpc_pb.ForwardMess
 
 	s.reverseForwardSessionsMutex.Lock()
 	ss := &reverseForwardSession{
-		addr:   addr,
-		lis:    lis,
-		connCh: make(chan net.Conn, 1),
+		addr:    addr,
+		lis:     lis,
+		connMap: make(map[uint64]net.Conn),
 	}
 	s.reverseForwardSessions[addr] = ss
 	s.reverseForwardSessionsMutex.Unlock()
+	var cID uint64 = 0
 
 	for {
 		log.Printf("Listening for connections to forward %v ...", fwd)
@@ -578,9 +593,14 @@ func (s *WaterfallServer) StartReverseForward(fwd *waterfall_grpc_pb.ForwardMess
 			return err
 		}
 
-		ss.connCh <- conn
+		cID = cID + 1
+		ss.connMap[cID] = conn
 		if err := rpc.Send(
-			&waterfall_grpc_pb.ForwardMessage{Op: waterfall_grpc_pb.ForwardMessage_OPEN}); err != nil {
+			&waterfall_grpc_pb.ForwardMessage{
+				Op:   waterfall_grpc_pb.ForwardMessage_OPEN,
+				Addr: fmt.Sprintf("%s/%d", fwd.Addr, cID),
+				Kind: fwd.Kind,
+			}); err != nil {
 			delete(s.reverseForwardSessions, addr)
 			return err
 		}
@@ -605,7 +625,9 @@ func (s *WaterfallServer) StopReverseForward(ctxt context.Context, fwd *waterfal
 	delete(s.reverseForwardSessions, addr)
 
 	ss.lis.Close()
-	close(ss.connCh)
+	for _, c := range ss.connMap {
+		c.Close()
+	}
 
 	return &empty_pb.Empty{}, nil
 }
