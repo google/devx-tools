@@ -1,0 +1,37 @@
+diff --git vsock.go vsock.go
+index 004263e..17a2301 100644
+--- vsock.go
++++ vsock.go
+@@ -9,6 +9,8 @@ import (
+ 	"strings"
+ 	"syscall"
+ 	"time"
++
++	"golang.org/x/sys/unix"
+ )
+ 
+ const (
+@@ -55,6 +57,23 @@ const (
+ 	opWrite       = "write"
+ )
+ 
++
++// ListenAny opens a connection-oriented net.Listener for incoming VM sockets
++// connections on any available VSOCK interface.
++// The port parameter specifies the port for the Listener.
++func ListenAny(port uint32) (*Listener, error) {
++	var cid uint32 = unix.VMADDR_CID_ANY
++	l, err := listen(cid, port)
++	if err != nil {
++		// No remote address available.
++		return nil, opError(opListen, err, &Addr{
++			ContextID: cid,
++			Port:      port,
++		}, nil)
++	}
++	return l, nil
++}
++
+ // Listen opens a connection-oriented net.Listener for incoming VM sockets
+ // connections. The port parameter specifies the port for the Listener.
+ //

@@ -131,6 +131,7 @@ go_repository(
     name = "com_github_mdlayher_vsock",
     commit = "7ad3638b3fbc5ddf14fc37a1f9d046d1d6dd2013",
     importpath = "github.com/mdlayher/vsock",
+    patches = ["//patches:vsock.patch"],
 )
 
 new_git_repository(
