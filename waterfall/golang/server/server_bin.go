@@ -52,7 +52,6 @@ var (
 	cert       = flag.String("cert", "", "The path to the server certificate")
 	privateKey = flag.String("private_key", "", "Path to the server private key")
 	daemon     = flag.Bool("daemon", false, "If true the server runs in daemon mode")
-
 )
 
 func makeCredentials(cert, privateKey string) (credentials.TransportCredentials, error) {
@@ -142,7 +141,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to parse vsock: %v", pa)
 		}
-		lis, err = vsock.Listen(uint32(p))
+		lis, err = vsock.ListenAny(uint32(p))
 		if err != nil {
 			log.Fatalf("failed to open vsock %v", err)
 		}
