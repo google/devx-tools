@@ -108,24 +108,35 @@ func (s *Reader) Read(b []byte) (int, error) {
 		return n, nil
 	}
 
-	// Try to drain the msg channel before returning in order to fulfill the requested slice.
 	nt := 0
+	handleMsg := func(nTotal int, rb []byte, ok bool) (nNew int, earlyReturn bool, err error) {
+		if !ok {
+			if nTotal == 0 {
+				// The channel was closed and nothing was read
+				return 0, true, <-s.errChan
+			}
+			// Return what we read and return the error on the next read
+			return 0, true, nil
+		}
+		nNew = copy(b[nTotal:], rb)
+		s.lastRead = rb[nNew:]
+		return nNew, (nTotal + nNew) == len(b), nil
+	}
+	rb, ok := <-s.msgChan
+	n, earlyReturn, err := handleMsg(nt, rb, ok)
+	nt += n
+	if earlyReturn {
+		return nt, err
+	}
+
+	// Try to drain the msg channel before returning in order to fulfill the requested slice.
 	for {
 		select {
 		case rb, ok := <-s.msgChan:
-			if !ok {
-				if nt == 0 {
-					// The channel was closed and nothing was read
-					return 0, <-s.errChan
-				}
-				// Return what we read and return the error on the next read
-				return nt, nil
-			}
-			n := copy(b[nt:], rb)
+			n, earlyReturn, err := handleMsg(nt, rb, ok)
 			nt += n
-			s.lastRead = rb[n:]
-			if nt == len(b) {
-				return nt, nil
+			if earlyReturn {
+				return nt, err
 			}
 		default:
 			return nt, nil
@@ -174,8 +185,8 @@ func NewReadWriteCloser(stream Stream, sm MessageReadWriteCloser) *ReadWriteClos
 	rwc := &ReadWriteCloser{
 		Stream:                 stream,
 		MessageReadWriteCloser: sm,
-		r: NewReader(stream, sm),
-		w: NewWriter(stream, sm),
+		r:                      NewReader(stream, sm),
+		w:                      NewWriter(stream, sm),
 	}
 	return rwc
 }
