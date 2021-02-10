@@ -144,7 +144,7 @@ func main() {
 			log.Fatalf("Got error creating qemu conn %v.", err)
 		}
 		defer qb.Close()
-		b = qb
+		b = qemu.MakePipeConnBuilder(qb)
 	case utils.Unix:
 		fallthrough
 	case utils.TCP:
