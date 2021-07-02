@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"net"
@@ -40,8 +39,6 @@ const (
 	// We pick a sufficiently large buffer size to avoid hitting an underlying bug on the emulator.
 	// See https://issuetracker.google.com/issues/115894209 for context.
 	buffSize = 1 << 16
-
-	handshakeTimeout = time.Millisecond * 500
 )
 
 var errClosed = errors.New("error connection closed")
@@ -350,26 +347,6 @@ type PipeConnBuilder struct {
 
 // Accept will connect to the guest and return the connection.
 func (b *PipeConnBuilder) Accept() (net.Conn, error) {
-
-	// Handshake operations with timeout.
-	// VSOCK misbehaves when using snapshots: connections from a snapshot image will hang indefinitely.
-	withTimeout := func(f func([]byte) (int, error), b []byte) error {
-		ech := make(chan error, 1)
-		go func() {
-			if _, err := f(b); err != nil {
-				ech <- err
-			}
-			ech <- nil
-		}()
-
-		select {
-		case err := <-ech:
-			return err
-		case <-time.After(handshakeTimeout):
-			return fmt.Errorf("handshake timeout")
-		}
-	}
-
 	for {
 		conn, err := b.Listener.Accept()
 		if err != nil {
@@ -378,7 +355,7 @@ func (b *PipeConnBuilder) Accept() (net.Conn, error) {
 
 		// sync with the server
 		rdy := []byte(rdyMsg)
-		if err := withTimeout(conn.Read, rdy); err != nil {
+		if _, err := io.ReadFull(conn, rdy); err != nil {
 			conn.Close()
 			continue
 		}
@@ -386,7 +363,7 @@ func (b *PipeConnBuilder) Accept() (net.Conn, error) {
 			conn.Close()
 			continue
 		}
-		if err := withTimeout(conn.Write, rdy); err != nil {
+		if _, err := conn.Write(rdy); err != nil {
 			conn.Close()
 			continue
 		}
