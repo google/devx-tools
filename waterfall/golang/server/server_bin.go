@@ -196,5 +196,7 @@ func main() {
 	waterfall_grpc_pb.RegisterWaterfallServer(grpcServer, server.New())
 
 	log.Println("Serving ...")
-	grpcServer.Serve(lis)
+	if err := grpcServer.Serve(lis); err != nil {
+		log.Printf("Unable to serve! %v", err)
+	}
 }
