@@ -101,6 +101,7 @@ func main() {
 	// adb will always create files with 0644 permission
 	syscall.Umask(0)
 
+	log.SetPrefix("waterfall: ")
 	log.Println("Starting waterfall server ...")
 
 	if *addr == "" {
