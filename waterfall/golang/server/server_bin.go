@@ -102,6 +102,14 @@ func main() {
 	syscall.Umask(0)
 
 	log.SetPrefix("waterfall: ")
+	// Log to the Kernel logs if possible
+	// This requires "file /dev/kmsg w" to be in the Waterfall service definition
+	if kmsgFd := os.Getenv("ANDROID_FILE__dev_kmsg"); kmsgFd != "" {
+		fd, err := strconv.Atoi(kmsgFd)
+		if err == nil {
+			log.SetOutput(os.NewFile(uintptr(fd), "/dev/kmsg"))
+		}
+	}
 	log.Println("Starting waterfall server ...")
 
 	if *addr == "" {
