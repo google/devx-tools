@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -316,23 +317,27 @@ func (b *ConnBuilder) Accept() (net.Conn, error) {
 func MakeConnBuilder(emuDir, socket string) (*ConnBuilder, error) {
 	wd, err := os.Getwd()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot get working directory: %v", err)
 	}
 
-	if err := os.Chdir(emuDir); err != nil {
-		return nil, err
+	if wd != emuDir {
+		if err := os.Chdir(emuDir); err != nil {
+			return nil, fmt.Errorf("failed to chdir to %s: %v", emuDir, err)
+		}
 	}
 
 	if err := os.Remove(socket); err != nil && !os.IsNotExist(err) {
-		return nil, err
+		return nil, fmt.Errorf("failed to remove old socket: %v", err)
 	}
 	lis, err := net.Listen("unix", socket)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to listen on unix socket %s: %v", socket, err)
 	}
 
-	if err := os.Chdir(wd); err != nil {
-		return nil, err
+	if wd != emuDir {
+		if err := os.Chdir(wd); err != nil {
+			return nil, fmt.Errorf("failed to chdir to %s: %v", wd, err)
+		}
 	}
 
 	return &ConnBuilder{Listener: lis}, nil
