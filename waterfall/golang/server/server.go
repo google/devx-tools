@@ -52,6 +52,7 @@ const (
 	installWrite   = "install-write"
 	installCommit  = "install-commit"
 	installAbandon = "install-abandon"
+	noStreaming    = "no-streaming"
 )
 
 // WaterfallServer implements the waterfall gRPC service
@@ -360,13 +361,22 @@ func (s *WaterfallServer) Install(rpc waterfall_grpc_pb.Waterfall_InstallServer)
 	// Ignore the error, well just default to legacy install
 	api, _ := getVersion()
 
-	// 3 Possible cases:
-	// Streaming installations are not available (api < 21): use pm install with temp file
+	var args []string
+	forceNoStreaming := false
+	for _, a := range ins.Args {
+		if strings.Contains(a, noStreaming) {
+			forceNoStreaming = true
+		} else {
+			args = append(args, a)
+		}
+	}
+	// 4 Possible cases:
+	// Streaming installations are not available (api < 21) or "--no-streaming" flag provided: use pm install with temp file
 	// Streaming installations are available with pm (21 <= api < 24): use pm streamed install
 	// Streaming installations are available with cmd (api >= 24): use cmd streamed install
 	streamed := false
 	useCmd := false
-	if api >= 21 {
+	if api >= 21 && !forceNoStreaming {
 		streamed = true
 	}
 	if api >= 25 {
@@ -390,7 +400,7 @@ func (s *WaterfallServer) Install(rpc waterfall_grpc_pb.Waterfall_InstallServer)
 			return err
 		}
 
-		cmd := shell(ctx, append([]string{pmCmd, install}, append(ins.Args, f.Name())...))
+		cmd := shell(ctx, append([]string{pmCmd, install}, append(args, f.Name())...))
 		o, err := cmd.CombinedOutput()
 		s, err := exitCode(err)
 		if err != nil {
@@ -409,7 +419,7 @@ func (s *WaterfallServer) Install(rpc waterfall_grpc_pb.Waterfall_InstallServer)
 	}
 
 	action := append(insCmd, installCreate)
-	cmd := shell(ctx, append(action, ins.Args...))
+	cmd := shell(ctx, append(action, args...))
 	o, err := cmd.CombinedOutput()
 	ec, err := exitCode(err)
 	if err != nil {
