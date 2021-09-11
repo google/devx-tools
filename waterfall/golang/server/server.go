@@ -355,9 +355,10 @@ func (s *WaterfallServer) Install(rpc waterfall_grpc_pb.Waterfall_InstallServer)
 
 	ins, err := rpc.Recv()
 	if err != nil {
+		log.Printf("Install Recv failed: %v", err)
 		return err
 	}
-
+	log.Println("Starting Install")
 	// Ignore the error, well just default to legacy install
 	api, _ := getVersion()
 
@@ -385,18 +386,22 @@ func (s *WaterfallServer) Install(rpc waterfall_grpc_pb.Waterfall_InstallServer)
 
 	payload := stream.NewReader(rpc, installReader{})
 	if !streamed {
+		log.Println("Installing via pm install without streaming")
 		f, err := ioutil.TempFile(tmpDir, "*.apk")
 		if err != nil {
+			log.Printf("Install failed to create temp APK file: %v", err)
 			return err
 		}
 		defer os.Remove(f.Name())
 		defer f.Close()
 
 		if _, err := io.Copy(f, payload); err != nil {
+			log.Printf("Install failed to copy APK payload to temp file: %v", err)
 			return err
 		}
 
 		if err := f.Chmod(os.ModePerm); err != nil {
+			log.Printf("Install failed to chmod temp APK file: %v", err)
 			return err
 		}
 
@@ -404,6 +409,7 @@ func (s *WaterfallServer) Install(rpc waterfall_grpc_pb.Waterfall_InstallServer)
 		o, err := cmd.CombinedOutput()
 		s, err := exitCode(err)
 		if err != nil {
+			log.Printf("pm install %s failed %v: %s", f.Name(), err, string(o))
 			return err
 		}
 
@@ -412,7 +418,7 @@ func (s *WaterfallServer) Install(rpc waterfall_grpc_pb.Waterfall_InstallServer)
 				ExitCode: uint32(s),
 				Output:   string(o)})
 	}
-
+	log.Println("Installing via streamed install")
 	insCmd := []string{pmCmd}
 	if useCmd {
 		insCmd = []string{cmdCmd, packageService}
@@ -423,6 +429,7 @@ func (s *WaterfallServer) Install(rpc waterfall_grpc_pb.Waterfall_InstallServer)
 	o, err := cmd.CombinedOutput()
 	ec, err := exitCode(err)
 	if err != nil {
+		log.Printf("failed to create install session %v: %s", err, string(o))
 		return err
 	}
 
@@ -432,9 +439,10 @@ func (s *WaterfallServer) Install(rpc waterfall_grpc_pb.Waterfall_InstallServer)
 				ExitCode: uint32(ec),
 				Output:   string(o)})
 	}
-
+	log.Println("Created streamed install session")
 	out := string(o)
 	if strings.Index(out, "[") < 0 || strings.Index(out, "]") < 0 {
+		log.Printf("bad install session: %s", out)
 		return fmt.Errorf("bad install session: %s", out)
 	}
 
@@ -447,7 +455,7 @@ func (s *WaterfallServer) Install(rpc waterfall_grpc_pb.Waterfall_InstallServer)
 	o, err = cmd.CombinedOutput()
 	ec, err = exitCode(err)
 	if err != nil {
-		fmt.Printf("write error %v\n", err)
+		fmt.Printf("Install write error %v: %s", err, string(o))
 		shell(ctx, append(insCmd, installAbandon, ss)).Run()
 		return err
 	}
@@ -467,7 +475,7 @@ func (s *WaterfallServer) Install(rpc waterfall_grpc_pb.Waterfall_InstallServer)
 	o, err = cmd.CombinedOutput()
 	ec, err = exitCode(err)
 	if err != nil {
-		fmt.Printf("commit error %v\n", err)
+		fmt.Printf("Install commit error %v: %s", err, string(o))
 		// Ignore error we want to propagate first error
 		shell(ctx, append(insCmd, installAbandon, ss)).Run()
 		return err
@@ -502,16 +510,19 @@ func networkDescription(kind waterfall_grpc_pb.ForwardMessage_Kind) (string, err
 func (s *WaterfallServer) Forward(rpc waterfall_grpc_pb.Waterfall_ForwardServer) error {
 	fwd, err := rpc.Recv()
 	if err != nil {
+		log.Printf("failed to recv forwarding stream: %v", err)
 		return err
 	}
 
 	kind, err := networkDescription(fwd.Kind)
 	if err != nil {
+		log.Printf("failed to determine network forwarding type: %v", err)
 		return err
 	}
 
 	conn, err := net.Dial(kind, fwd.Addr)
 	if err != nil {
+		log.Printf("failed to ")
 		return err
 	}
 	sf := forward.NewStreamForwarder(rpc, conn.(forward.HalfReadWriteCloser))
@@ -531,6 +542,7 @@ func (s *WaterfallServer) ReverseForward(stream waterfall_grpc_pb.Waterfall_Reve
 	}
 	pts := strings.SplitN(fwd.Addr, "/", 2)
 	if len(pts) != 2 {
+		log.Printf("Failed to parse reverse forwarding src address %s", fwd.Addr)
 		return status.Error(codes.InvalidArgument, fmt.Sprintf("unable to parse src address \"%s\"", fwd.Addr))
 	}
 
@@ -538,15 +550,18 @@ func (s *WaterfallServer) ReverseForward(stream waterfall_grpc_pb.Waterfall_Reve
 	ss, ok := s.reverseForwardSessions[addr]
 	cID, err := strconv.ParseUint(pts[1], 10, 64)
 	if err != nil {
+		log.Printf("unable to parse cID from src address \"%s\"", fwd.Addr)
 		return status.Error(codes.InvalidArgument, fmt.Sprintf("unable to parse cID from src address \"%s\"", fwd.Addr))
 	}
 	if !ok {
+		log.Printf("forwarding session for %s does not exist", addr)
 		return status.Error(codes.NotFound, fmt.Sprintf(
 			"forwarding session for %s does not exist", addr))
 	}
 
 	conn, ok := ss.connMap[cID]
 	if !ok {
+		log.Printf("forwarding session for %s does not exist", fwd.Addr)
 		return status.Error(codes.NotFound, fmt.Sprintf(
 			"forwarding session for %s does not exist", fwd.Addr))
 	}
@@ -577,11 +592,13 @@ func (s *WaterfallServer) StartReverseForward(fwd *waterfall_grpc_pb.ForwardMess
 	log.Printf("Starting reverse fwd for %v", fwd)
 
 	if _, ok := s.reverseForwardSessions[addr]; ok {
+		log.Printf("Address %s already being forwarded")
 		return status.Error(codes.AlreadyExists, "address already being forwarded")
 	}
 
 	lis, err := net.Listen(kind, fwd.Addr)
 	if err != nil {
+		log.Printf("Failed to listen on address %s: %v", fwd.Addr, err)
 		return err
 	}
 	defer lis.Close()
@@ -597,9 +614,10 @@ func (s *WaterfallServer) StartReverseForward(fwd *waterfall_grpc_pb.ForwardMess
 	var cID uint64 = 0
 
 	for {
-		log.Printf("Listening for connections to forward %v ...", fwd)
+		log.Printf("Listening for connections to reverse forward %v ...", fwd)
 		conn, err := lis.Accept()
 		if err != nil {
+			log.Printf("Failed to accept reverse forwarding connection for %v", fwd)
 			return err
 		}
 
@@ -611,6 +629,7 @@ func (s *WaterfallServer) StartReverseForward(fwd *waterfall_grpc_pb.ForwardMess
 				Addr: fmt.Sprintf("%s/%d", fwd.Addr, cID),
 				Kind: fwd.Kind,
 			}); err != nil {
+			log.Printf("Reverse Forward failed to send request to client to forward %s: %v", fwd.Addr, err)
 			delete(s.reverseForwardSessions, addr)
 			return err
 		}
