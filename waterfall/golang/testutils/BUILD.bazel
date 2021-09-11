@@ -7,8 +7,8 @@ package(default_visibility = ["//visibility:public"])
 go_library(
     name = "testutils",
     srcs = [
-        "net.go",
         "emu.go",
+        "net.go",
         "runfiles.go",
     ],
     importpath = "github.com/google/waterfall/golang/testutils",

@@ -10,7 +10,7 @@ java_test(
     deps = [
         "//waterfall/java/com/google/waterfall/tar",
         "//waterfall/javatests/com/google/waterfall/helpers",
-        "@com_google_truth_truth//:com_google_truth_truth",
+        "@com_google_truth_truth",
         "@maven//:org_junit_jupiter_junit_jupiter_api_5_3_2",
         "@maven//:org_junit_jupiter_junit_jupiter_engine",
     ],
