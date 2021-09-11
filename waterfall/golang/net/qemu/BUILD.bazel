@@ -35,10 +35,7 @@ go_binary(
 
 go_test(
     name = "qemu_test",
-    srcs = [
-        "qemu.go",
-        "qemu_test.go",
-    ],
+    srcs = ["qemu_test.go"],
     args = [
         "--server=$(location :test_server)",
         "--launcher=$(location @android_test_support//tools/android/emulated_devices/generic_phone:android_23_x86)",
@@ -49,10 +46,11 @@ go_test(
         "@android_test_support//tools/android/emulated_devices/generic_phone:android_23_x86",
         "@android_test_support//tools/android/emulator:support/adb.turbo",
     ],
+    embed = [":qemu"],
     importpath = "github.com/google/waterfall/golang/net/qemu",
     deps = [
         "//waterfall/golang/testutils",
-        "@org_golang_x_net//context:go_default_library",
-        "@org_golang_x_sync//errgroup:go_default_library",
+        "@org_golang_x_net//context",
+        "@org_golang_x_sync//errgroup",
     ],
 )

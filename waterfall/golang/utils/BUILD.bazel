@@ -6,20 +6,21 @@ package(default_visibility = ["//visibility:public"])
 
 go_library(
     name = "utils",
-    srcs = [
-        "addr.go",
-    ],
+    srcs = ["addr.go"],
     importpath = "github.com/google/waterfall/golang/utils",
 )
 
 go_test(
     name = "addr_test",
-    srcs = [
-        "addr_test.go",
-    ],
+    srcs = ["addr_test.go"],
     embed = [
         ":utils",
     ],
     importpath = "github.com/google/waterfall/golang/utils",
 )
 
+go_test(
+    name = "utils_test",
+    srcs = ["addr_test.go"],
+    embed = [":utils"],
+)

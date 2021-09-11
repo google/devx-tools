@@ -1,1 +1,6 @@
 licenses(["notice"])  # Apache 2.0
+
+load("@bazel_gazelle//:def.bzl", "gazelle")
+
+# gazelle:prefix github.com/google
+gazelle(name = "gazelle")
