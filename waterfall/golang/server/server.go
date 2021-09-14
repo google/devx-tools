@@ -469,6 +469,8 @@ func (s *WaterfallServer) Install(rpc waterfall_grpc_pb.Waterfall_InstallServer)
 				Output:   string(o)})
 	}
 
+	log.Println("Committing streamed install session")
+
 	action = append(insCmd, installCommit)
 	cmd = shell(ctx, append(action, ss))
 
@@ -485,6 +487,8 @@ func (s *WaterfallServer) Install(rpc waterfall_grpc_pb.Waterfall_InstallServer)
 		fmt.Printf("commit non zero code\n")
 		// Ignore error we want to propagate first error
 		shell(ctx, append(insCmd, installAbandon, ss)).Run()
+	} else {
+		log.Println("Streamed install session comitted successfully")
 	}
 
 	return rpc.SendAndClose(
