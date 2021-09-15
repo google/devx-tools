@@ -9,7 +9,9 @@ package(default_visibility = ["//visibility:public"])
 
 go_binary(
     name = "adb_bin",
-    srcs = ["adb_bin.go"],
+    srcs = [
+        "adb_bin.go",
+    ],
     deps = [
         ":adb",
         "@org_golang_google_grpc//:go_default_library",

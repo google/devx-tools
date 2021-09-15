@@ -30,8 +30,7 @@ go_test(
     name = "stream_test",
     srcs = [
         "stream_test.go",
-        "tar_test.go",
+        "stream.go",
     ],
-    embed = [":stream"],
     importpath = "github.com/google/waterfall/golang/stream",
 )

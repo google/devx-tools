@@ -9,11 +9,16 @@ package(default_visibility = ["//visibility:public"])
 
 go_library(
     name = "client",
-    srcs = ["client.go"],
+    srcs = [
+        "client.go",
+    ],
     importpath = "github.com/google/waterfall/golang/client",
     deps = [
         "//waterfall/golang/stream",
+        "//waterfall/golang/net/qemu",
         "//waterfall/proto:waterfall_go_grpc",
-        "@org_golang_x_sync//errgroup",
+        "//waterfall/proto:waterfall_go_proto",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_x_sync//errgroup:go_default_library",
     ],
 )
