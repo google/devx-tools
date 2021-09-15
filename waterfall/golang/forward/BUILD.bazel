@@ -47,8 +47,13 @@ go_library(
     ],
     importpath = "github.com/google/waterfall/golang/forward",
     deps = [
+        "//waterfall/golang/adb",
+        "//waterfall/golang/client",
+        "//waterfall/golang/net/qemu",
         "//waterfall/golang/stream",
         "//waterfall/proto:waterfall_go_grpc",
+        "//waterfall/proto:waterfall_go_proto",
+        "@org_golang_google_grpc//:go_default_library",
     ],
 )
 
@@ -72,7 +77,6 @@ go_test(
     name = "forward_test",
     srcs = [
         "forward_test.go",
-        "stream_test.go",
     ],
     args = [
         "--fwdr_bin=$(location :forward_bin)",
@@ -80,10 +84,8 @@ go_test(
     data = [
         "//waterfall/golang/forward:forward_bin",
     ],
-    embed = [":forward"],
     importpath = "github.com/google/waterfall/golang/forward",
     deps = [
         "//waterfall/golang/testutils",
-        "//waterfall/proto:waterfall_go_grpc",
     ],
 )
