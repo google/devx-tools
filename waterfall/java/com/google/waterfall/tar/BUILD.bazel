@@ -11,7 +11,7 @@ java_library(
         "Tar.java",
     ],
     deps = [
-        "@maven//:org_apache_commons_commons_compress",
         "@com_google_guava_guava//jar",
+        "@maven//:org_apache_commons_commons_compress",
     ],
 )

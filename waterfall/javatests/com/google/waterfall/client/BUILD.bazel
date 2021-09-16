@@ -17,7 +17,7 @@ java_test(
         "@com_google_guava_guava//jar",
         "@com_google_protobuf//:protobuf_java",
         "@com_google_protobuf//:protobuf_lite",
-        "@com_google_truth_truth//:com_google_truth_truth",
+        "@com_google_truth_truth",
         "@io_grpc_grpc_java//core",
         "@io_grpc_grpc_java//core:inprocess",
         "@io_grpc_grpc_java//core:util",

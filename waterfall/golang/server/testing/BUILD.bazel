@@ -3,13 +3,11 @@
 
 licenses(["notice"])  # Apache 2.0
 
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_test")
 
 go_test(
     name = "qemu_server_test",
-    srcs = [
-        "qemu_server_test.go",
-    ],
+    srcs = ["qemu_server_test.go"],
     args = [
         "--server=$(location //waterfall/golang/server:server_bin_386)",
         "--launcher=$(location @android_test_support//tools/android/emulated_devices/generic_phone:android_23_x86)",
@@ -28,5 +26,18 @@ go_test(
         "//waterfall/proto:waterfall_go_grpc",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_x_sync//errgroup:go_default_library",
+    ],
+)
+
+go_test(
+    name = "testing_test",
+    srcs = ["qemu_server_test.go"],
+    deps = [
+        "//waterfall/golang/client",
+        "//waterfall/golang/net/qemu",
+        "//waterfall/golang/testutils",
+        "//waterfall/proto:waterfall_go_grpc",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_x_sync//errgroup",
     ],
 )
