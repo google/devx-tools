@@ -71,7 +71,7 @@ func configureLogging() {
 		if err == nil {
 			log.SetOutput(os.NewFile(uintptr(fd), "/dev/kmsg"))
 			log.SetPrefix("waterfall: ")
-			if sErr := syscall.Dup2(fd, int(os.Stderr.Fd())); sErr != nil {
+			if sErr := syscall.Dup3(fd, int(os.Stderr.Fd()), 0); sErr != nil {
 				log.Printf("Failed to redirect stderr to file: %v", sErr)
 			}
 		}
