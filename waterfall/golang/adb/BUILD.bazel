@@ -9,6 +9,8 @@ package(default_visibility = ["//visibility:public"])
 
 go_library(
     name = "adb",
-    srcs = ["adb.go"],
+    srcs = [
+        "adb.go",
+    ],
     importpath = "github.com/google/waterfall/golang/adb",
 )
