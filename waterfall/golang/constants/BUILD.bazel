@@ -9,6 +9,8 @@ package(default_visibility = ["//visibility:public"])
 
 go_library(
     name = "constants",
-    srcs = ["constants.go"],
+    srcs = [
+        "constants.go",
+    ],
     importpath = "github.com/google/waterfall/golang/constants",
 )

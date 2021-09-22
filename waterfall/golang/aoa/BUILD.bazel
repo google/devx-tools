@@ -3,6 +3,7 @@ licenses(["notice"])  # Apache 2.0
 load(
     "@io_bazel_rules_go//go:def.bzl",
     "go_library",
+    "go_binary",
     "go_test",
 )
 
@@ -12,13 +13,16 @@ package(default_visibility = ["//visibility:public"])
 go_library(
     name = "aoa",
     srcs = ["aoa.go"],
+    cgo = True,
     importpath = "github.com/google/waterfall/golang/aoa",
-    deps = ["@com_github_google_gousb//:go_default_library"],
+    deps = ["@com_github_google_gousb//:gousb"],
 )
 
 go_test(
     name = "aoa_test",
-    srcs = ["aoa_test.go"],
+    srcs = [
+        "aoa_test.go",
+    ],
     data = [
         "//waterfall/java/com/google/waterfall/usb:usb_service",
     ],
@@ -27,6 +31,6 @@ go_test(
     ],
     importpath = "github.com/google/waterfall/golang/aoa",
     deps = [
-        "@org_golang_x_sync//errgroup",
+        "@org_golang_x_sync//errgroup:go_default_library",
     ],
 )
