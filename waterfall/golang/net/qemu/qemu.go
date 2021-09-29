@@ -32,10 +32,11 @@ import (
 )
 
 const (
-	qemuDriver = "/dev/qemu_pipe"
-	qemuSvc    = "pipe:unix:"
-	ioErrMsg   = "input/output error"
-	rdyMsg     = "rdy"
+	qemuDriver       = "/dev/qemu_pipe"
+	qemuSvc          = "pipe:unix:"
+	ioErrMsg         = "input/output error"
+	rdyMsg           = "rdy"
+	handshakeTimeout = 500 * time.Millisecond
 
 	// We pick a sufficiently large buffer size to avoid hitting an underlying bug on the emulator.
 	// See https://issuetracker.google.com/issues/115894209 for context.
@@ -430,6 +431,27 @@ func openQemuDevBlocking() (*os.File, error) {
 	return os.NewFile(uintptr(r), qemuDriver), nil
 }
 
+// Handshake operations with timeout.
+// Connections from a snapshot image might hang indefinitely.
+func withTimeout(f func([]byte) (int, error), b []byte) (int, error) {
+	ech := make(chan error, 1)
+	var written int
+	go func() {
+		var err error
+		if written, err = f(b); err != nil {
+			ech <- err
+		}
+		ech <- nil
+	}()
+
+	select {
+	case err := <-ech:
+		return written, err
+	case <-time.After(handshakeTimeout):
+		return written, fmt.Errorf("handshake timeout")
+	}
+}
+
 // Pipe implements a net.Listener on top of a guest qemu pipe
 type Pipe struct {
 	socketName string
@@ -471,7 +493,7 @@ func (q *Pipe) Accept() (net.Conn, error) {
 		// retry loop to wait until we can start the service on the qemu_pipe
 		for {
 			log.Println("Writing service")
-			written, err := conn.Write(buff)
+			written, err := withTimeout(conn.Write, buff)
 			if err != nil {
 				// The host has not opened the socket. Sleep and try again
 				conn.Close()
