@@ -57,15 +57,16 @@ const (
 
 // WaterfallServer implements the waterfall gRPC service
 type WaterfallServer struct {
-	reverseForwardSessionsMutex *sync.Mutex
+	reverseForwardSessionsMutex sync.RWMutex
 
 	reverseForwardSessions map[string]*reverseForwardSession
 }
 
 type reverseForwardSession struct {
 	addr    string
-	connMap map[uint64]net.Conn
 	lis     net.Listener
+	mu sync.Mutex
+	connMap map[uint64]net.Conn
 }
 
 // Echo exists solely for test purposes. It's a utility function to
@@ -595,7 +596,10 @@ func (s *WaterfallServer) StartReverseForward(fwd *waterfall_grpc_pb.ForwardMess
 	addr := fmt.Sprintf("%s:%s", kind, fwd.Addr)
 	log.Printf("Starting reverse fwd for %v", fwd)
 
-	if _, ok := s.reverseForwardSessions[addr]; ok {
+	s.reverseForwardSessionsMutex.RLock()
+	_, ok := s.reverseForwardSessions[addr]
+	s.reverseForwardSessionsMutex.RUnlock()
+	if ok {
 		log.Printf("Address %s already being forwarded")
 		return status.Error(codes.AlreadyExists, "address already being forwarded")
 	}
@@ -607,12 +611,12 @@ func (s *WaterfallServer) StartReverseForward(fwd *waterfall_grpc_pb.ForwardMess
 	}
 	defer lis.Close()
 
-	s.reverseForwardSessionsMutex.Lock()
 	ss := &reverseForwardSession{
 		addr:    addr,
 		lis:     lis,
 		connMap: make(map[uint64]net.Conn),
 	}
+	s.reverseForwardSessionsMutex.Lock()
 	s.reverseForwardSessions[addr] = ss
 	s.reverseForwardSessionsMutex.Unlock()
 	var cID uint64 = 0
@@ -626,7 +630,9 @@ func (s *WaterfallServer) StartReverseForward(fwd *waterfall_grpc_pb.ForwardMess
 		}
 
 		cID = cID + 1
+		ss.mu.Lock()
 		ss.connMap[cID] = conn
+		ss.mu.Unlock()
 		if err := rpc.Send(
 			&waterfall_grpc_pb.ForwardMessage{
 				Op:   waterfall_grpc_pb.ForwardMessage_OPEN,
@@ -634,7 +640,9 @@ func (s *WaterfallServer) StartReverseForward(fwd *waterfall_grpc_pb.ForwardMess
 				Kind: fwd.Kind,
 			}); err != nil {
 			log.Printf("Reverse Forward failed to send request to client to forward %s: %v", fwd.Addr, err)
+			s.reverseForwardSessionsMutex.Lock()
 			delete(s.reverseForwardSessions, addr)
+			s.reverseForwardSessionsMutex.Unlock()
 			return err
 		}
 	}
@@ -658,9 +666,11 @@ func (s *WaterfallServer) StopReverseForward(ctxt context.Context, fwd *waterfal
 	delete(s.reverseForwardSessions, addr)
 
 	ss.lis.Close()
+	ss.mu.Lock()
 	for _, c := range ss.connMap {
 		c.Close()
 	}
+	ss.mu.Unlock()
 
 	return &empty_pb.Empty{}, nil
 }
@@ -673,7 +683,6 @@ func (s *WaterfallServer) Version(context.Context, *empty_pb.Empty) (*waterfall_
 // New initializes a new waterfall server
 func New() *WaterfallServer {
 	return &WaterfallServer{
-		reverseForwardSessionsMutex: new(sync.Mutex),
 		reverseForwardSessions:      map[string]*reverseForwardSession{},
 	}
 }
