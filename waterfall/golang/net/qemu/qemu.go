@@ -29,14 +29,19 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/mdlayher/vsock"
 )
 
 const (
-	qemuDriver       = "/dev/qemu_pipe"
-	qemuSvc          = "pipe:unix:"
-	ioErrMsg         = "input/output error"
-	rdyMsg           = "rdy"
+	qemuDriver  = "/dev/qemu_pipe"
+	vsockDriver = "/dev/vsock"
+	qemuSvc     = "pipe:unix:"
+	ioErrMsg    = "input/output error"
+	rdyMsg      = "rdy"
 	handshakeTimeout = 500 * time.Millisecond
+	hostPort    = 5000
+	cidHost     = 2
 
 	// We pick a sufficiently large buffer size to avoid hitting an underlying bug on the emulator.
 	// See https://issuetracker.google.com/issues/115894209 for context.
@@ -392,8 +397,8 @@ type QemuConn struct {
 }
 
 // MakeQemuConn create new qemu control socket backed by a qemu pipe file.
-func MakeQemuConn(file *os.File) *QemuConn {
-	return &QemuConn{ReadWriteCloser: file}
+func MakeQemuConn(conn io.ReadWriteCloser) *QemuConn {
+	return &QemuConn{ReadWriteCloser: conn}
 }
 
 // LocalAddr returns the qemu address
@@ -456,6 +461,7 @@ func withTimeout(f func([]byte) (int, error), b []byte) (int, error) {
 type Pipe struct {
 	socketName string
 	closed     bool
+	useVsock   bool
 }
 
 // Accept creates a new net.Conn backed by a qemu_pipe connetion
@@ -466,11 +472,16 @@ func (q *Pipe) Accept() (net.Conn, error) {
 		return nil, errClosed
 	}
 
+	connFn := func() (io.ReadWriteCloser, error) { return openQemuDevBlocking() }
+	if q.useVsock {
+		connFn = func() (io.ReadWriteCloser, error) { return vsock.Dial(cidHost, hostPort) }
+	}
+
 	// Each new file descriptor we open will create a new connection
 	// We need to wait on the host to be ready:
 	// 1) poll the qemu_pipe driver with the desiered socket name
 	// 2) wait until the client is read to send/recv, we do this waiting until we read a rdy message
-	var conn *os.File
+	var conn io.ReadWriteCloser
 	var err error
 	br := false
 	for {
@@ -480,7 +491,7 @@ func (q *Pipe) Accept() (net.Conn, error) {
 			time.Sleep(20 * time.Millisecond)
 		}
 
-		conn, err = openQemuDevBlocking()
+		conn, err = connFn()
 		if err != nil {
 			return nil, err
 		}
@@ -527,14 +538,17 @@ func (q *Pipe) Addr() net.Addr {
 }
 
 // MakePipe will return a new net.Listener
-// backed by a qemu pipe. Qemu pipes are implemented as virtual
-// devices. To get a handle an open("/dev/qemu_pipe") is issued.
-// The virtual driver keeps a map of file descriptors to available
-// services. In this case we open a unix socket service and return that.
+// backed by a qemu either by a vsock virtio driver or
+// a qemu pipe device.
 func MakePipe(socketName string) (*Pipe, error) {
+	// Prefer vsock if available. Vsock is only available in the >=S
+	// so we fall back to a legacy qemu device if driver not present.
+	if _, err := os.Stat(vsockDriver); err == nil {
+		return &Pipe{socketName: socketName, useVsock: true}, nil
+	}
+
 	if _, err := os.Stat(qemuDriver); err != nil {
 		return nil, err
 	}
-
-	return &Pipe{socketName: socketName}, nil
+	return &Pipe{socketName: socketName, useVsock: false}, nil
 }
