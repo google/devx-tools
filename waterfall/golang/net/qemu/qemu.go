@@ -40,7 +40,7 @@ const (
 	ioErrMsg    = "input/output error"
 	rdyMsg      = "rdy"
 	handshakeTimeout = 500 * time.Millisecond
-	hostPort    = 5000
+	hostPort    = 5002
 	cidHost     = 2
 
 	// We pick a sufficiently large buffer size to avoid hitting an underlying bug on the emulator.
@@ -544,9 +544,11 @@ func MakePipe(socketName string) (*Pipe, error) {
 	// Prefer vsock if available. Vsock is only available in the >=S
 	// so we fall back to a legacy qemu device if driver not present.
 	if _, err := os.Stat(vsockDriver); err == nil {
+		log.Println("Using vsock driver")
 		return &Pipe{socketName: socketName, useVsock: true}, nil
 	}
 
+	log.Println("Using qemu driver")
 	if _, err := os.Stat(qemuDriver); err != nil {
 		return nil, err
 	}
