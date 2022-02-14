@@ -35,6 +35,7 @@ import (
 	"github.com/google/waterfall/golang/utils"
 	waterfall_grpc_pb "github.com/google/waterfall/proto/waterfall_go_grpc"
 	"github.com/mdlayher/vsock"
+	"golang.org/x/sys/unix"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	_ "google.golang.org/grpc/encoding/gzip"
@@ -157,7 +158,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to parse vsock: %v", pa)
 		}
-		lis, err = vsock.ListenAny(uint32(p))
+		lis, err = vsock.ListenContextID(unix.VMADDR_CID_ANY, uint32(p), nil)
 		if err != nil {
 			log.Fatalf("failed to open vsock %v", err)
 		}

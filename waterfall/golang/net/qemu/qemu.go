@@ -474,7 +474,7 @@ func (q *Pipe) Accept() (net.Conn, error) {
 
 	connFn := func() (io.ReadWriteCloser, error) { return openQemuDevBlocking() }
 	if q.useVsock {
-		connFn = func() (io.ReadWriteCloser, error) { return vsock.Dial(cidHost, hostPort) }
+		connFn = func() (io.ReadWriteCloser, error) { return vsock.Dial(cidHost, hostPort, nil) }
 	}
 
 	// Each new file descriptor we open will create a new connection
