@@ -128,10 +128,15 @@ go_repository(
 )
 
 go_repository(
+    name = "com_github_mdlayher_socket",
+    commit = "5540490a708094d62b83da0f0ba6f0457a893b73",
+    importpath = "github.com/mdlayher/socket",
+)
+
+go_repository(
     name = "com_github_mdlayher_vsock",
-    commit = "7ad3638b3fbc5ddf14fc37a1f9d046d1d6dd2013",
+    commit = "69ff27ae6148dad0fe15cd2b72e8113c768b7b39",
     importpath = "github.com/mdlayher/vsock",
-    patches = ["//patches:vsock.patch"],
 )
 
 new_git_repository(
