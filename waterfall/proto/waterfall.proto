@@ -104,6 +104,7 @@ message ForwardMessage {
     OPEN = 0;
     FWD = 1;
     CLOSE = 2;
+    ANNOUNCE = 3;
   }
 
   // Kind of connection to start (tcp|udp|unix)
@@ -171,6 +172,10 @@ message PortForwardRequest {
   ForwardSession session = 4;
 }
 
+message PortForwardResponse {
+  ForwardSession session = 1;
+}
+
 message ForwardedSessions {
   repeated ForwardSession sessions = 1;
 }
@@ -183,7 +188,7 @@ service PortForwarder {
   rpc ForwardPort(PortForwardRequest) returns (google.protobuf.Empty);
 
   // ReverseForwardPort starts a forwarding session from target to host.
-  rpc ReverseForwardPort(PortForwardRequest) returns (google.protobuf.Empty);
+  rpc ReverseForwardPort(PortForwardRequest) returns (PortForwardResponse);
 
   // StopReverse stops the reverse forwarding session specified by
   // PortForwardRequest.

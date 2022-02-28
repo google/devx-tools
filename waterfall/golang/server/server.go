@@ -65,7 +65,7 @@ type WaterfallServer struct {
 type reverseForwardSession struct {
 	addr    string
 	lis     net.Listener
-	mu sync.Mutex
+	mu      sync.Mutex
 	connMap map[uint64]net.Conn
 }
 
@@ -611,6 +611,19 @@ func (s *WaterfallServer) StartReverseForward(fwd *waterfall_grpc_pb.ForwardMess
 	}
 	defer lis.Close()
 
+	// If the user requested port 0 then the first message sent by the server announces the chosen port
+	announceAddr := fwd.Addr == "localhost:0" && (kind == "tcp" || kind == "udp")
+
+	if announceAddr {
+		if fwd.Kind == waterfall_grpc_pb.ForwardMessage_TCP {
+			fwd.Addr = fmt.Sprintf("localhost:%d", lis.Addr().(*net.TCPAddr).Port)
+			addr = fmt.Sprintf("tcp:%s", fwd.Addr)
+		}
+		if fwd.Kind == waterfall_grpc_pb.ForwardMessage_UDP {
+			fwd.Addr = fmt.Sprintf("localhost:%d", lis.Addr().(*net.UDPAddr).Port)
+			addr = fmt.Sprintf("udp:%s", fwd.Addr)
+		}
+	}
 	ss := &reverseForwardSession{
 		addr:    addr,
 		lis:     lis,
@@ -619,6 +632,16 @@ func (s *WaterfallServer) StartReverseForward(fwd *waterfall_grpc_pb.ForwardMess
 	s.reverseForwardSessionsMutex.Lock()
 	s.reverseForwardSessions[addr] = ss
 	s.reverseForwardSessionsMutex.Unlock()
+
+	if announceAddr {
+		if err := rpc.Send(
+			&waterfall_grpc_pb.ForwardMessage{
+				Op:   waterfall_grpc_pb.ForwardMessage_ANNOUNCE,
+				Addr: addr,
+				Kind: fwd.Kind,
+			}); err != nil {
+		}
+	}
 	var cID uint64 = 0
 
 	for {
@@ -683,6 +706,6 @@ func (s *WaterfallServer) Version(context.Context, *empty_pb.Empty) (*waterfall_
 // New initializes a new waterfall server
 func New() *WaterfallServer {
 	return &WaterfallServer{
-		reverseForwardSessions:      map[string]*reverseForwardSession{},
+		reverseForwardSessions: map[string]*reverseForwardSession{},
 	}
 }
