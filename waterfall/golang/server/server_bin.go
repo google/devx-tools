@@ -32,6 +32,7 @@ import (
 	"github.com/google/waterfall/golang/mux"
 	"github.com/google/waterfall/golang/net/qemu"
 	"github.com/google/waterfall/golang/server"
+	"github.com/google/waterfall/golang/snapshot"
 	"github.com/google/waterfall/golang/utils"
 	waterfall_grpc_pb "github.com/google/waterfall/proto/waterfall_go_grpc"
 	"github.com/mdlayher/vsock"
@@ -45,6 +46,12 @@ var (
 		"addr", "qemu-guest:sockets/h2o", "Where to start listening. <qemu|qemu2|tcp|unix|mux>:addr."+
 			" If qemu is specified, addr is the name of the pipe socket."+
 			" If mux addr is a file descriptor which is used to create mulitplexed connections.")
+
+	snapshotAddr = flag.String(
+		"addr", "qemu-guest:sockets/h2o2", "Where to start listening after booting from a snapshot. <qemu|qemu2|tcp|unix|mux>:addr."+
+			" If qemu is specified, addr is the name of the pipe socket."+
+			" If mux addr is a file descriptor which is used to create mulitplexed connections.")
+
 	sessionID = flag.String(
 		"session_id", "", "Only accept requests with this string in x-session-id header."+
 			" If empty, allow all requests.")
@@ -125,8 +132,14 @@ func main() {
 
 	var lis net.Listener
 	var err error
+	address := *addr
 
-	pa, err := utils.ParseAddr(*addr)
+	if snapshot.IsSnapshot() {
+		address = *snapshotAddr
+		log.Println("Snapshot run detected.")
+	}
+
+	pa, err := utils.ParseAddr(address)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -209,10 +222,11 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer(options...)
-	waterfall_grpc_pb.RegisterWaterfallServer(grpcServer, server.New())
+	waterfall_grpc_pb.RegisterWaterfallServer(grpcServer, server.New(grpcServer))
 
 	log.Println("Serving ...")
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Printf("Unable to serve! %v", err)
 	}
+	log.Println("Shutting Down...")
 }

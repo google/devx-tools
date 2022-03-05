@@ -160,6 +160,10 @@ service Waterfall {
 
   // Version gets the version of the server.
   rpc Version(google.protobuf.Empty) returns (VersionMessage);
+
+  // SnapshotShutdown instructs Waterfall to shutdown and record that a snapshot
+  // will be taken.
+  rpc SnapshotShutdown(google.protobuf.Empty) returns (google.protobuf.Empty);
 }
 
 message ForwardSession {
