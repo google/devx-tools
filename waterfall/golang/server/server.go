@@ -31,9 +31,11 @@ import (
 	empty_pb "github.com/golang/protobuf/ptypes/empty"
 	"github.com/google/waterfall/golang/constants"
 	"github.com/google/waterfall/golang/forward"
+	"github.com/google/waterfall/golang/snapshot"
 	"github.com/google/waterfall/golang/stream"
 	waterfall_grpc_pb "github.com/google/waterfall/proto/waterfall_go_grpc"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -60,6 +62,7 @@ type WaterfallServer struct {
 	reverseForwardSessionsMutex sync.RWMutex
 
 	reverseForwardSessions map[string]*reverseForwardSession
+	server                 *grpc.Server
 }
 
 type reverseForwardSession struct {
@@ -703,9 +706,15 @@ func (s *WaterfallServer) Version(context.Context, *empty_pb.Empty) (*waterfall_
 	return &waterfall_grpc_pb.VersionMessage{Version: "0.0"}, nil
 }
 
+func (s *WaterfallServer) SnapshotShutdown(context.Context, *empty_pb.Empty) (*empty_pb.Empty, error) {
+	go s.server.GracefulStop()
+	return &empty_pb.Empty{}, snapshot.CreateSnapshotFile()
+}
+
 // New initializes a new waterfall server
-func New() *WaterfallServer {
+func New(server *grpc.Server) *WaterfallServer {
 	return &WaterfallServer{
-		reverseForwardSessions: map[string]*reverseForwardSession{},
+		reverseForwardSessions:      map[string]*reverseForwardSession{},
+		server:                      server,
 	}
 }
