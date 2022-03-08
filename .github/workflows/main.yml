@@ -8,6 +8,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+      - name: Setup bazel
+        uses: jwlawson/actions-setup-bazel@v1
+        with:
+          bazel-version: '4.2.0'
       - name: Build
         run: bazel build //waterfall/golang/server:server_bin_amd64
       - name: Release
