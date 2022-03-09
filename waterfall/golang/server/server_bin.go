@@ -48,7 +48,7 @@ var (
 			" If mux addr is a file descriptor which is used to create mulitplexed connections.")
 
 	snapshotAddr = flag.String(
-		"addr", "qemu-guest:sockets/h2o2", "Where to start listening after booting from a snapshot. <qemu|qemu2|tcp|unix|mux>:addr."+
+		"snapshot_addr", "qemu-guest:sockets/h2o2", "Where to start listening after booting from a snapshot. <qemu|qemu2|tcp|unix|mux>:addr."+
 			" If qemu is specified, addr is the name of the pipe socket."+
 			" If mux addr is a file descriptor which is used to create mulitplexed connections.")
 
