@@ -459,7 +459,7 @@ func (s *WaterfallServer) Install(rpc waterfall_grpc_pb.Waterfall_InstallServer)
 	o, err = cmd.CombinedOutput()
 	ec, err = exitCode(err)
 	if err != nil {
-		fmt.Printf("Install write error %v: %s", err, string(o))
+		log.Printf("Install write error %v: %s\n", err, string(o))
 		shell(ctx, append(insCmd, installAbandon, ss)).Run()
 		return err
 	}
@@ -481,14 +481,14 @@ func (s *WaterfallServer) Install(rpc waterfall_grpc_pb.Waterfall_InstallServer)
 	o, err = cmd.CombinedOutput()
 	ec, err = exitCode(err)
 	if err != nil {
-		fmt.Printf("Install commit error %v: %s", err, string(o))
+		log.Printf("Install commit error %v: %s\n", err, string(o))
 		// Ignore error we want to propagate first error
 		shell(ctx, append(insCmd, installAbandon, ss)).Run()
 		return err
 	}
 
 	if ec != 0 {
-		fmt.Printf("commit non zero code\n")
+		log.Printf("commit non zero code\n")
 		// Ignore error we want to propagate first error
 		shell(ctx, append(insCmd, installAbandon, ss)).Run()
 	} else {
