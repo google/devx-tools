@@ -17,19 +17,17 @@ package snapshot
 
 import (
 	"errors"
-	"flag"
 	"os"
 )
 
-var snapshotFile = flag.String(
-		"snapshotFile", "/data/snapshot", "Location of the file which exists only when snapshot has been taken.")
+const snapshotFile = "/data/snapshot"
 
 func CreateSnapshotFile() error {
-	_, err := os.Create(*snapshotFile)
+	_, err := os.Create(snapshotFile)
 	return err
 }
 
 func IsSnapshot() bool {
-	_, err := os.Stat("/storage/snapshot")
+	_, err := os.Stat(snapshotFile)
 	return !errors.Is(err, os.ErrNotExist)
 }
