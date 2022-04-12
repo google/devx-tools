@@ -22,7 +22,7 @@ import (
 )
 
 var snapshotFile = flag.String(
-		"snapshotFile", "/storage/snapshot", "Location of the file which exists only when snapshot has been taken.")
+		"snapshotFile", "/data/snapshot", "Location of the file which exists only when snapshot has been taken.")
 
 func CreateSnapshotFile() error {
 	_, err := os.Create(*snapshotFile)
