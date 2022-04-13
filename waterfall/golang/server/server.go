@@ -103,8 +103,9 @@ func (s *WaterfallServer) Push(rpc waterfall_grpc_pb.Waterfall_PushServer) error
 	// the contents of the stream into the desired path
 	eg := &errgroup.Group{}
 	eg.Go(func() error {
-		defer r.Close()
-		return stream.Untar(r, xfer.Path)
+		err := stream.Untar(r, xfer.Path)
+		defer r.CloseWithError(err)
+		return err
 	})
 
 	eg.Go(func() error {
