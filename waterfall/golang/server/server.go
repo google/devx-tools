@@ -104,6 +104,9 @@ func (s *WaterfallServer) Push(rpc waterfall_grpc_pb.Waterfall_PushServer) error
 	eg := &errgroup.Group{}
 	eg.Go(func() error {
 		err := stream.Untar(r, xfer.Path)
+		if err != nil {
+			log.Printf("stream Untar failed: %v\n", err)
+		}
 		defer r.CloseWithError(err)
 		return err
 	})
