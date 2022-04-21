@@ -16,6 +16,7 @@ package stream
 
 import (
 	"archive/tar"
+	"errors"
 	"fmt"
 	"io"
 	"log"
