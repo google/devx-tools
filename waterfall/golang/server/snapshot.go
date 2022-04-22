@@ -23,7 +23,7 @@ import (
 
 const snapshotProp = "persist.devx.snapshot"
 
-func CreateSnapshotProp(ctx context.Context) error {
+func SetSnapshotProp(ctx context.Context) error {
 	cmd := exec.CommandContext(ctx, "setprop", snapshotProp, "1")
 	return cmd.Run()
 }
