@@ -16,6 +16,7 @@ package stream
 
 import (
 	"archive/tar"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -36,6 +37,9 @@ func Untar(r io.Reader, dst string) error {
 	// Special case the first file to figure out where to unpack stream.
 	hdr, err := tr.Next()
 	if err != nil {
+		if err == io.EOF {
+			return errors.New("received empty Tar file")
+		}
 		return err
 	}
 
