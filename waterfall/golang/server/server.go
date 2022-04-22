@@ -710,9 +710,9 @@ func (s *WaterfallServer) Version(context.Context, *empty_pb.Empty) (*waterfall_
 	return &waterfall_grpc_pb.VersionMessage{Version: "0.0"}, nil
 }
 
-func (s *WaterfallServer) SnapshotShutdown(context.Context, *empty_pb.Empty) (*empty_pb.Empty, error) {
+func (s *WaterfallServer) SnapshotShutdown(ctx context.Context, _ *empty_pb.Empty) (*empty_pb.Empty, error) {
 	go s.server.GracefulStop()
-	return &empty_pb.Empty{}, snapshot.CreateSnapshotFile()
+	return &empty_pb.Empty{}, snapshot.CreateSnapshotProp(ctx)
 }
 
 // New initializes a new waterfall server
