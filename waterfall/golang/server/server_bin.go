@@ -16,6 +16,7 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
 	"fmt"
@@ -133,8 +134,11 @@ func main() {
 	var lis net.Listener
 	var err error
 	address := *addr
-
-	if snapshot.IsSnapshot() {
+	isSnapshot, err := snapshot.IsSnapshot(context.Background())
+	if err != nil {
+		log.Fatalf("Could not determine snapshot status: %v", err)
+	}
+	if isSnapshot {
 		address = *snapshotAddr
 		log.Println("Snapshot run detected.")
 	}

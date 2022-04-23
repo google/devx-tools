@@ -16,18 +16,23 @@
 package snapshot
 
 import (
-	"errors"
-	"os"
+	"context"
+	"os/exec"
+	"strings"
 )
 
-const snapshotFile = "/data/snapshot"
+const snapshotProp = "persist.devx.snapshot"
 
-func CreateSnapshotFile() error {
-	_, err := os.Create(snapshotFile)
-	return err
+func SetSnapshotProp(ctx context.Context) error {
+	cmd := exec.CommandContext(ctx, "setprop", snapshotProp, "1")
+	return cmd.Run()
 }
 
-func IsSnapshot() bool {
-	_, err := os.Stat(snapshotFile)
-	return !errors.Is(err, os.ErrNotExist)
+func IsSnapshot(ctx context.Context) (bool, error) {
+	cmd := exec.CommandContext(ctx, "getprop", snapshotProp)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return false, err
+	}
+	return strings.HasPrefix(string(out), "1"), nil
 }
