@@ -27,6 +27,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	empty_pb "github.com/golang/protobuf/ptypes/empty"
 	"github.com/google/waterfall/golang/constants"
@@ -712,6 +713,11 @@ func (s *WaterfallServer) Version(context.Context, *empty_pb.Empty) (*waterfall_
 
 func (s *WaterfallServer) SnapshotShutdown(ctx context.Context, _ *empty_pb.Empty) (*empty_pb.Empty, error) {
 	go s.server.GracefulStop()
+	go func() {
+		time.Sleep(5 * time.Second)
+		log.Println("Server still running after 5s, force stopping...")
+		s.server.Stop()
+	}()
 	return &empty_pb.Empty{}, snapshot.SetSnapshotProp(ctx)
 }
 
