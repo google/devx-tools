@@ -583,6 +583,16 @@ func (s *WaterfallServer) ReverseForward(stream waterfall_grpc_pb.Waterfall_Reve
 	return forward.NewStreamForwarder(stream, conn.(forward.HalfReadWriteCloser)).Forward()
 }
 
+func listenerPort(l net.Listener) int {
+	switch addr := l.Addr().(type) {
+	case *net.TCPAddr:
+		return addr.Port
+	case *net.UDPAddr:
+		return addr.Port
+	}
+	return 0
+}
+
 func buildListener(kind string, address string) (net.Listener, error) {
 	// net.Listen("tcp", "localhost:0") relies on the kernel picking the port
 	// The chosen port is returned in lis.Addr()
@@ -593,16 +603,9 @@ func buildListener(kind string, address string) (net.Listener, error) {
 		if err != nil {
 			return nil, err
 		}
-		if kind == "tcp" {
-			if lis.Addr().(*net.TCPAddr).Port != 0 {
-				return lis, nil
-			}
-		}
-		if kind == "udp" {
-			if lis.Addr().(*net.UDPAddr).Port != 0 {
-				return lis, nil
-			}
-		}
+		if listenerPort(lis) != 0 {
+			return lis, nil
+		} 
 		log.Println("failed to bind random port for reverse forwarding")
 		lis.Close()
 	}
@@ -649,12 +652,11 @@ func (s *WaterfallServer) StartReverseForward(fwd *waterfall_grpc_pb.ForwardMess
 	announceAddr := fwd.Addr == "localhost:0" && (kind == "tcp" || kind == "udp")
 
 	if announceAddr {
+		fwd.Addr = fmt.Sprintf("localhost:%d", listenerPort(lis))
 		if fwd.Kind == waterfall_grpc_pb.ForwardMessage_TCP {
-			fwd.Addr = fmt.Sprintf("localhost:%d", lis.Addr().(*net.TCPAddr).Port)
 			addr = fmt.Sprintf("tcp:%s", fwd.Addr)
 		}
 		if fwd.Kind == waterfall_grpc_pb.ForwardMessage_UDP {
-			fwd.Addr = fmt.Sprintf("localhost:%d", lis.Addr().(*net.UDPAddr).Port)
 			addr = fmt.Sprintf("udp:%s", fwd.Addr)
 		}
 	}
