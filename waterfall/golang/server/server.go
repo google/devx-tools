@@ -583,6 +583,32 @@ func (s *WaterfallServer) ReverseForward(stream waterfall_grpc_pb.Waterfall_Reve
 	return forward.NewStreamForwarder(stream, conn.(forward.HalfReadWriteCloser)).Forward()
 }
 
+func buildListener(kind string, address string) (net.Listener, error) {
+	// net.Listen("tcp", "localhost:0") relies on the kernel picking the port
+	// The chosen port is returned in lis.Addr()
+	// However, in some cases the returned port is 0
+	// We retry creating the listener in an attempt to workaround this problem.
+	for i := 0; i < 3; i++ {
+		lis, err := net.Listen(kind, address)
+		if err != nil {
+			return nil, err
+		}
+		if kind == "tcp" {
+			if lis.Addr().(*net.TCPAddr).Port != 0 {
+				return lis, nil
+			}
+		}
+		if kind == "udp" {
+			if lis.Addr().(*net.UDPAddr).Port != 0 {
+				return lis, nil
+			}
+		}
+		log.Println("failed to bind random port for reverse forwarding")
+		lis.Close()
+	}
+	return nil, fmt.Errorf("failed to bind to free port when any available port requested")
+}
+
 // StartReverseForward forwards the connections from the desired socket through the gRPC stream.
 // It works in conjunction with ReverseForward rpc as follows:
 // 1) It gets a forwarding request and starts listening for connections in the requested socket
@@ -612,7 +638,7 @@ func (s *WaterfallServer) StartReverseForward(fwd *waterfall_grpc_pb.ForwardMess
 		return status.Error(codes.AlreadyExists, "address already being forwarded")
 	}
 
-	lis, err := net.Listen(kind, fwd.Addr)
+	lis, err := buildListener(kind, fwd.Addr)
 	if err != nil {
 		log.Printf("Failed to listen on address %s: %v", fwd.Addr, err)
 		return err
@@ -724,7 +750,7 @@ func (s *WaterfallServer) SnapshotShutdown(ctx context.Context, _ *empty_pb.Empt
 // New initializes a new waterfall server
 func New(server *grpc.Server) *WaterfallServer {
 	return &WaterfallServer{
-		reverseForwardSessions:      map[string]*reverseForwardSession{},
-		server:                      server,
+		reverseForwardSessions: map[string]*reverseForwardSession{},
+		server:                 server,
 	}
 }
