@@ -90,6 +90,8 @@ type Conn struct {
 	readLock  *sync.Mutex
 	writeLock *sync.Mutex
 	closeLock *sync.Mutex
+
+	net.Conn
 }
 
 // Read reads from from the Conn connection.
@@ -244,21 +246,6 @@ func (q *Conn) RemoteAddr() net.Addr {
 	return q.addr
 }
 
-// SetDeadline sets the connection deadline
-func (q *Conn) SetDeadline(t time.Time) error {
-	return errNotImplemented
-}
-
-// SetReadDeadline sets the read deadline
-func (q *Conn) SetReadDeadline(t time.Time) error {
-	return errNotImplemented
-}
-
-// SetWriteDeadline sets the write deadline
-func (q *Conn) SetWriteDeadline(t time.Time) error {
-	return errNotImplemented
-}
-
 // closeConn waits for the read end and the write end of th connection
 // to be closed and then closes the underlying connection
 func (q *Conn) closeConn() {
@@ -268,7 +255,7 @@ func (q *Conn) closeConn() {
 	q.cl.Close()
 }
 
-func makeConn(conn io.ReadWriteCloser) *Conn {
+func makeConn(conn net.Conn) *Conn {
 	return &Conn{
 		wb:              bufio.NewWriterSize(conn, buffSize),
 		rb:              bufio.NewReaderSize(conn, buffSize),
@@ -279,6 +266,7 @@ func makeConn(conn io.ReadWriteCloser) *Conn {
 		readLock:        &sync.Mutex{},
 		writeLock:       &sync.Mutex{},
 		closeLock:       &sync.Mutex{},
+		Conn:		 conn,
 	}
 }
 
@@ -354,6 +342,7 @@ func MakeConnBuilder(emuDir, socket string) (*ConnBuilder, error) {
 // before returning
 type PipeConnBuilder struct {
 	net.Listener
+	pendingConn net.Conn
 }
 
 // Accept will connect to the guest and return the connection.
@@ -363,6 +352,7 @@ func (b *PipeConnBuilder) Accept() (net.Conn, error) {
 		if err != nil {
 			return nil, err
 		}
+		b.pendingConn = conn
 
 		// sync with the server
 		rdy := []byte(rdyMsg)
@@ -378,6 +368,7 @@ func (b *PipeConnBuilder) Accept() (net.Conn, error) {
 			conn.Close()
 			continue
 		}
+		b.pendingConn = nil
 
 		q := makeConn(conn)
 
@@ -385,6 +376,17 @@ func (b *PipeConnBuilder) Accept() (net.Conn, error) {
 		return q, nil
 	}
 }
+
+func (b *PipeConnBuilder) Close() error {
+	log.Println("PipeConnBuilder::Close")
+	ret := b.Listener.Close()
+	if b.pendingConn != nil {
+		log.Println("b.pendingConn::Close")
+		return b.pendingConn.Close()
+	}
+	return ret
+}
+
 
 // MakePipeConnBuilder returns a PipeConuilder using pipe.
 func MakePipeConnBuilder(pipe *Pipe) *PipeConnBuilder {
@@ -413,7 +415,7 @@ func (q *QemuConn) RemoteAddr() net.Addr {
 
 // SetDeadline sets the connection deadline
 func (q *QemuConn) SetDeadline(t time.Time) error {
-	if c, ok := q.ReadWriteCloser.(*vsock.Conn); ok {
+	if c, ok := q.ReadWriteCloser.(net.Conn); ok {
 		return c.SetDeadline(t)
 	}
 	return errNotImplemented
@@ -421,7 +423,7 @@ func (q *QemuConn) SetDeadline(t time.Time) error {
 
 // SetReadDeadline sets the read deadline
 func (q *QemuConn) SetReadDeadline(t time.Time) error {
-        if c, ok := q.ReadWriteCloser.(*vsock.Conn); ok {
+        if c, ok := q.ReadWriteCloser.(net.Conn); ok {
                 return c.SetReadDeadline(t)
         }
 	return errNotImplemented
@@ -429,7 +431,7 @@ func (q *QemuConn) SetReadDeadline(t time.Time) error {
 
 // SetWriteDeadline sets the write deadline
 func (q *QemuConn) SetWriteDeadline(t time.Time) error {
-        if c, ok := q.ReadWriteCloser.(*vsock.Conn); ok {
+        if c, ok := q.ReadWriteCloser.(net.Conn); ok {
                 return c.SetWriteDeadline(t)
         }
 	return errNotImplemented
@@ -526,6 +528,12 @@ func (q *Pipe) Accept() (net.Conn, error) {
 				br = true
 				break
 			}
+			w, err := conn.Write([]byte("0"))
+			if err != nil {
+				log.Printf("%v\n", err)
+				break
+			}
+			log.Printf("wrote %d bytes\n", w)
 		}
 
 		if br {
@@ -552,10 +560,10 @@ func (q *Pipe) Addr() net.Addr {
 func MakePipe(socketName string) (*Pipe, error) {
 	// Prefer vsock if available. Vsock is only available in the >=S
 	// so we fall back to a legacy qemu device if driver not present.
-	// if _, err := os.Stat(vsockDriver); err == nil {
-	// 	log.Println("Using vsock driver")
-	// 	return &Pipe{socketName: socketName, useVsock: true}, nil
-	// }
+	if _, err := os.Stat(vsockDriver); err == nil {
+		log.Println("Using vsock driver")
+		return &Pipe{socketName: socketName, useVsock: true}, nil
+	}
 
 	log.Println("Using qemu driver")
 	if _, err := os.Stat(qemuDriver); err != nil {

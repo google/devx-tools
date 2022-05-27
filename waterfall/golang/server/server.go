@@ -24,6 +24,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"runtime/pprof"
 	"strconv"
 	"strings"
 	"sync"
@@ -745,6 +746,12 @@ func (s *WaterfallServer) SnapshotShutdown(ctx context.Context, _ *empty_pb.Empt
 		time.Sleep(5 * time.Second)
 		log.Println("Server still running after 5s, force stopping...")
 		s.server.Stop()
+	}()
+	go func() {
+		time.Sleep(10 * time.Second)
+		log.Println("pprof goroutine")
+		pprof.Lookup("goroutine").WriteTo(os.Stderr, 1)
+
 	}()
 	return &empty_pb.Empty{}, snapshot.SetSnapshotProp(ctx)
 }
