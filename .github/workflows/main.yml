@@ -8,24 +8,20 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      - name: Setup bazel
-        uses: jwlawson/actions-setup-bazel@v1
-        with:
-          bazel-version: '4.2.0'
       - name: Build x86
-        run: bazel build //waterfall/golang/server:server_bin_386
+        run: bazel build -c opt --use_top_level_targets_for_symlinks //waterfall/golang/server:server_bin_386
       - name: Build x86_64
-        run: bazel build //waterfall/golang/server:server_bin_amd64
+        run: bazel build -c opt --use_top_level_targets_for_symlinks //waterfall/golang/server:server_bin_amd64
       - name: Build arm
-        run: bazel build //waterfall/golang/server:server_bin_arm
+        run: bazel build -c opt --use_top_level_targets_for_symlinks //waterfall/golang/server:server_bin_arm
       - name: Build arm64
-        run: bazel build //waterfall/golang/server:server_bin_arm64
+        run: bazel build -c opt --use_top_level_targets_for_symlinks //waterfall/golang/server:server_bin_arm64
       - name: Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
-            bazel-bin/waterfall/golang/server/linux_386_static_pure_stripped/server_bin_386
-            bazel-bin/waterfall/golang/server/linux_amd64_static_pure_stripped/server_bin_amd64
-            bazel-bin/waterfall/golang/server/linux_arm_static_pure_stripped/server_bin_arm
-            bazel-bin/waterfall/golang/server/linux_arm64_static_pure_stripped/server_bin_arm64
+            bazel-bin/waterfall/golang/server/server_bin_386_/server_bin_386
+            bazel-bin/waterfall/golang/server/server_bin_amd64_/server_bin_amd64
+            bazel-bin/waterfall/golang/server/server_bin_arm_/server_bin_arm
+            bazel-bin/waterfall/golang/server/server_bin_arm64_/server_bin_arm64
