@@ -68,7 +68,6 @@ type Conn struct {
 	// Backed by qemu_pipe
 	wb *bufio.Writer
 	rb *bufio.Reader
-	cl io.Closer
 
 	// Dummy addr
 	addr net.Addr
@@ -194,7 +193,7 @@ func (q *Conn) Close() error {
 
 	q.CloseWrite()
 	q.CloseRead()
-	q.cl.Close()
+	q.Conn.Close()
 	return nil
 }
 
@@ -252,21 +251,20 @@ func (q *Conn) closeConn() {
 	// remember the ABC
 	<-q.readsCloseChan
 	<-q.writesCloseChan
-	q.cl.Close()
+	q.Conn.Close()
 }
 
 func makeConn(conn net.Conn) *Conn {
 	return &Conn{
 		wb:              bufio.NewWriterSize(conn, buffSize),
 		rb:              bufio.NewReaderSize(conn, buffSize),
-		cl:              conn,
 		addr:            qemuAddr(""),
 		readsCloseChan:  make(chan struct{}),
 		writesCloseChan: make(chan struct{}),
 		readLock:        &sync.Mutex{},
 		writeLock:       &sync.Mutex{},
 		closeLock:       &sync.Mutex{},
-		Conn:		 conn,
+		Conn:		 	 conn,
 	}
 }
 
@@ -416,22 +414,25 @@ func (q *QemuConn) SetDeadline(t time.Time) error {
 	if c, ok := q.ReadWriteCloser.(net.Conn); ok {
 		return c.SetDeadline(t)
 	}
+	log.Println("we can't SetDeadline")
 	return errNotImplemented
 }
 
 // SetReadDeadline sets the read deadline
 func (q *QemuConn) SetReadDeadline(t time.Time) error {
-        if c, ok := q.ReadWriteCloser.(net.Conn); ok {
-                return c.SetReadDeadline(t)
-        }
+    if c, ok := q.ReadWriteCloser.(net.Conn); ok {
+            return c.SetReadDeadline(t)
+    }
+   	log.Println("we can't SetReadDeadline")
 	return errNotImplemented
 }
 
 // SetWriteDeadline sets the write deadline
 func (q *QemuConn) SetWriteDeadline(t time.Time) error {
-        if c, ok := q.ReadWriteCloser.(net.Conn); ok {
-                return c.SetWriteDeadline(t)
-        }
+    if c, ok := q.ReadWriteCloser.(net.Conn); ok {
+            return c.SetWriteDeadline(t)
+    }
+	log.Println("we can't SetWriteDeadline")
 	return errNotImplemented
 }
 
