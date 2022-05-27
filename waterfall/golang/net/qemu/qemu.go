@@ -378,10 +378,8 @@ func (b *PipeConnBuilder) Accept() (net.Conn, error) {
 }
 
 func (b *PipeConnBuilder) Close() error {
-	log.Println("PipeConnBuilder::Close")
 	ret := b.Listener.Close()
 	if b.pendingConn != nil {
-		log.Println("b.pendingConn::Close")
 		return b.pendingConn.Close()
 	}
 	return ret
