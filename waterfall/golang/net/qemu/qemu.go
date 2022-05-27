@@ -413,16 +413,25 @@ func (q *QemuConn) RemoteAddr() net.Addr {
 
 // SetDeadline sets the connection deadline
 func (q *QemuConn) SetDeadline(t time.Time) error {
+	if c, ok := q.ReadWriteCloser.(*vsock.Conn); ok {
+		return c.SetDeadline(t)
+	}
 	return errNotImplemented
 }
 
 // SetReadDeadline sets the read deadline
 func (q *QemuConn) SetReadDeadline(t time.Time) error {
+        if c, ok := q.ReadWriteCloser.(*vsock.Conn); ok {
+                return c.SetReadDeadline(t)
+        }
 	return errNotImplemented
 }
 
 // SetWriteDeadline sets the write deadline
 func (q *QemuConn) SetWriteDeadline(t time.Time) error {
+        if c, ok := q.ReadWriteCloser.(*vsock.Conn); ok {
+                return c.SetWriteDeadline(t)
+        }
 	return errNotImplemented
 }
 
