@@ -65,7 +65,7 @@ type vsockBuilder struct {
 }
 
 func (v *vsockBuilder) Accept() (net.Conn, error) {
-	return vsock.Dial(v.cid, v.port)
+	return vsock.Dial(v.cid, v.port, nil)
 }
 
 func (v *vsockBuilder) Close() error {
