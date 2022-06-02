@@ -10,18 +10,29 @@ jobs:
         uses: actions/checkout@v2
       - name: Build x86
         run: bazel build -c opt --use_top_level_targets_for_symlinks //waterfall/golang/server:server_bin_386
-      - name: Build x86_64
-        run: bazel build -c opt --use_top_level_targets_for_symlinks //waterfall/golang/server:server_bin_amd64
-      - name: Build arm
-        run: bazel build -c opt --use_top_level_targets_for_symlinks //waterfall/golang/server:server_bin_arm
-      - name: Build arm64
-        run: bazel build -c opt --use_top_level_targets_for_symlinks //waterfall/golang/server:server_bin_arm64
-      - name: Release
+      - name: Release x86
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: |
-            bazel-bin/waterfall/golang/server/server_bin_386_/server_bin_386
-            bazel-bin/waterfall/golang/server/server_bin_amd64_/server_bin_amd64
-            bazel-bin/waterfall/golang/server/server_bin_arm_/server_bin_arm
-            bazel-bin/waterfall/golang/server/server_bin_arm64_/server_bin_arm64
+          files: bazel-bin/waterfall/golang/server/server_bin_386_/server_bin_386
+      - name: Build x86_64
+        run: bazel build -c opt --use_top_level_targets_for_symlinks //waterfall/golang/server:server_bin_amd64
+      - name: Release x86_64
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: bazel-bin/waterfall/golang/server/server_bin_amd64_/server_bin_amd64
+      - name: Build arm
+        run: bazel build -c opt --use_top_level_targets_for_symlinks //waterfall/golang/server:server_bin_arm
+      - name: Release arm
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: bazel-bin/waterfall/golang/server/server_bin_arm_/server_bin_arm
+      - name: Build arm64
+        run: bazel build -c opt --use_top_level_targets_for_symlinks //waterfall/golang/server:server_bin_arm64
+      - name: Release arm64
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: bazel-bin/waterfall/golang/server/server_bin_arm64_/server_bin_arm64
