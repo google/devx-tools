@@ -578,8 +578,6 @@ func (s *WaterfallServer) ReverseForward(stream waterfall_grpc_pb.Waterfall_Reve
 		return status.Error(codes.NotFound, fmt.Sprintf(
 			"forwarding session for %s does not exist", fwd.Addr))
 	}
-	defer ss.connMap[cID].Close()
-	defer delete(ss.connMap, cID)
 	return forward.NewStreamForwarder(stream, conn.(forward.HalfReadWriteCloser)).Forward()
 }
 
