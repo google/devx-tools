@@ -561,7 +561,9 @@ func (s *WaterfallServer) ReverseForward(stream waterfall_grpc_pb.Waterfall_Reve
 	}
 
 	addr := fmt.Sprintf("%s:%s", kind, pts[0])
+	s.reverseForwardSessionsMutex.RLock()
 	ss, ok := s.reverseForwardSessions[addr]
+	s.reverseForwardSessionsMutex.RUnlock()
 	cID, err := strconv.ParseUint(pts[1], 10, 64)
 	if err != nil {
 		log.Printf("unable to parse cID from src address \"%s\"", fwd.Addr)
@@ -573,7 +575,10 @@ func (s *WaterfallServer) ReverseForward(stream waterfall_grpc_pb.Waterfall_Reve
 			"forwarding session for %s does not exist", addr))
 	}
 
+	ss.mu.Lock()
 	conn, ok := ss.connMap[cID]
+	delete(ss.connMap, cID)
+	ss.mu.Unlock()
 	if !ok {
 		log.Printf("forwarding session for %s does not exist", fwd.Addr)
 		return status.Error(codes.NotFound, fmt.Sprintf(
