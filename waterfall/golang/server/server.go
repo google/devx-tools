@@ -70,7 +70,7 @@ type WaterfallServer struct {
 type reverseForwardSession struct {
 	addr    string
 	lis     net.Listener
-	mu      sync.Mutex
+	mu      sync.RWMutex
 	connMap map[uint64]net.Conn
 }
 
@@ -575,16 +575,20 @@ func (s *WaterfallServer) ReverseForward(stream waterfall_grpc_pb.Waterfall_Reve
 			"forwarding session for %s does not exist", addr))
 	}
 
-	ss.mu.Lock()
+	ss.mu.RLock()
 	conn, ok := ss.connMap[cID]
-	delete(ss.connMap, cID)
-	ss.mu.Unlock()
+	ss.mu.RUnlock()
 	if !ok {
 		log.Printf("forwarding session for %s does not exist", fwd.Addr)
 		return status.Error(codes.NotFound, fmt.Sprintf(
 			"forwarding session for %s does not exist", fwd.Addr))
 	}
-	return forward.NewStreamForwarder(stream, conn.(forward.HalfReadWriteCloser)).Forward()
+
+	err = forward.NewStreamForwarder(stream, conn.(forward.HalfReadWriteCloser)).Forward()
+	ss.mu.Lock()
+	delete(ss.connMap, cID)
+	ss.mu.Unlock()
+	return err
 }
 
 func listenerPort(l net.Listener) int {
