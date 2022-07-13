@@ -414,7 +414,6 @@ func (q *QemuConn) SetDeadline(t time.Time) error {
 	if c, ok := q.ReadWriteCloser.(net.Conn); ok {
 		return c.SetDeadline(t)
 	}
-	log.Println("we can't SetDeadline")
 	return errNotImplemented
 }
 
@@ -423,7 +422,6 @@ func (q *QemuConn) SetReadDeadline(t time.Time) error {
     if c, ok := q.ReadWriteCloser.(net.Conn); ok {
             return c.SetReadDeadline(t)
     }
-   	log.Println("we can't SetReadDeadline")
 	return errNotImplemented
 }
 
@@ -432,7 +430,6 @@ func (q *QemuConn) SetWriteDeadline(t time.Time) error {
     if c, ok := q.ReadWriteCloser.(net.Conn); ok {
             return c.SetWriteDeadline(t)
     }
-	log.Println("we can't SetWriteDeadline")
 	return errNotImplemented
 }
 
