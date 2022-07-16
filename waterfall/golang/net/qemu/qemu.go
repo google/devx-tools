@@ -553,10 +553,10 @@ func (q *Pipe) Addr() net.Addr {
 // MakePipe will return a new net.Listener
 // backed by a qemu either by a vsock virtio driver or
 // a qemu pipe device.
-func MakePipe(socketName string) (*Pipe, error) {
+func MakePipe(socketName string, allowVsock bool) (*Pipe, error) {
 	// Prefer vsock if available. Vsock is only available in the >=S
 	// so we fall back to a legacy qemu device if driver not present.
-	if _, err := os.Stat(vsockDriver); err == nil {
+	if _, err := os.Stat(vsockDriver); err == nil && allowVsock {
 	 	log.Println("Using vsock driver")
 	 	return &Pipe{socketName: socketName, useVsock: true}, nil
 	}
@@ -567,3 +567,4 @@ func MakePipe(socketName string) (*Pipe, error) {
 	}
 	return &Pipe{socketName: socketName, useVsock: false}, nil
 }
+

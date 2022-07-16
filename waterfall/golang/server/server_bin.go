@@ -61,6 +61,7 @@ var (
 	cert       = flag.String("cert", "", "The path to the server certificate")
 	privateKey = flag.String("private_key", "", "Path to the server private key")
 	daemon     = flag.Bool("daemon", false, "If true the server runs in daemon mode")
+	allowVsock = flag.Bool("allow_vsock", false, "If true, allow vsock guest connections")
 )
 
 func makeCredentials(cert, privateKey string) (credentials.TransportCredentials, error) {
@@ -159,13 +160,13 @@ func main() {
 
 	switch pa.Kind {
 	case utils.QemuGuest:
-		pip, err := qemu.MakePipe(pa.SocketName)
+		pip, err := qemu.MakePipe(pa.SocketName, *allowVsock)
 		if err != nil {
 			log.Fatalf("failed to open qemu_pipe %v", err)
 		}
 		lis = qemu.MakePipeConnBuilder(pip)
 	case utils.QemuCtrl:
-		pip, err := qemu.MakePipe(pa.SocketName)
+		pip, err := qemu.MakePipe(pa.SocketName, *allowVsock)
 		if err != nil {
 			log.Fatalf("failed to open qemu_pipe %v", err)
 		}
