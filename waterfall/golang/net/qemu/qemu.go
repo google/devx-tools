@@ -495,7 +495,7 @@ func (q *Pipe) Accept() (net.Conn, error) {
 		if conn != nil {
 			// Got an error, close connection and try again
 			conn.Close()
-			time.Sleep(20 * time.Millisecond)
+			time.Sleep(500 * time.Millisecond)
 		}
 
 		conn, err = connFn()
