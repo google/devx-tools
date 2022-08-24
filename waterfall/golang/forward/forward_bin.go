@@ -21,6 +21,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
 	"time"
@@ -31,6 +32,7 @@ import (
 	"github.com/google/waterfall/golang/utils"
 	"github.com/mdlayher/vsock"
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -178,6 +180,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Got error getting next conn: %v\n", err)
 	}
+	cy.Close()
 
 	listeners := []connBuilder{}
 	for _, addr := range lisAddrs {
@@ -201,6 +204,19 @@ func main() {
 		}
 	}
 
+	go func() {
+		sigc := make(chan os.Signal, 1)
+		signal.Notify(sigc,
+			unix.SIGTERM,
+		)
+		<-sigc
+		log.Println("Received SIGTERM, closing connections...")
+		for _, lis := range listeners {
+			lis.Close()
+		}
+		b.Close()
+	}()
+
 	eg, _ := errgroup.WithContext(ctx)
 	for i, lis := range listeners {
 		func(ll connBuilder, pAddr *utils.ParsedAddr) {
@@ -210,14 +226,12 @@ func main() {
 					if err != nil {
 						return err
 					}
-
-					log.Printf("Forwarding conns for addr %v ...\n", pAddr)
-					go forward.Forward(cx.(forward.HalfReadWriteCloser), cy.(forward.HalfReadWriteCloser))
-
-					cy, err = b.Accept()
+					cy, err := b.Accept()
 					if err != nil {
 						return err
 					}
+					log.Printf("Forwarding conns for addr %v ...\n", pAddr)
+					go forward.Forward(cx.(forward.HalfReadWriteCloser), cy.(forward.HalfReadWriteCloser))
 				}
 				return nil
 			})
@@ -226,6 +240,6 @@ func main() {
 	}
 
 	if err := eg.Wait(); err != nil {
-		log.Fatalf("Forwarding error: %v", err)
+		log.Printf("Forwarding error: %v", err)
 	}
 }
