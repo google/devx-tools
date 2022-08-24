@@ -200,8 +200,8 @@ func main() {
 
 	options := []grpc.ServerOption{
 		grpc.WriteBufferSize(constants.WriteBufferSize),
-		// Timeout after 10s to terminate hanging VSock connections after booting from snapshot.
-		grpc.ConnectionTimeout(10 * time.Second),
+		// Don't timeout connections (1 year timeout)
+		grpc.ConnectionTimeout(8760 * time.Hour),
 	}
 	if *cert != "" || *privateKey != "" {
 		if *cert == "" || *privateKey == "" {

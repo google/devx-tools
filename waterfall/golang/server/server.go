@@ -224,7 +224,6 @@ func exitCode(err error) (int, error) {
 
 // Exec forks a new process with the desired command and pipes its output to the gRPC stream
 func (s *WaterfallServer) Exec(rpc waterfall_grpc_pb.Waterfall_ExecServer) error {
-
 	// The first message contains the actual command to execute.
 	// Implmented as a streaming method in order to support stdin redirection in the future.
 	cmdMsg, err := rpc.Recv()
