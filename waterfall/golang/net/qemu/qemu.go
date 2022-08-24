@@ -356,6 +356,7 @@ func (b *PipeConnBuilder) Accept() (net.Conn, error) {
 		rdy := []byte(rdyMsg)
 		if _, err := io.ReadFull(conn, rdy); err != nil {
 			conn.Close()
+			time.Sleep(500 * time.Millisecond)
 			continue
 		}
 		if !bytes.Equal([]byte(rdyMsg), rdy) {
@@ -369,7 +370,6 @@ func (b *PipeConnBuilder) Accept() (net.Conn, error) {
 		b.pendingConn = nil
 
 		q := makeConn(conn)
-
 		go q.closeConn()
 		return q, nil
 	}
@@ -515,7 +515,7 @@ func (q *Pipe) Accept() (net.Conn, error) {
 			if err != nil {
 				// The host has not opened the socket. Sleep and try again
 				conn.Close()
-				time.Sleep(100 * time.Millisecond)
+				time.Sleep(500 * time.Millisecond)
 				break
 			}
 			buff = buff[written:]
