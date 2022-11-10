@@ -690,7 +690,7 @@ func (s *WaterfallServer) StartReverseForward(fwd *waterfall_grpc_pb.ForwardMess
 		log.Printf("Listening for connections to reverse forward %v ...", fwd)
 		conn, err := lis.Accept()
 		if err != nil {
-			log.Printf("Failed to accept reverse forwarding connection for %v", fwd)
+			log.Printf("Failed to accept reverse forwarding connection for %v: %v", fwd, err)
 			return err
 		}
 
