@@ -94,8 +94,8 @@ go_repository(
     name = "org_golang_google_grpc",
     build_file_proto_mode = "disable",
     importpath = "google.golang.org/grpc",
-    sum = "h1:u+MLGgVf7vRdjEYZ8wDFhAVNmhkbJ5hmrA1LMWK1CAQ=",
-    version = "v1.46.2",
+    sum = "h1:kd48UiU7EHsV4rnLyOJRuP/Il/UHE7gdDAQ+SZI7nZk=",
+    version = "v1.52.0",
 )
 
 go_repository(
@@ -209,5 +209,7 @@ load(
 )
 
 go_rules_dependencies()
+
 go_register_toolchains(version = "1.18.2")
+
 gazelle_dependencies()
