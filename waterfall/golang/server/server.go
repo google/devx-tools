@@ -56,6 +56,8 @@ const (
 	installCommit  = "install-commit"
 	installAbandon = "install-abandon"
 	noStreaming    = "no-streaming"
+
+	success = "Success"
 )
 
 // WaterfallServer implements the waterfall gRPC service
@@ -436,19 +438,22 @@ func (s *WaterfallServer) Install(rpc waterfall_grpc_pb.Waterfall_InstallServer)
 	cmd := shell(ctx, append(action, args...))
 	o, err := cmd.CombinedOutput()
 	ec, err := exitCode(err)
-	if err != nil {
-		log.Printf("failed to create install session %v: %s", err, string(o))
-		return err
-	}
+	out := string(o)
+	good := strings.Contains(out, success)
+	if !good {
+		if err != nil {
+			log.Printf("failed to create install session %v: %s", err, string(o))
+			return err
+		}
 
-	if ec != 0 {
-		return rpc.SendAndClose(
-			&waterfall_grpc_pb.InstallResponse{
-				ExitCode: uint32(ec),
-				Output:   string(o)})
+		if ec != 0 {
+			return rpc.SendAndClose(
+				&waterfall_grpc_pb.InstallResponse{
+					ExitCode: uint32(ec),
+					Output:   string(o)})
+		}
 	}
 	log.Println("Created streamed install session")
-	out := string(o)
 	if strings.Index(out, "[") < 0 || strings.Index(out, "]") < 0 {
 		log.Printf("bad install session: %s", out)
 		return fmt.Errorf("bad install session: %s", out)
@@ -462,19 +467,23 @@ func (s *WaterfallServer) Install(rpc waterfall_grpc_pb.Waterfall_InstallServer)
 
 	o, err = cmd.CombinedOutput()
 	ec, err = exitCode(err)
-	if err != nil {
-		log.Printf("Install write error %v: %s\n", err, string(o))
-		shell(ctx, append(insCmd, installAbandon, ss)).Run()
-		return err
-	}
+	out = string(o)
+	good = strings.Contains(out, success)
+	if !good {
+		if err != nil {
+			log.Printf("Install write error %v: %s\n", err, string(o))
+			shell(ctx, append(insCmd, installAbandon, ss)).Run()
+			return err
+		}
 
-	if ec != 0 {
-		// Ignore error we want to propagate first error
-		shell(ctx, append(insCmd, installAbandon, ss)).Run()
-		return rpc.SendAndClose(
-			&waterfall_grpc_pb.InstallResponse{
-				ExitCode: uint32(ec),
-				Output:   string(o)})
+		if ec != 0 {
+			// Ignore error we want to propagate first error
+			shell(ctx, append(insCmd, installAbandon, ss)).Run()
+			return rpc.SendAndClose(
+				&waterfall_grpc_pb.InstallResponse{
+					ExitCode: uint32(ec),
+					Output:   string(o)})
+		}
 	}
 
 	log.Println("Committing streamed install session")
@@ -484,24 +493,31 @@ func (s *WaterfallServer) Install(rpc waterfall_grpc_pb.Waterfall_InstallServer)
 
 	o, err = cmd.CombinedOutput()
 	ec, err = exitCode(err)
-	if err != nil {
-		log.Printf("Install commit error %v: %s\n", err, string(o))
-		// Ignore error we want to propagate first error
-		shell(ctx, append(insCmd, installAbandon, ss)).Run()
-		return err
-	}
+	out = string(o)
+	good = strings.Contains(out, success)
+	if !good {
+		if err != nil {
+			log.Printf("Install commit error %v: %s\n", err, string(o))
+			// Ignore error we want to propagate first error
+			shell(ctx, append(insCmd, installAbandon, ss)).Run()
+			return err
+		}
 
-	if ec != 0 {
-		log.Printf("commit non zero code\n")
-		// Ignore error we want to propagate first error
-		shell(ctx, append(insCmd, installAbandon, ss)).Run()
-	} else {
-		log.Println("Streamed install session comitted successfully")
+		if ec != 0 {
+			log.Printf("commit non zero code\n")
+			// Ignore error we want to propagate first error
+			shell(ctx, append(insCmd, installAbandon, ss)).Run()
+		}
+		return rpc.SendAndClose(
+			&waterfall_grpc_pb.InstallResponse{
+				ExitCode: uint32(ec),
+				Output:   string(o)})
 	}
+	log.Println("Streamed install session comitted successfully")
 
 	return rpc.SendAndClose(
 		&waterfall_grpc_pb.InstallResponse{
-			ExitCode: uint32(ec),
+			ExitCode: uint32(0),
 			Output:   string(o)})
 }
 
@@ -611,7 +627,7 @@ func buildListener(kind string, address string) (net.Listener, error) {
 		}
 		if listenerPort(lis) != 0 {
 			return lis, nil
-		} 
+		}
 		log.Println("failed to bind random port for reverse forwarding")
 		lis.Close()
 	}
@@ -620,10 +636,11 @@ func buildListener(kind string, address string) (net.Listener, error) {
 
 // StartReverseForward forwards the connections from the desired socket through the gRPC stream.
 // It works in conjunction with ReverseForward rpc as follows:
-// 1) It gets a forwarding request and starts listening for connections in the requested socket
-// 2) On accepting a new connection, it sends the client a new request to open a new rpc stream.
-//    This is because the server can't directly open a connection on the client.
-// 3) The client then sends a new ReverseForward rpc which is used to forward the connection.
+//  1. It gets a forwarding request and starts listening for connections in the requested socket
+//  2. On accepting a new connection, it sends the client a new request to open a new rpc stream.
+//     This is because the server can't directly open a connection on the client.
+//  3. The client then sends a new ReverseForward rpc which is used to forward the connection.
+//
 // Note that this function blocks until the session is terminated or an error occurs.
 func (s *WaterfallServer) StartReverseForward(fwd *waterfall_grpc_pb.ForwardMessage, rpc waterfall_grpc_pb.Waterfall_StartReverseForwardServer) error {
 	if fwd.Op != waterfall_grpc_pb.ForwardMessage_OPEN {
