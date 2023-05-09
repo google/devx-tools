@@ -599,6 +599,9 @@ func (s *WaterfallServer) ReverseForward(stream waterfall_grpc_pb.Waterfall_Reve
 	}
 
 	err = forward.NewStreamForwarder(stream, conn.(forward.HalfReadWriteCloser)).Forward()
+	if err != nil {
+		log.Printf("error reverse forwarding: %v", err)
+	}
 	ss.mu.Lock()
 	delete(ss.connMap, cID)
 	ss.mu.Unlock()
