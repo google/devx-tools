@@ -15,7 +15,7 @@ jobs:
           ndk-version: r21e
           add-to-path: false
       - name: Build x86
-        run: bazel build -c opt --use_top_level_targets_for_symlinks //waterfall/golang/server:server_bin_386
+        run: bazel build --copt=-O3 waterfall/golang/server:server_bin --platforms=@io_bazel_rules_go//go/toolchain:android_386_cgo --crosstool_top=@androidndk//:default_crosstool --host_crosstool_top=@bazel_tools//tools/cpp:toolchain  --spawn_strategy=standalone  --cpu=x86
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
       - name: Release x86
