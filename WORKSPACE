@@ -189,7 +189,15 @@ maven_install(
 )
 
 # Android libs
-android_sdk_repository(name = "androidsdk")
+android_sdk_repository(
+    name = "androidsdk",
+)
+
+android_ndk_repository(
+    name = "androidndk",
+    api_level = 21
+)
+register_toolchains("@androidndk//:all")
 
 http_archive(
     name = "android_test_support",

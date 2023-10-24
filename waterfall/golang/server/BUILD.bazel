@@ -59,6 +59,7 @@ go_binary(
     name = "server_bin",
     srcs = ["server_bin.go"],
     deps = BINARY_DEPS,
+    linkmode = "pie"
 )
 
 # Build for emulator tests
