@@ -663,7 +663,7 @@ func (s *WaterfallServer) StartReverseForward(fwd *waterfall_grpc_pb.ForwardMess
 	_, ok := s.reverseForwardSessions[addr]
 	s.reverseForwardSessionsMutex.RUnlock()
 	if ok {
-		log.Printf("Address %s already being forwarded")
+		log.Printf("Address %s already being forwarded", addr)
 		return status.Error(codes.AlreadyExists, "address already being forwarded")
 	}
 
