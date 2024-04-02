@@ -28,7 +28,8 @@ jobs:
           files: server_bin_386
       - name: Build x86_64
         run: |
-          bazel build -c opt --use_top_level_targets_for_symlinks //waterfall/golang/server:server_bin_amd64
+          bazel build --copt=-O3 --use_top_level_targets_for_symlinks //waterfall/golang/server:server_bin_amd64 && \
+           cp bazel-bin/waterfall/golang/server/server_bin_amd64_/server_bin_amd64 server_bin_amd64
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
       - name: Release x86_64
