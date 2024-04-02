@@ -28,9 +28,7 @@ jobs:
           files: server_bin_386
       - name: Build x86_64
         run: |
-          bazel build --copt=-O3 waterfall/golang/server:server_bin --platforms=@io_bazel_rules_go//go/toolchain:android_amd64_cgo \
-          --crosstool_top=@androidndk//:default_crosstool --host_crosstool_top=@bazel_tools//tools/cpp:toolchain  \
-          --spawn_strategy=standalone --cpu=x86_64 && cp bazel-bin/waterfall/golang/server/server_bin_/server_bin server_bin_amd64
+          bazel build -c opt --use_top_level_targets_for_symlinks //waterfall/golang/server:server_bin_amd64
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
       - name: Release x86_64
